@@ -1,0 +1,22 @@
+﻿spring:
+  application:
+    name: collection-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dalupotha}
+    username: ${DB_USER:dalupotha_user}
+    password: ${DB_PASSWORD:dalupotha_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

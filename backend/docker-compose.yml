@@ -1,0 +1,106 @@
+﻿services:
+  postgres:
+    image: postgres:16
+    container_name: dalupotha-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dalupotha}
+      POSTGRES_USER: ${POSTGRES_USER:-dalupotha_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+    volumes:
+      - dalupotha_postgres_data:/var/lib/postgresql/data
+
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: dalupotha-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: dalupotha-auth-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+
+  collection-service:
+    build: ./services/collection-service
+    container_name: dalupotha-collection-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+
+  finance-service:
+    build: ./services/finance-service
+    container_name: dalupotha-finance-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+
+  inventory-service:
+    build: ./services/inventory-service
+    container_name: dalupotha-inventory-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: dalupotha-notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  staffing-service:
+    build: ./services/staffing-service
+    container_name: dalupotha-staffing-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+
+volumes:
+  dalupotha_postgres_data:

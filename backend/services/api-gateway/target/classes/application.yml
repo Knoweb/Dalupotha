@@ -1,0 +1,21 @@
+﻿spring:
+  application:
+    name: api-gateway
+
+server:
+  port: 8080
+
+dalupotha:
+  services:
+    auth-url: ${AUTH_SERVICE_URL:http://auth-service:8081}
+    collection-url: ${COLLECTION_SERVICE_URL:http://collection-service:8082}
+    finance-url: ${FINANCE_SERVICE_URL:http://finance-service:8083}
+    inventory-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8084}
+    notification-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}
+    staffing-url: ${STAFFING_SERVICE_URL:http://staffing-service:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
