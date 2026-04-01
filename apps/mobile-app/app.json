@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "දළුපොත",
+    "slug": "dalupotha-mobile-app",
+    "version": "1.0.0",
+    "icon": "./assests/dalupotha_icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
