@@ -1,4 +1,4 @@
-﻿package com.dalupotha.auth;
+package com.dalupotha.auth;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
