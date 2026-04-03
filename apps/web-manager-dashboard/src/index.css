@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-green: #3d7a2d;
+  --brand-green-light: #4b8b3b;
+  --brand-green-active: #5ea34a;
+  --sidebar-bg: #4b8b3b;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+}
+
+@layer components {
+  .sidebar-green {
+    @apply bg-[var(--sidebar-bg)];
+  }
+}

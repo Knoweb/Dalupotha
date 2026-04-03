@@ -8,21 +8,25 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../ui/theme";
 
 import { LoginScreen, OtpScreen } from "../features/auth/AuthScreens";
+import { RegisterScreen } from "../features/auth/RegisterScreen";
 import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen } from "../features/ta-collection/AgentScreens";
+import { CollectionInputScreen } from "../features/ta-collection/CollectionInputScreen";
 import { SupplierHomeScreen, SupplierSupplyScreen, SupplierPaymentsScreen, SupplierDebtsScreen, SupplierProfileScreen } from "../features/smallholder/SupplierScreens";
 
 type Role = "agent" | "supplier";
 type RootStackParamList = {
   Login: undefined;
-  Otp: { role: Role };
+  Register: { initialRole?: Role };
+  Otp: { role: Role; contact?: string; isRegistering?: boolean; registerData?: any };
   MainTabs: { role: Role };
+  CollectionInput: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
 function MainTabNavigator({ route, navigation }: any) {
-  const { role } = route.params || { role: "agent" };
+  const { role, user } = route.params || { role: "agent" };
 
   return (
     <Tab.Navigator
@@ -68,10 +72,10 @@ function MainTabNavigator({ route, navigation }: any) {
         </>
       ) : (
         <>
-          <Tab.Screen name="Dashboard" children={() => <DashboardScreen role={role} navigation={navigation} />} />
+          <Tab.Screen name="Dashboard" children={() => <DashboardScreen user={user} role={role} navigation={navigation} />} />
           <Tab.Screen name="Collections" children={() => <CollectionsScreen navigation={navigation} />} />
           <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} />} />
-          <Tab.Screen name="Profile" children={() => <ProfileScreen navigation={navigation} />} />
+          <Tab.Screen name="Profile" children={() => <ProfileScreen user={user} navigation={navigation} />} />
         </>
       )}
     </Tab.Navigator>
@@ -84,8 +88,10 @@ export default function App() {
       <StatusBar style="light" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Otp" component={OtpScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

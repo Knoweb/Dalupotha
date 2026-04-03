@@ -28,6 +28,9 @@ public class SecurityConfig {
                     "/api/auth/otp/send",
                     "/api/auth/otp/verify",
                     "/api/auth/small-holder/register",
+                    "/api/auth/agent/register",
+                    "/api/auth/estates",
+                    "/api/auth/estates/register",
                     "/actuator/health"
                 ).permitAll()
                 // All other requests need authentication

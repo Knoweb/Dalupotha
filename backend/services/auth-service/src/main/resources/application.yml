@@ -33,6 +33,13 @@ jwt:
 otp:
   expiry-minutes: 5
 
+vonage:
+  api:
+    key: ${VONAGE_API_KEY:}
+    secret: ${VONAGE_API_SECRET:}
+  sender:
+    id: ${VONAGE_SENDER_ID:VonageAPIs}
+
 # Eureka registration
 eureka:
   client:

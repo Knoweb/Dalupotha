@@ -40,6 +40,13 @@ public class SmallHolder {
     @JoinColumn(name = "in_charge_id")
     private User inCharge;  // EXT officer
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "estate_id")
+    private Estate estate;
+
+    @Column(name = "arcs", precision = 10, scale = 2)
+    private BigDecimal arcs;
+
     @Column(name = "registered_at", updatable = false)
     private LocalDateTime registeredAt;
 

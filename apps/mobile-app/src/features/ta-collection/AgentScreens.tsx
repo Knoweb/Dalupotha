@@ -34,7 +34,8 @@ export const StatusBadge = ({ type, text }: any) => {
 // Dashboard Screen
 // ─────────────────────────────────────────────────────────────
 
-export function DashboardScreen({ role, navigation }: any) {
+export function DashboardScreen({ user, role, navigation }: any) {
+  const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
   });
@@ -62,13 +63,13 @@ export function DashboardScreen({ role, navigation }: any) {
 
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
         {/* Agent Info Card */}
-        <View style={[styles.supplierCard, { marginBottom: 20, flexDirection: "row", alignItems: "center", gap: 15 }]}>
+        <View style={[styles.supCard, { marginBottom: 20, flexDirection: "row", alignItems: "center", gap: 15 }]}>
           <View style={[styles.profileAvatarBig, { width: 50, height: 50 }]}>
-            <Text style={[styles.profileAvatarBigText, { fontSize: 18 }]}>KP</Text>
+            <Text style={[styles.profileAvatarBigText, { fontSize: 18 }]}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardItemTitle}>Kumara Perera</Text>
-            <Text style={styles.cardItemSub}>TA-2024-007 · Uva Halpewatte</Text>
+            <Text style={styles.cardItemTitle}>{user?.fullName || "Agent"}</Text>
+            <Text style={styles.cardItemSub}>{user?.employeeId || "TA-XXX"} · {user?.routeName || "No route assigned"}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: "rgba(31,190,87,0.15)" }]}>
             <Text style={[styles.statusBadgeText, { color: palette.accentGreen }]}>ON DUTY</Text>
@@ -78,7 +79,7 @@ export function DashboardScreen({ role, navigation }: any) {
         {/* KPI Grid */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
           {kpis.map((kpi, i) => (
-            <View key={i} style={[styles.supplierCard, { flex: 1, minWidth: "44%", padding: 16, alignItems: "center" }]}>
+            <View key={i} style={[styles.supCard, { flex: 1, minWidth: "44%", padding: 16, alignItems: "center" }]}>
               <Ionicons name={kpi.icon} size={24} color={kpi.color} style={{ marginBottom: 8 }} />
               <Text style={[styles.cardWeight, { fontSize: 18, color: kpi.color }]}>{kpi.value}</Text>
               <Text style={[styles.cardItemSub, { fontSize: 10, marginTop: 4, textAlign: "center" }]}>{kpi.label}</Text>
@@ -112,7 +113,7 @@ export function DashboardScreen({ role, navigation }: any) {
         ))}
 
         {/* New Collection CTA */}
-        <Pressable style={[styles.newReqBtn, { marginTop: 20 }]}>
+        <Pressable style={[styles.newReqBtn, { marginTop: 20 }]} onPress={() => navigation.navigate("CollectionInput")}>
           <Ionicons name="add-circle-outline" size={20} color="#fff" />
           <Text style={styles.newReqBtnText}>New Collection</Text>
         </Pressable>
@@ -272,7 +273,8 @@ export function RequestsScreen({ navigation }: any) {
 // Profile Screen
 // ─────────────────────────────────────────────────────────────
 
-export function ProfileScreen({ navigation }: any) {
+export function ProfileScreen({ user, navigation }: any) {
+  const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
   return (
     <View style={styles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
@@ -288,12 +290,12 @@ export function ProfileScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={styles.profileHeader}>
           <View style={styles.profileAvatarBig}>
-            <Text style={styles.profileAvatarBigText}>KP</Text>
+            <Text style={styles.profileAvatarBigText}>{initials}</Text>
           </View>
-          <Text style={styles.profileName}>Kumara Perera</Text>
-          <Text style={styles.profileRole}>Transport Agent · Uva Halpewatte</Text>
+          <Text style={styles.profileName}>{user?.fullName || "Agent"}</Text>
+          <Text style={styles.profileRole}>Transport Agent · {user?.routeName || "No route assigned"}</Text>
           <View style={styles.profileIdBadge}>
-            <Text style={styles.profileIdText}>TA-2024-007</Text>
+            <Text style={styles.profileIdText}>{user?.employeeId || "TA-XXX"}</Text>
           </View>
         </View>
 
@@ -341,7 +343,7 @@ export function ProfileScreen({ navigation }: any) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.settingItemTitle}>Sign Out</Text>
-              <Text style={styles.settingItemSub}>Kumara Perera · TA-2024-007</Text>
+              <Text style={styles.settingItemSub}>{user?.fullName} · {user?.employeeId}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
           </Pressable>

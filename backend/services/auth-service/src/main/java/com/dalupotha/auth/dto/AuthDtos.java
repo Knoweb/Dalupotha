@@ -2,6 +2,8 @@ package com.dalupotha.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import java.math.BigDecimal;
+import java.util.UUID;
 
 // ──────────────────────────────────────────────
 // Request DTOs
@@ -45,12 +47,26 @@ public class AuthDtos {
         @NotBlank private String contact;
         @NotBlank private String otpCode;
         @NotBlank private String fullName;
+        @NotBlank private String password;
         @NotBlank private String passbookNo;
         @NotBlank private String landName;
         private String address;
+        private UUID   estateId;
+        private BigDecimal arcs;
         private Double gpsLat;
         private Double gpsLong;
         private String inChargeId;  // UUID of EXT officer
+    }
+
+    /** Transport Agent (TA) self-registration */
+    @Data
+    public static class AgentRegisterRequest {
+        @NotBlank private String contact;
+        @NotBlank private String otpCode;
+        @NotBlank private String fullName;
+        @NotBlank private String employeeId; // To be verified against HR
+        @NotBlank private String password;
+        private UUID   estateId;
     }
 
     // ──────────────────────────────────────────────
@@ -65,16 +81,26 @@ public class AuthDtos {
         private String employeeId;
         private String fullName;
         private String contact;
+        private String routeName;
+        private UUID   estateId;
+        private String estateName;
+        private BigDecimal arcs;
         private long   expiresIn;  // seconds
 
         public AuthResponse(String token, String role, String userId,
-                            String employeeId, String fullName, String contact, long expiresIn) {
+                            String employeeId, String fullName, String contact, 
+                            String routeName, UUID estateId, String estateName,
+                            BigDecimal arcs, long expiresIn) {
             this.token      = token;
             this.role       = role;
             this.userId     = userId;
             this.employeeId = employeeId;
             this.fullName   = fullName;
             this.contact    = contact;
+            this.routeName  = routeName;
+            this.estateId   = estateId;
+            this.estateName = estateName;
+            this.arcs       = arcs;
             this.expiresIn  = expiresIn;
         }
     }

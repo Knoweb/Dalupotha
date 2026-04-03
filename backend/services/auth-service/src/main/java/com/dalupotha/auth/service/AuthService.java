@@ -23,8 +23,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository       userRepository;
+    private final UserRepository        userRepository;
     private final SmallHolderRepository smallHolderRepository;
+    private final TransportAgentRepository transportAgentRepository;
+    private final EstateRepository      estateRepository;
     private final OtpRepository         otpRepository;
     private final JwtTokenProvider      jwtTokenProvider;
     private final PasswordEncoder       passwordEncoder;
@@ -57,10 +59,44 @@ public class AuthService {
                 user.getUserId(), user.getRole().name(),
                 user.getEmployeeId(), user.getFullName());
 
-        log.info("Staff login successful: {} ({})", user.getEmployeeId(), user.getRole());
+        log.info("Generating token for user: {}, Role: {}, EmpID: {}, Name: {}",
+                user.getUserId(), user.getRole().name(),
+                user.getEmployeeId(), user.getFullName());
+
+        String routeName = null;
+        UUID estateId = null;
+        String estateName = null;
+        BigDecimal arcs = null;
+
+        if (user.getEstate() != null) {
+            estateId = user.getEstate().getEstateId();
+            estateName = user.getEstate().getName();
+        }
+
+        if (user.getRole() == UserRole.TA) {
+            TransportAgent ta = transportAgentRepository.findByUser(user).orElse(null);
+            if (ta != null) {
+                routeName = ta.getRouteName();
+                if (ta.getEstate() != null) {
+                    estateId = ta.getEstate().getEstateId();
+                    estateName = ta.getEstate().getName();
+                }
+            }
+        } else if (user.getRole() == UserRole.SH) {
+            SmallHolder sh = smallHolderRepository.findByUser(user).orElse(null);
+            if (sh != null) {
+                arcs = sh.getArcs();
+                if (sh.getEstate() != null) {
+                    estateId = sh.getEstate().getEstateId();
+                    estateName = sh.getEstate().getName();
+                }
+            }
+        }
+
+        log.info("Staff login successful: {} ({}) - Estate: {}", user.getEmployeeId(), user.getRole(), estateName);
         return new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
                 user.getEmployeeId(), user.getFullName(), user.getContact(),
-                jwtExpirationMs / 1000);
+                routeName, estateId, estateName, arcs, jwtExpirationMs / 1000);
     }
 
     // ────────────────────────────────────────────
@@ -68,7 +104,6 @@ public class AuthService {
     // ────────────────────────────────────────────
     @Transactional
     public OtpSendResponse sendOtp(OtpSendRequest request) {
-        // Invalidate any existing active OTPs for this contact
         otpRepository.invalidateAllForContact(request.getContact());
 
         String code = generateOtpCode();
@@ -81,9 +116,6 @@ public class AuthService {
                 .build();
 
         otpRepository.save(otpCode);
-
-        // In production: call SMS gateway here
-        // For now: simulator logs the OTP
         otpSimulatorService.sendOtp(request.getContact(), code);
 
         return new OtpSendResponse(request.getContact(), otpExpiryMinutes);
@@ -104,11 +136,9 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
         }
 
-        // Mark OTP as used
         otpCode.setUsed(true);
         otpRepository.save(otpCode);
 
-        // Find or handle the user
         User user = userRepository.findByContact(request.getContact())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "No account found for this number. Please register first."));
@@ -121,10 +151,44 @@ public class AuthService {
                 user.getUserId(), user.getRole().name(),
                 user.getEmployeeId(), user.getFullName());
 
-        log.info("OTP login successful for: {}", request.getContact());
+        log.info("Generating token for user: {}, Role: {}, EmpID: {}, Name: {}",
+                user.getUserId(), user.getRole().name(),
+                user.getEmployeeId(), user.getFullName());
+
+        String routeName = null;
+        UUID estateId = null;
+        String estateName = null;
+        BigDecimal arcs = null;
+
+        if (user.getEstate() != null) {
+            estateId = user.getEstate().getEstateId();
+            estateName = user.getEstate().getName();
+        }
+
+        if (user.getRole() == UserRole.TA) {
+            TransportAgent ta = transportAgentRepository.findByUser(user).orElse(null);
+            if (ta != null) {
+                routeName = ta.getRouteName();
+                if (ta.getEstate() != null) {
+                    estateId = ta.getEstate().getEstateId();
+                    estateName = ta.getEstate().getName();
+                }
+            }
+        } else if (user.getRole() == UserRole.SH) {
+            SmallHolder sh = smallHolderRepository.findByUser(user).orElse(null);
+            if (sh != null) {
+                arcs = sh.getArcs();
+                if (sh.getEstate() != null) {
+                    estateId = sh.getEstate().getEstateId();
+                    estateName = sh.getEstate().getName();
+                }
+            }
+        }
+
+        log.info("OTP login successful for: {} - Estate: {}", request.getContact(), estateName);
         return new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
                 user.getEmployeeId(), user.getFullName(), user.getContact(),
-                jwtExpirationMs / 1000);
+                routeName, estateId, estateName, arcs, jwtExpirationMs / 1000);
     }
 
     // ────────────────────────────────────────────
@@ -132,7 +196,6 @@ public class AuthService {
     // ────────────────────────────────────────────
     @Transactional
     public AuthResponse registerSmallHolder(SmallHolderRegisterRequest request) {
-        // Validate OTP first
         OtpCode otpCode = otpRepository
                 .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
                         request.getContact(), LocalDateTime.now())
@@ -143,58 +206,124 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
         }
 
-        // Check for duplicates
         if (userRepository.existsByContact(request.getContact())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "An account already exists for this phone number");
         }
 
-        // Check passbook uniqueness
         if (request.getPassbookNo() != null &&
             smallHolderRepository.existsByPassbookNo(request.getPassbookNo())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Passbook number already registered");
         }
 
-        // Create user
-        User user = User.builder()
-                .role(UserRole.SH)
-                .fullName(request.getFullName())
-                .contact(request.getContact())
-                .status("ACTIVE")
-                .build();
-        user = userRepository.save(user);
-
-        // Resolve in-charge officer (optional)
-        User inCharge = null;
-        if (request.getInChargeId() != null) {
-            inCharge = userRepository.findById(
-                UUID.fromString(request.getInChargeId())).orElse(null);
+        Estate estate = null;
+        if (request.getEstateId() != null) {
+            estate = estateRepository.findById(request.getEstateId()).orElse(null);
         }
 
-        // Create small holder profile
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .contact(request.getContact())
+                .hashedPassword(passwordEncoder.encode(request.getPassword()))
+                .role(UserRole.SH)
+                .estate(estate)
+                .status("ACTIVE")
+                .build();
+        userRepository.save(user);
+
         SmallHolder smallHolder = SmallHolder.builder()
                 .user(user)
                 .passbookNo(request.getPassbookNo())
                 .landName(request.getLandName())
                 .address(request.getAddress())
+                .estate(estate)
+                .arcs(request.getArcs())
                 .gpsLat(request.getGpsLat() != null ? BigDecimal.valueOf(request.getGpsLat()) : null)
                 .gpsLong(request.getGpsLong() != null ? BigDecimal.valueOf(request.getGpsLong()) : null)
-                .inCharge(inCharge)
                 .build();
         smallHolderRepository.save(smallHolder);
 
-        // Mark OTP as used
         otpCode.setUsed(true);
         otpRepository.save(otpCode);
 
         String token = jwtTokenProvider.generateToken(
                 user.getUserId(), "SH", null, user.getFullName());
 
-        log.info("Small Holder registered: {} ({}) passbook: {}",
-                user.getFullName(), request.getContact(), request.getPassbookNo());
+        log.info("Small Holder registered: {} ({}) passbook: {} Estate: {}",
+                user.getFullName(), request.getContact(), request.getPassbookNo(), 
+                estate != null ? estate.getName() : "None");
+        
         return new AuthResponse(token, "SH", user.getUserId().toString(),
-                null, user.getFullName(), user.getContact(), jwtExpirationMs / 1000);
+                null, user.getFullName(), user.getContact(), 
+                null, estate != null ? estate.getEstateId() : null,
+                estate != null ? estate.getName() : null,
+                smallHolder.getArcs(), jwtExpirationMs / 1000);
+    }
+
+    // ────────────────────────────────────────────
+    // 5. Transport Agent (TA) Registration
+    // ────────────────────────────────────────────
+    @Transactional
+    public AuthResponse registerAgent(AgentRegisterRequest request) {
+        OtpCode otpCode = otpRepository
+                .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
+                        request.getContact(), LocalDateTime.now())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired OTP"));
+
+        if (!otpCode.getCode().equals(request.getOtpCode())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
+        }
+
+        if (userRepository.existsByContact(request.getContact())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "An account already exists for this phone number");
+        }
+
+        if (transportAgentRepository.existsByEmployeeId(request.getEmployeeId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Employee ID already registered");
+        }
+
+        Estate estate = null;
+        if (request.getEstateId() != null) {
+            estate = estateRepository.findById(request.getEstateId()).orElse(null);
+        }
+
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .contact(request.getContact())
+                .hashedPassword(passwordEncoder.encode(request.getPassword()))
+                .employeeId(request.getEmployeeId())
+                .role(UserRole.TA)
+                .estate(estate)
+                .status("ACTIVE")
+                .build();
+        userRepository.save(user);
+
+        TransportAgent transportAgent = TransportAgent.builder()
+                .user(user)
+                .employeeId(request.getEmployeeId())
+                .estate(estate)
+                .build();
+        transportAgentRepository.save(transportAgent);
+
+        otpCode.setUsed(true);
+        otpRepository.save(otpCode);
+
+        String token = jwtTokenProvider.generateToken(
+                user.getUserId(), "TA", user.getEmployeeId(), user.getFullName());
+
+        log.info("Transport Agent registered: {} ({}) EMP_ID: {} Estate: {}",
+                user.getFullName(), request.getContact(), request.getEmployeeId(),
+                estate != null ? estate.getName() : "None");
+        
+        return new AuthResponse(token, "TA", user.getUserId().toString(),
+                user.getEmployeeId(), user.getFullName(), user.getContact(),
+                null, estate != null ? estate.getEstateId() : null,
+                estate != null ? estate.getName() : null,
+                null, jwtExpirationMs / 1000);
     }
 
     // ────────────────────────────────────────────

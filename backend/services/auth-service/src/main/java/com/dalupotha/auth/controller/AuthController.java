@@ -52,4 +52,15 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(authService.registerSmallHolder(request));
     }
+
+    /**
+     * POST /api/auth/agent/register
+     * Register a new Transport Agent
+     */
+    @PostMapping("/agent/register")
+    public ResponseEntity<AuthResponse> registerAgent(
+            @Valid @RequestBody AgentRegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(authService.registerAgent(request));
+    }
 }

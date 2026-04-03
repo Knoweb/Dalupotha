@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator, Alert, Image, Pressable,
+  ActivityIndicator, Alert, Image, Pressable, KeyboardAvoidingView, Platform,
   SafeAreaView, Text, TextInput, useWindowDimensions, View
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,7 +65,7 @@ export function LoginScreen({ navigation }: any) {
         password:   password.trim(),
       });
       // Store token and navigate
-      navigation.navigate("MainTabs", { role, token: res.token });
+      navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
       Alert.alert("Login Failed", err.message ?? "Invalid credentials.");
     } finally {
@@ -82,7 +82,11 @@ export function LoginScreen({ navigation }: any) {
       style={styles.root}
     >
       <SafeAreaView style={styles.safe}>
-        <View style={[styles.scroll, compact && styles.scrollCompact]}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }} 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={[styles.scroll, compact && styles.scrollCompact]}>
           <View style={styles.brandBlock}>
             <View style={[styles.logoHalo, compact && styles.logoHaloCompact]}>
               <Image
@@ -162,6 +166,18 @@ export function LoginScreen({ navigation }: any) {
               }
             </Pressable>
 
+            <Pressable
+              onPress={() => navigation.navigate("Register", { initialRole: role })}
+              style={{ marginTop: 25, alignItems: "center" }}
+            >
+              <Text style={styles.helpCenterText}>
+                {role === "supplier" ? "New supplier?" : "New agent?"}{" "}
+                <Text style={[styles.helpCenterLink, { color: palette.accentGreen }]}>
+                  {role === "supplier" ? "Register your Land" : "Register as Agent"}
+                </Text>
+              </Text>
+            </Pressable>
+
             <View style={styles.helpCenterWrap}>
               <Text style={styles.helpCenterText}>
                 Trouble logging in?{" "}
@@ -171,6 +187,7 @@ export function LoginScreen({ navigation }: any) {
           </View>
           <Text style={styles.footer}>Secured by දළුපොත Gateway · v3.0</Text>
         </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -196,12 +213,22 @@ export function OtpScreen({ route, navigation }: any) {
     }
     setLoading(true);
     try {
-      const res: any = await apiPost(AuthAPI.verifyOtp, {
-        contact: contact,
-        code:    otp,       // backend expects 'code' field
-      });
+      let res: any;
+      if (route.params.isRegistering) {
+        const endpoint = role === "supplier" ? AuthAPI.registerSmallHolder : AuthAPI.registerAgent;
+        res = await apiPost(endpoint, {
+          ...route.params.registerData,
+          otpCode: otp
+        });
+        Alert.alert("Success", "Registered Successfully!");
+      } else {
+        res = await apiPost(AuthAPI.verifyOtp, {
+          contact: contact,
+          code:    otp,       // backend expects 'code' field
+        });
+      }
       // Token received — navigate to main
-      navigation.navigate("MainTabs", { role, token: res.token });
+      navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
       Alert.alert("Verification Failed", err.message ?? "Invalid or expired OTP.");
     } finally {
@@ -227,7 +254,11 @@ export function OtpScreen({ route, navigation }: any) {
       style={styles.root}
     >
       <SafeAreaView style={styles.safe}>
-        <View style={styles.scroll}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }} 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.scroll}>
           <View style={styles.authCard}>
             <View style={{ alignItems: "center", marginBottom: 15 }}>
               <Ionicons name="chatbubble-ellipses-outline" size={32} color={palette.accentBlue} />
@@ -280,6 +311,7 @@ export function OtpScreen({ route, navigation }: any) {
             </Pressable>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
   );

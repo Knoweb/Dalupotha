@@ -80,6 +80,9 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
       EUREKA_HOST: eureka-server
       JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
+      VONAGE_API_KEY: ${VONAGE_API_KEY}
+      VONAGE_API_SECRET: ${VONAGE_API_SECRET}
+      VONAGE_SENDER_ID: ${VONAGE_SENDER_ID:-VonageAPIs}
 
   # ════════════════════════════════════════════════════
   # COLLECTION SERVICE  — DB: collection_db  Port: 8082
