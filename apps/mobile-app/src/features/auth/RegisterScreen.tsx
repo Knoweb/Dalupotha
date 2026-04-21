@@ -27,27 +27,50 @@ export function RegisterScreen({ route, navigation }: any) {
   const [inChargeId, setInChargeId] = useState("");
 
   const [employeeId, setEmployeeId] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
 
   // Estate Selection
   const [estates, setEstates] = useState<any[]>([]);
   const [selectedEstate, setSelectedEstate] = useState<any>(null);
   const [showEstateModal, setShowEstateModal] = useState(false);
+  const [estatesLoading, setEstatesLoading] = useState(true);
+  const [estatesError, setEstatesError] = useState<string | null>(null);
   const [arcs, setArcs] = useState("");
+
+  const fetchEstates = React.useCallback(async () => {
+    setEstatesLoading(true);
+    setEstatesError(null);
+    try {
+      const data: any = await apiGet(AuthAPI.getEstates, ""); // No token needed for public listing
+      const list = Array.isArray(data) ? data : [];
+      setEstates(list);
+
+      if (list.length > 0) {
+        setSelectedEstate((prev: any) => {
+          if (prev && list.some((estate: any) => estate.estateId === prev.estateId)) return prev;
+          return list[0];
+        });
+      } else {
+        setSelectedEstate(null);
+        setEstatesError("No estates available yet. Please contact admin.");
+      }
+    } catch (err: any) {
+      console.warn("Failed to fetch estates", err);
+      setEstates([]);
+      setSelectedEstate(null);
+      setEstatesError(err?.message ?? "Failed to load estates. Please try again.");
+    } finally {
+      setEstatesLoading(false);
+    }
+  }, []);
 
   // Fetch estates on mount
   React.useEffect(() => {
-    (async () => {
-      try {
-        const data: any = await apiGet(AuthAPI.getEstates, ""); // No token needed for public listing
-        setEstates(data);
-        if (data.length > 0) setSelectedEstate(data[0]); // Default to first
-      } catch (err) {
-        console.warn("Failed to fetch estates", err);
-      }
-    })();
-  }, []);
+    fetchEstates();
+  }, [fetchEstates]);
 
   const handleRegister = async () => {
     // Basic validation
@@ -57,15 +80,25 @@ export function RegisterScreen({ route, navigation }: any) {
     }
 
     if (role === "supplier") {
-      if (!passbookNo.trim() || !landName.trim() || !inChargeId.trim() || !arcs.trim()) {
-        Alert.alert("Missing Info", "Supplier details (Passbook, Land, Arcs) are required.");
+      if (!passbookNo.trim() || !landName.trim() || !inChargeId.trim() || !arcs.trim() || !pin.trim()) {
+        Alert.alert("Missing Info", "Supplier details (Passbook, Land, Arcs, PIN) are required.");
         return;
       }
     } else {
-      if (!employeeId.trim() || !password.trim()) {
-        Alert.alert("Missing Info", "Agent details (ID, Password) are required.");
+      if (!employeeId.trim() || !pin.trim()) {
+        Alert.alert("Missing Info", "Agent details (ID, PIN) are required.");
         return;
       }
+    }
+
+    if (pin.trim() !== confirmPin.trim()) {
+      Alert.alert("PIN Mismatch", "Your PIN and Confirm PIN do not match. Please try again.");
+      return;
+    }
+
+    if (pin.trim().length < 4) {
+      Alert.alert("PIN Too Short", "PIN must be at least 4 digits.");
+      return;
     }
 
     setLoading(true);
@@ -113,12 +146,13 @@ export function RegisterScreen({ route, navigation }: any) {
           inChargeId: inChargeId.trim(),
           arcs: arcs ? parseFloat(arcs) : 0,
           gpsLat,
-          gpsLong
+          gpsLong,
+          pin: pin.trim()
         });
       } else {
         Object.assign(registerData, {
           employeeId: employeeId.trim(),
-          password: password.trim()
+          pin: pin.trim()
         });
       }
 
@@ -197,13 +231,25 @@ export function RegisterScreen({ route, navigation }: any) {
               </View>
 
               <Text style={styles.label}>ESTATE / DIVISION *</Text>
-              <Pressable style={styles.inputContainer} onPress={() => setShowEstateModal(true)}>
+              <Pressable
+                style={styles.inputContainer}
+                onPress={() => !estatesLoading && setShowEstateModal(true)}
+                disabled={estatesLoading}
+              >
                 <Ionicons name="business-outline" size={20} color={palette.muted} />
                 <Text style={{ flex: 1, color: selectedEstate ? "white" : palette.muted, marginLeft: 10 }}>
-                  {selectedEstate ? selectedEstate.name : "Select Estate..."}
+                  {estatesLoading ? "Loading estates..." : selectedEstate ? selectedEstate.name : "Select Estate..."}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color={palette.muted} />
               </Pressable>
+              {estatesError ? (
+                <View style={{ marginTop: 6, marginBottom: 10 }}>
+                  <Text style={{ color: "#ffb4b4", fontSize: 11 }}>{estatesError}</Text>
+                  <Pressable onPress={fetchEstates} style={{ marginTop: 4 }}>
+                    <Text style={{ color: palette.accentBlue, fontSize: 11 }}>Retry loading estates</Text>
+                  </Pressable>
+                </View>
+              ) : null}
 
               {role === "supplier" ? (
                 <>
@@ -250,6 +296,49 @@ export function RegisterScreen({ route, navigation }: any) {
                       autoCapitalize="characters"
                     />
                   </View>
+                  <Text style={styles.label}>CREATE LOGIN PIN *</Text>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      value={pin}
+                      onChangeText={setPin}
+                      style={styles.inputField}
+                      secureTextEntry={!showPin}
+                      placeholder="4-digit PIN"
+                      placeholderTextColor="#7d93b4"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                    <Pressable style={styles.inputRightIcon} onPress={() => setShowPin(!showPin)}>
+                      <Ionicons
+                        name={showPin ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color={palette.muted}
+                      />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.label}>CONFIRM PIN *</Text>
+                  <View style={[styles.inputContainer, confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" }]}>
+                    <TextInput
+                      value={confirmPin}
+                      onChangeText={setConfirmPin}
+                      style={styles.inputField}
+                      secureTextEntry={!showConfirmPin}
+                      placeholder="Re-enter PIN"
+                      placeholderTextColor="#7d93b4"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                    <Pressable style={styles.inputRightIcon} onPress={() => setShowConfirmPin(!showConfirmPin)}>
+                      <Ionicons
+                        name={showConfirmPin ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color={palette.muted}
+                      />
+                    </Pressable>
+                  </View>
+                  {confirmPin.length > 0 && pin !== confirmPin && (
+                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>PINs do not match</Text>
+                  )}
                 </>
               ) : (
                 <>
@@ -265,24 +354,50 @@ export function RegisterScreen({ route, navigation }: any) {
                     />
                   </View>
 
-                  <Text style={styles.label}>CREATE PASSWORD *</Text>
+                  <Text style={styles.label}>CREATE PIN *</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      value={password}
-                      onChangeText={setPassword}
+                      value={pin}
+                      onChangeText={setPin}
                       style={styles.inputField}
-                      secureTextEntry={!showPassword}
-                      placeholder="••••••••"
+                      secureTextEntry={!showPin}
+                      placeholder="4-digit PIN"
                       placeholderTextColor="#7d93b4"
+                      keyboardType="number-pad"
+                      maxLength={6}
                     />
-                    <Pressable style={styles.inputRightIcon} onPress={() => setShowPassword(!showPassword)}>
+                    <Pressable style={styles.inputRightIcon} onPress={() => setShowPin(!showPin)}>
                       <Ionicons
-                        name={showPassword ? "eye-outline" : "eye-off-outline"}
+                        name={showPin ? "eye-outline" : "eye-off-outline"}
                         size={20}
                         color={palette.muted}
                       />
                     </Pressable>
                   </View>
+
+                  <Text style={styles.label}>CONFIRM PIN *</Text>
+                  <View style={[styles.inputContainer, confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" }]}>
+                    <TextInput
+                      value={confirmPin}
+                      onChangeText={setConfirmPin}
+                      style={styles.inputField}
+                      secureTextEntry={!showConfirmPin}
+                      placeholder="Re-enter PIN"
+                      placeholderTextColor="#7d93b4"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                    <Pressable style={styles.inputRightIcon} onPress={() => setShowConfirmPin(!showConfirmPin)}>
+                      <Ionicons
+                        name={showConfirmPin ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color={palette.muted}
+                      />
+                    </Pressable>
+                  </View>
+                  {confirmPin.length > 0 && pin !== confirmPin && (
+                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>PINs do not match</Text>
+                  )}
                 </>
               )}
 
@@ -324,19 +439,33 @@ export function RegisterScreen({ route, navigation }: any) {
               </Pressable>
             </View>
             <ScrollView>
-              {estates.map((est, idx) => (
-                <Pressable 
-                  key={idx} 
-                  style={{ padding: 15, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" }}
-                  onPress={() => {
-                    setSelectedEstate(est);
-                    setShowEstateModal(false);
-                  }}
-                >
-                  <Text style={{ color: "white", fontSize: 16, fontWeight: "500" }}>{est.name}</Text>
-                  <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>Code: {est.code}</Text>
-                </Pressable>
-              ))}
+              {estatesLoading ? (
+                <View style={{ paddingVertical: 24, alignItems: "center" }}>
+                  <ActivityIndicator color={palette.accentBlue} />
+                  <Text style={{ color: palette.muted, marginTop: 10 }}>Loading estates...</Text>
+                </View>
+              ) : estates.length === 0 ? (
+                <View style={{ paddingVertical: 24, alignItems: "center" }}>
+                  <Text style={{ color: "#ffb4b4", textAlign: "center" }}>No estates found.</Text>
+                  <Pressable onPress={fetchEstates} style={{ marginTop: 10 }}>
+                    <Text style={{ color: palette.accentBlue }}>Retry</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                estates.map((est, idx) => (
+                  <Pressable
+                    key={idx}
+                    style={{ padding: 15, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" }}
+                    onPress={() => {
+                      setSelectedEstate(est);
+                      setShowEstateModal(false);
+                    }}
+                  >
+                    <Text style={{ color: "white", fontSize: 16, fontWeight: "500" }}>{est.name}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>Code: {est.code}</Text>
+                  </Pressable>
+                ))
+              )}
             </ScrollView>
           </View>
         </View>

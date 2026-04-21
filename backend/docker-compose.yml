@@ -1,200 +1,162 @@
 services:
-
-  # ════════════════════════════════════════════════════
-  # DATABASE — Single PostgreSQL server, separate DBs
-  # ════════════════════════════════════════════════════
   postgres:
     image: postgres:16
     container_name: dalupotha-postgres
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER:               ${POSTGRES_USER:-dalupotha_user}
-      POSTGRES_PASSWORD:           ${POSTGRES_PASSWORD:-superman9}
-      POSTGRES_DB:                 postgres
-      POSTGRES_HOST_AUTH_METHOD:   trust   # allows all connections — safe for local dev
+      POSTGRES_DB: ${POSTGRES_DB:-dalupotha}
+      POSTGRES_USER: ${POSTGRES_USER:-dalupotha_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
     volumes:
       - dalupotha_postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro   # creates all service DBs
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dalupotha_user -d auth_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # ════════════════════════════════════════════════════
-  # SERVICE DISCOVERY — Eureka Server
-  # ════════════════════════════════════════════════════
-  eureka-server:
-    build: ./services/eureka-server
-    container_name: dalupotha-eureka
-    ports:
-      - "8761:8761"
-    environment:
-      EUREKA_HOST: eureka-server
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
-  # ════════════════════════════════════════════════════
-  # API GATEWAY — Spring Cloud Gateway
-  # ════════════════════════════════════════════════════
   api-gateway:
     build: ./services/api-gateway
     container_name: dalupotha-api-gateway
     ports:
       - "8080:8080"
-    depends_on:
-      eureka-server:
-        condition: service_healthy
     environment:
-      EUREKA_HOST: eureka-server
-      JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      SPRING_PROFILES_ACTIVE: docker
+    develop:
+      watch:
+        - path: ./services/api-gateway/src
+          action: rebuild
+        - path: ./services/api-gateway/pom.xml
+          action: rebuild
+        - path: ./services/api-gateway/Dockerfile
+          action: rebuild
 
-  # ════════════════════════════════════════════════════
-  # AUTH SERVICE  — DB: auth_db  Port: 8081
-  # ════════════════════════════════════════════════════
   auth-service:
     build: ./services/auth-service
     container_name: dalupotha-auth-service
     ports:
-      - "8081:8081"
+      - "18081:8081"
     depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
+      - postgres
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:     postgres
-      DB_PORT:     5432
-      DB_NAME:     auth_db
-      DB_USER:     ${POSTGRES_USER:-dalupotha_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
-      EUREKA_HOST: eureka-server
-      JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
-      VONAGE_API_KEY: ${VONAGE_API_KEY}
-      VONAGE_API_SECRET: ${VONAGE_API_SECRET}
-      VONAGE_SENDER_ID: ${VONAGE_SENDER_ID:-VonageAPIs}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+    develop:
+      watch:
+        - path: ./services/auth-service/src
+          action: rebuild
+        - path: ./services/auth-service/pom.xml
+          action: rebuild
+        - path: ./services/auth-service/Dockerfile
+          action: rebuild
 
-  # ════════════════════════════════════════════════════
-  # COLLECTION SERVICE  — DB: collection_db  Port: 8082
-  # ════════════════════════════════════════════════════
   collection-service:
     build: ./services/collection-service
     container_name: dalupotha-collection-service
     ports:
       - "8082:8082"
     depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
+      - postgres
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:     postgres
-      DB_PORT:     5432
-      DB_NAME:     collection_db
-      DB_USER:     ${POSTGRES_USER:-dalupotha_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
-      EUREKA_HOST: eureka-server
-      JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+    develop:
+      watch:
+        - path: ./services/collection-service/src
+          action: rebuild
+        - path: ./services/collection-service/pom.xml
+          action: rebuild
+        - path: ./services/collection-service/Dockerfile
+          action: rebuild
 
-  # ════════════════════════════════════════════════════
-  # FINANCE SERVICE  — DB: finance_db  Port: 8083
-  # ════════════════════════════════════════════════════
   finance-service:
     build: ./services/finance-service
     container_name: dalupotha-finance-service
     ports:
       - "8083:8083"
     depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
+      - postgres
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:     postgres
-      DB_PORT:     5432
-      DB_NAME:     finance_db
-      DB_USER:     ${POSTGRES_USER:-dalupotha_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
-      EUREKA_HOST: eureka-server
-      JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+    develop:
+      watch:
+        - path: ./services/finance-service/src
+          action: rebuild
+        - path: ./services/finance-service/pom.xml
+          action: rebuild
+        - path: ./services/finance-service/Dockerfile
+          action: rebuild
 
-  # ════════════════════════════════════════════════════
-  # INVENTORY SERVICE  — DB: inventory_db  Port: 8084
-  # ════════════════════════════════════════════════════
   inventory-service:
     build: ./services/inventory-service
     container_name: dalupotha-inventory-service
     ports:
       - "8084:8084"
     depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
+      - postgres
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:     postgres
-      DB_PORT:     5432
-      DB_NAME:     inventory_db
-      DB_USER:     ${POSTGRES_USER:-dalupotha_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
-      EUREKA_HOST: eureka-server
-      JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+    develop:
+      watch:
+        - path: ./services/inventory-service/src
+          action: rebuild
+        - path: ./services/inventory-service/pom.xml
+          action: rebuild
+        - path: ./services/inventory-service/Dockerfile
+          action: rebuild
 
-  # ════════════════════════════════════════════════════
-  # NOTIFICATION SERVICE  — DB: notification_db  Port: 8085
-  # ════════════════════════════════════════════════════
   notification-service:
     build: ./services/notification-service
     container_name: dalupotha-notification-service
     ports:
       - "8085:8085"
-    depends_on:
-      eureka-server:
-        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:     postgres
-      DB_PORT:     5432
-      DB_NAME:     notification_db
-      DB_USER:     ${POSTGRES_USER:-dalupotha_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
-      EUREKA_HOST: eureka-server
+    develop:
+      watch:
+        - path: ./services/notification-service/src
+          action: rebuild
+        - path: ./services/notification-service/pom.xml
+          action: rebuild
+        - path: ./services/notification-service/Dockerfile
+          action: rebuild
 
-  # ════════════════════════════════════════════════════
-  # STAFFING SERVICE  — DB: staffing_db  Port: 8086
-  # ════════════════════════════════════════════════════
   staffing-service:
     build: ./services/staffing-service
     container_name: dalupotha-staffing-service
     ports:
       - "8086:8086"
     depends_on:
-      postgres:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
+      - postgres
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:     postgres
-      DB_PORT:     5432
-      DB_NAME:     staffing_db
-      DB_USER:     ${POSTGRES_USER:-dalupotha_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-superman9}
-      EUREKA_HOST: eureka-server
-      JWT_SECRET:  ${JWT_SECRET:-dalupotha-super-secret-jwt-key-change-in-production-2024}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+    develop:
+      watch:
+        - path: ./services/staffing-service/src
+          action: rebuild
+        - path: ./services/staffing-service/pom.xml
+          action: rebuild
+        - path: ./services/staffing-service/Dockerfile
+          action: rebuild
 
 volumes:
   dalupotha_postgres_data:

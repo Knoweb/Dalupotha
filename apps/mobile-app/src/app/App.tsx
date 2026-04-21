@@ -3,8 +3,9 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
-import { Platform, Pressable, Text } from "react-native";
+import { Platform, Pressable, Text, View, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import { palette, styles } from "../ui/theme";
 
 import { LoginScreen, OtpScreen } from "../features/auth/AuthScreens";
@@ -36,13 +37,13 @@ function MainTabNavigator({ route, navigation }: any) {
           backgroundColor: "#061224",
           borderTopWidth: 1,
           borderTopColor: "#1b375d",
-          height: Platform.OS === "ios" ? 85 : 65,
-          paddingBottom: Platform.OS === "ios" ? 25 : 10,
+          height: Platform.OS === "ios" ? 85 : Platform.OS === "web" ? 74 : 65,
+          paddingBottom: Platform.OS === "ios" ? 25 : Platform.OS === "web" ? 12 : 10,
           paddingTop: 10,
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
+          position: Platform.OS === "web" ? "relative" : "absolute",
+          bottom: Platform.OS === "web" ? undefined : 0,
+          left: Platform.OS === "web" ? undefined : 0,
+          right: Platform.OS === "web" ? undefined : 0,
           elevation: 0,
         },
         tabBarActiveTintColor: palette.accentGreen,
@@ -83,6 +84,18 @@ function MainTabNavigator({ route, navigation }: any) {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Alakamanda: require("../../assests/Alakamanda.ttf"),
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: palette.bgOuter, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={palette.accentGreen} size="large" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <StatusBar style="light" />

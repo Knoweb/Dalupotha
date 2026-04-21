@@ -11,14 +11,24 @@ import java.util.UUID;
 
 public class AuthDtos {
 
-    /** Staff / TA login */
+    /** Staff / TA login with employeeId + PIN */
     @Data
     public static class StaffLoginRequest {
         @NotBlank(message = "Employee ID is required")
         private String employeeId;
 
-        @NotBlank(message = "Password is required")
-        private String password;
+        @NotBlank(message = "PIN is required")
+        private String pin;
+    }
+
+    /** Small Holder (Supplier) login with Passbook ID + PIN */
+    @Data
+    public static class SupplierPinLoginRequest {
+        @NotBlank(message = "Passbook number is required")
+        private String passbookNo;
+
+        @NotBlank(message = "PIN is required")
+        private String pin;
     }
 
     /** Send OTP to Small Holder's phone */
@@ -47,7 +57,7 @@ public class AuthDtos {
         @NotBlank private String contact;
         @NotBlank private String otpCode;
         @NotBlank private String fullName;
-        @NotBlank private String password;
+        @NotBlank private String pin;       // 4-digit PIN used for future logins
         @NotBlank private String passbookNo;
         @NotBlank private String landName;
         private String address;
@@ -65,7 +75,7 @@ public class AuthDtos {
         @NotBlank private String otpCode;
         @NotBlank private String fullName;
         @NotBlank private String employeeId; // To be verified against HR
-        @NotBlank private String password;
+        @NotBlank private String pin;        // 4-digit PIN used for future logins
         private UUID   estateId;
     }
 

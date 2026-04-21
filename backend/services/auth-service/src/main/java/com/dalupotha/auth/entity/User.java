@@ -18,7 +18,6 @@ public class User {
     @Column(name = "user_id", updatable = false, nullable = false)
     private UUID userId;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "role", nullable = false)
     private UserRole role;
@@ -26,6 +25,11 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "estate_id")
     private Estate estate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private UserStatus status = UserStatus.ACTIVE;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
@@ -38,9 +42,6 @@ public class User {
 
     @Column(name = "hashed_password")
     private String hashedPassword;
-
-    @Column(name = "status", nullable = false)
-    private String status = "ACTIVE";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -16,21 +16,26 @@ import java.util.UUID;
 public class Estate {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "estate_id")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "estate_id", updatable = false, nullable = false)
     private UUID estateId;
 
     @Column(nullable = false, unique = true)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 20)
     private String code;
 
+    @Column(columnDefinition = "TEXT")
+    private String address;
+
+    @Column(length = 20)
+    private String phone;
+
     @Column(name = "is_active")
-    @Builder.Default
     private Boolean isActive = true;
 
     @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 }

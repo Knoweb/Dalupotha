@@ -7,17 +7,26 @@
 
 import { Platform } from "react-native";
 
-// On Android emulator, localhost resolves to 10.0.2.2
-// On physical device, set this to your PC's LAN IP (e.g. 192.168.1.xx)
-// Update this if your PC's IP changes.
-const DEV_HOST = "192.168.8.164";
+// Host selection strategy:
+// 1) EXPO_PUBLIC_API_HOST if provided
+// 2) localhost for web
+// 3) 10.0.2.2 for Android emulator
+// 4) localhost for iOS simulator/dev
+const DEV_HOST =
+  process.env.EXPO_PUBLIC_API_HOST ||
+  (Platform.OS === "web"
+    ? "localhost"
+    : Platform.OS === "android"
+      ? "10.0.2.2"
+      : "localhost");
 export const API_BASE = `http://${DEV_HOST}:8080`;
 
 // ── 2. Authentication & Registration ─────────────────────────────────────────
 export const AuthAPI = {
-  login:              `${API_BASE}/auth/login`,                 // POST — Staff/TA login
-  sendOtp:            `${API_BASE}/auth/otp/send`,              // POST — Send OTP to Small Holder
-  verifyOtp:          `${API_BASE}/auth/otp/verify`,            // POST — Verify OTP → JWT
+  login:              `${API_BASE}/auth/login`,                 // POST — TA login (employeeId + PIN)
+  supplierLogin:      `${API_BASE}/auth/supplier/login`,        // POST — Supplier login (contact + PIN)
+  sendOtp:            `${API_BASE}/auth/otp/send`,              // POST — Send OTP (registration only)
+  verifyOtp:          `${API_BASE}/auth/otp/verify`,            // POST — Verify OTP (legacy, not used for login)
   registerSmallHolder:`${API_BASE}/auth/small-holder/register`, // POST — Register Small Holder
   registerAgent:      `${API_BASE}/auth/agent/register`,        // POST — Register Transport Agent
   getEstates:         `${API_BASE}/auth/estates`,               // GET — fetch estate list
@@ -67,7 +76,7 @@ export async function apiGet<T>(url: string, token: string): Promise<T> {
     method:  "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
   const data = await res.json();

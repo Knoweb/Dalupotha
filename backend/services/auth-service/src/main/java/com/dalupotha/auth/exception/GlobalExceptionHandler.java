@@ -33,6 +33,22 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(400, "Validation Error", message));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
+        String detail = ex.getMostSpecificCause().getMessage();
+        String message = "Database integrity violation";
+        
+        if (detail.contains("already exists")) {
+            message = "A record with this information already exists.";
+        } else if (detail.contains("too long")) {
+            message = "One of the provided fields is too long.";
+        }
+        
+        log.warn("Data integrity error: {}", detail);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(409, "Conflict", message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
         log.error("Unexpected error", ex);

@@ -44,14 +44,14 @@ public class AuthService {
     public AuthResponse staffLogin(StaffLoginRequest request) {
         User user = userRepository.findByEmployeeId(request.getEmployeeId())
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid employee ID or password"));
+                        HttpStatus.UNAUTHORIZED, "Invalid employee ID or PIN"));
 
         if (user.getHashedPassword() == null ||
-            !passwordEncoder.matches(request.getPassword(), user.getHashedPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid employee ID or password");
+            !passwordEncoder.matches(request.getPin(), user.getHashedPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid employee ID or PIN");
         }
 
-        if (!"ACTIVE".equals(user.getStatus())) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is not active");
         }
 
@@ -100,6 +100,44 @@ public class AuthService {
     }
 
     // ────────────────────────────────────────────
+    // 2. Small Holder (Supplier) PIN Login
+    // ────────────────────────────────────────────
+    public AuthResponse supplierPinLogin(SupplierPinLoginRequest request) {
+        SmallHolder sh = smallHolderRepository.findByPassbookNo(request.getPassbookNo())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "No account found for this Passbook ID. Please register first."));
+
+        User user = sh.getUser();
+
+        if (user.getHashedPassword() == null ||
+            !passwordEncoder.matches(request.getPin(), user.getHashedPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid Passbook ID or PIN");
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is not active");
+        }
+
+        String token = jwtTokenProvider.generateToken(
+                user.getUserId(), user.getRole().name(),
+                user.getEmployeeId(), user.getFullName());
+
+        UUID estateId = null;
+        String estateName = null;
+        BigDecimal arcs = sh.getArcs();
+
+        if (sh.getEstate() != null) {
+            estateId = sh.getEstate().getEstateId();
+            estateName = sh.getEstate().getName();
+        }
+
+        log.info("Supplier PIN login successful: passbookNo={} - Estate: {}", request.getPassbookNo(), estateName);
+        return new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
+                null, user.getFullName(), user.getContact(),
+                null, estateId, estateName, arcs, jwtExpirationMs / 1000);
+    }
+
+    // ────────────────────────────────────────────
     // 2. Send OTP (Small Holder login/registration)
     // ────────────────────────────────────────────
     @Transactional
@@ -143,7 +181,7 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "No account found for this number. Please register first."));
 
-        if (!"ACTIVE".equals(user.getStatus())) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is not active");
         }
 
@@ -225,10 +263,10 @@ public class AuthService {
         User user = User.builder()
                 .fullName(request.getFullName())
                 .contact(request.getContact())
-                .hashedPassword(passwordEncoder.encode(request.getPassword()))
+                .hashedPassword(passwordEncoder.encode(request.getPin()))
                 .role(UserRole.SH)
                 .estate(estate)
-                .status("ACTIVE")
+                .status(UserStatus.ACTIVE)
                 .build();
         userRepository.save(user);
 
@@ -294,11 +332,11 @@ public class AuthService {
         User user = User.builder()
                 .fullName(request.getFullName())
                 .contact(request.getContact())
-                .hashedPassword(passwordEncoder.encode(request.getPassword()))
+                .hashedPassword(passwordEncoder.encode(request.getPin()))
                 .employeeId(request.getEmployeeId())
                 .role(UserRole.TA)
                 .estate(estate)
-                .status("ACTIVE")
+                .status(UserStatus.ACTIVE)
                 .build();
         userRepository.save(user);
 

@@ -23,9 +23,9 @@ export function LoginScreen({ navigation }: any) {
   const compact = width < 390 || height < 780;
 
   const [role, setRole]               = useState<Role>("supplier");
-  const [id, setId]                   = useState(role === "supplier" ? "PB-0934" : "");
-  const [password, setPassword]       = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [id, setId]                   = useState("");
+  const [pin, setPin]                 = useState("");
+  const [showPin, setShowPin]         = useState(false);
   const [loading, setLoading]         = useState(false);
 
   const cardTitle    = useMemo(() => (role === "supplier" ? "Supplier Portal" : "Agent Portal"), [role]);
@@ -33,38 +33,40 @@ export function LoginScreen({ navigation }: any) {
     ? "Access your supply history, debts and payments"
     : "Access field collections and sync status";
   const idLabel       = role === "supplier" ? "SUPPLIER ID / PASSBOOK" : "AGENT ID";
-  const idPlaceholder = role === "supplier" ? "e.g. PB-0934" : "Agent ID";
+  const idPlaceholder = role === "supplier" ? "e.g. PB-0934" : "TA-XXXX";
 
-  // ── Supplier: OTP-based login ─────────────────────────────────────────────
-  const handleSupplierContinue = async () => {
-    if (!id.trim()) {
-      Alert.alert("Missing Info", "Please enter your Passbook / Supplier ID.");
+  // ── Supplier: PIN login ───────────────────────────────────────────────────
+  const handleSupplierLogin = async () => {
+    if (!id.trim() || !pin.trim()) {
+      Alert.alert("Missing Info", "Please enter your Passbook / Supplier ID and PIN.");
       return;
     }
     setLoading(true);
     try {
-      await apiPost(AuthAPI.sendOtp, { contact: id.trim() });
-      navigation.navigate("Otp", { role, contact: id.trim() });
+      const res: any = await apiPost(AuthAPI.supplierLogin, {
+        passbookNo: id.trim(),
+        pin:        pin.trim(),
+      });
+      navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Could not send OTP. Try again.");
+      Alert.alert("Login Failed", err.message ?? "Invalid Passbook ID or PIN.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Staff: password-based login ───────────────────────────────────────────
-  const handleStaffLogin = async () => {
-    if (!id.trim() || !password.trim()) {
-      Alert.alert("Missing Info", "Please enter your Agent ID and password.");
+  // ── Agent: PIN login ──────────────────────────────────────────────────────
+  const handleAgentLogin = async () => {
+    if (!id.trim() || !pin.trim()) {
+      Alert.alert("Missing Info", "Please enter your Agent ID and PIN.");
       return;
     }
     setLoading(true);
     try {
       const res: any = await apiPost(AuthAPI.login, {
         employeeId: id.trim(),
-        password:   password.trim(),
+        pin:        pin.trim(),
       });
-      // Store token and navigate
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
       Alert.alert("Login Failed", err.message ?? "Invalid credentials.");
@@ -73,7 +75,7 @@ export function LoginScreen({ navigation }: any) {
     }
   };
 
-  const handleContinue = role === "supplier" ? handleSupplierContinue : handleStaffLogin;
+  const handleContinue = role === "supplier" ? handleSupplierLogin : handleAgentLogin;
 
   return (
     <LinearGradient
@@ -124,29 +126,27 @@ export function LoginScreen({ navigation }: any) {
               )}
             </View>
 
-            {/* Password only shown for staff/agent */}
-            {role === "agent" && (
-              <>
-                <Text style={styles.label}>PASSWORD</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    style={styles.inputField}
-                    secureTextEntry={!showPassword}
-                    placeholder="Password"
-                    placeholderTextColor="#7d93b4"
-                  />
-                  <Pressable style={styles.inputRightIcon} onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons
-                      name={showPassword ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      color={palette.muted}
-                    />
-                  </Pressable>
-                </View>
-              </>
-            )}
+            {/* PIN field — shown for both roles */}
+            <Text style={styles.label}>PIN</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                value={pin}
+                onChangeText={setPin}
+                style={styles.inputField}
+                secureTextEntry={!showPin}
+                placeholder="Enter your PIN"
+                placeholderTextColor="#7d93b4"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              <Pressable style={styles.inputRightIcon} onPress={() => setShowPin(!showPin)}>
+                <Ionicons
+                  name={showPin ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color={palette.muted}
+                />
+              </Pressable>
+            </View>
 
             <Pressable
               style={({ pressed }) => [
@@ -161,7 +161,7 @@ export function LoginScreen({ navigation }: any) {
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={[styles.primaryBtnText, compact && styles.primaryBtnTextCompact]}>
-                    {role === "supplier" ? "Send OTP →" : "Login →"}
+                    Login →
                   </Text>
               }
             </Pressable>

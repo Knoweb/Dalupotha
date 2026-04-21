@@ -17,11 +17,20 @@ public class AuthController {
 
     /**
      * POST /api/auth/login
-     * Staff & Transport Agent login with employee ID + password
+     * Transport Agent login with employee ID + PIN
      */
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> staffLogin(@Valid @RequestBody StaffLoginRequest request) {
         return ResponseEntity.ok(authService.staffLogin(request));
+    }
+
+    /**
+     * POST /api/auth/supplier/login
+     * Small Holder (Supplier) login with contact number + PIN
+     */
+    @PostMapping("/supplier/login")
+    public ResponseEntity<AuthResponse> supplierPinLogin(@Valid @RequestBody SupplierPinLoginRequest request) {
+        return ResponseEntity.ok(authService.supplierPinLogin(request));
     }
 
     /**

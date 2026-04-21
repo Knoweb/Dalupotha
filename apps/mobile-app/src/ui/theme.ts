@@ -25,8 +25,8 @@ export const styles = StyleSheet.create({
   logoHaloCompact: { width: 90, height: 90, borderRadius: 45 },
   logo: { width: "100%", height: "100%" },
   logoCompact: { borderRadius: 45 },
-  brandSinhala: { color: "#fff", fontSize: 32, fontWeight: "bold", marginTop: 10 },
-  brandSinhalaCompact: { fontSize: 26 },
+  brandSinhala: { color: "#fff", fontSize: 34, fontWeight: "bold", marginTop: 10, fontFamily: "Alakamanda" },
+  brandSinhalaCompact: { fontSize: 28, fontFamily: "Alakamanda" },
   brandEn: { color: palette.muted, fontSize: 13, letterSpacing: 1 },
   brandEnCompact: { fontSize: 11 },
   authCard: {
@@ -42,8 +42,8 @@ export const styles = StyleSheet.create({
   cardTitleCompact: { fontSize: 20 },
   cardSubtitle: { color: palette.muted, fontSize: 13, marginBottom: 20, marginTop: 4 },
   label: { color: palette.muted, fontSize: 10, fontWeight: "bold", marginBottom: 8, letterSpacing: 1 },
-  inputContainer: { 
-    flexDirection: 'row', alignItems: 'center', 
+  inputContainer: {
+    flexDirection: "row", alignItems: "center",
     height: 48, backgroundColor: palette.input, borderRadius: 12,
     marginBottom: 15, borderWidth: 1, borderColor: "#1b375d"
   },
@@ -62,18 +62,18 @@ export const styles = StyleSheet.create({
   otpInput: {
     height: 60, backgroundColor: palette.input, borderRadius: 12, color: "#fff",
     fontSize: 26, textAlign: "center", letterSpacing: 12, marginBottom: 25,
-    borderWidth: 1, borderColor: "#1b375d", fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    borderWidth: 1, borderColor: "#1b375d", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   cancelText: { textAlign: "center", color: palette.muted, fontWeight: "600", fontSize: 14 },
   footer: { color: "#34507c", fontSize: 11, marginTop: 20 },
   centered: { textAlign: "center" },
-  
+
   // Dashboard Styles
   dashboardWrap: { flex: 1, backgroundColor: "#061224" },
-  topBar: { flexDirection: "row", padding: 20, paddingTop: Platform.OS === 'android' ? 40 : 20, alignItems: "center", backgroundColor: "#111f38", borderBottomWidth: 1, borderBottomColor: "#1b3151" },
+  topBar: { flexDirection: "row", padding: 20, paddingTop: Platform.OS === "android" ? 40 : 20, alignItems: "center", backgroundColor: "#111f38", borderBottomWidth: 1, borderBottomColor: "#1b3151" },
   avatar: { width: 45, height: 45, borderRadius: 12, backgroundColor: "#3a5bd9", alignItems: "center", justifyContent: "center" },
   summaryCard: {
-    backgroundColor: "rgba(16, 35, 66, 0.9)", borderRadius: 20, padding: 25, 
+    backgroundColor: "rgba(16, 35, 66, 0.9)", borderRadius: 20, padding: 25,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", marginBottom: 25,
   },
   summaryTitle: { color: palette.muted, fontSize: 14, fontWeight: "600", marginBottom: 8 },
@@ -82,8 +82,8 @@ export const styles = StyleSheet.create({
   summarySubLabel: { color: palette.muted, fontSize: 12, marginBottom: 4 },
   summarySubValue: { color: "#fff", fontSize: 15, fontWeight: "bold" },
   sectionHeader: { color: "#fff", fontSize: 18, fontWeight: "bold", marginBottom: 15 },
-  listItem: { 
-    flexDirection: "row", alignItems: "center", backgroundColor: "#0d1b33", 
+  listItem: {
+    flexDirection: "row", alignItems: "center", backgroundColor: "#0d1b33",
     padding: 15, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.03)"
   },
   listIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(31, 190, 87, 0.15)", alignItems: "center", justifyContent: "center", marginRight: 15 },
@@ -105,7 +105,7 @@ export const styles = StyleSheet.create({
   collectionAvatarText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
   badgeLine: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.muted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   badgeText: { fontSize: 10, fontWeight: "bold" },
-  
+
   // New Screens Styles
   headerBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 15, paddingHorizontal: 20 },
   headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
@@ -117,7 +117,7 @@ export const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: "rgba(31,190,87,0.15)", borderColor: palette.accentGreen },
   filterChipText: { color: palette.muted, fontSize: 13, fontWeight: "600" },
   filterChipTextActive: { color: palette.accentGreen },
-  
+
   collectionItemCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#0b192c", padding: 15, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
   collectionAvatarCompact: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", marginRight: 15 },
   cardItemTitle: { color: "#fff", fontSize: 16, fontWeight: "bold" },
@@ -130,13 +130,13 @@ export const styles = StyleSheet.create({
   reqTabActive: { backgroundColor: "rgba(46, 168, 255, 0.15)" },
   reqTabText: { color: palette.muted, fontWeight: "600", fontSize: 14 },
   reqTabTextActive: { color: palette.accentBlue },
-  
+
   reqCard: { backgroundColor: "#0b192c", borderRadius: 16, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   statusBadgeText: { fontSize: 10, fontWeight: "bold", letterSpacing: 0.5 },
   reqCardLabel: { color: palette.muted, fontSize: 13 },
   reqCardValue: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  
+
   floatingBottom: { position: "absolute", bottom: 90, left: 20, right: 20 },
   newReqBtn: { flexDirection: "row", height: 50, backgroundColor: "#061224", borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 8 },
   newReqBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
@@ -150,7 +150,7 @@ export const styles = StyleSheet.create({
   profileRole: { color: palette.muted, fontSize: 14, marginTop: 4 },
   profileIdBadge: { backgroundColor: "rgba(46, 168, 255, 0.15)", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 10, borderWidth: 1, borderColor: "rgba(46, 168, 255, 0.3)" },
   profileIdText: { color: palette.accentBlue, fontSize: 12, fontWeight: "bold" },
-  
+
   profileStatsRow: { flexDirection: "row", marginBottom: 30 },
   profileStatBox: { flex: 1, backgroundColor: "#0b192c", borderRadius: 16, padding: 15, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
   profileStatValue: { color: "#fff", fontSize: 20, fontWeight: "bold", marginBottom: 4 },
@@ -164,13 +164,13 @@ export const styles = StyleSheet.create({
   // Supplier Screens Styles
   onlineBadge: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: palette.accentGreen, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: "rgba(31,190,87,0.1)" },
   onlineBadgeText: { color: palette.accentGreen, fontSize: 12, fontWeight: "bold", marginLeft: 4 },
-  
+
   supCard: { flex: 1, backgroundColor: "rgba(16, 35, 66, 0.9)", borderRadius: 20, padding: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", borderTopWidth: 4 },
   supCardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 15 },
   supCardLabel: { color: palette.muted, fontSize: 11, fontWeight: "bold", letterSpacing: 0.5, marginBottom: 5 },
   supCardValue: { color: "#fff", fontSize: 22, fontWeight: "bold", marginBottom: 5 },
   supCardSub: { color: palette.muted, fontSize: 12 },
-  
+
   serviceCard: { flex: 1, backgroundColor: "#0b192c", borderRadius: 16, padding: 15, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
   serviceIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(16, 35, 66, 0.8)", alignItems: "center", justifyContent: "center", marginBottom: 10, borderWidth: 1 },
   serviceTitle: { color: "#fff", fontSize: 13, fontWeight: "bold", marginBottom: 10 },
@@ -194,7 +194,7 @@ export const styles = StyleSheet.create({
   nextPayBox: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(16, 35, 66, 0.9)", padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
   nextPayTitle: { color: "#fff", fontSize: 16, fontWeight: "bold", marginBottom: 4 },
   nextPaySub: { color: palette.muted, fontSize: 13 },
-  
+
   paymentCard: { backgroundColor: "rgba(16, 35, 66, 0.9)", borderRadius: 20, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
   payCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   payCardTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
@@ -238,5 +238,5 @@ export const styles = StyleSheet.create({
   supDetailsBox: { backgroundColor: "rgba(16, 35, 66, 0.9)", borderRadius: 16, padding: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", marginBottom: 15 },
   supDetailRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
   supDetailKey: { color: palette.muted, fontSize: 14 },
-  supDetailVal: { color: "#fff", fontSize: 14, fontWeight: "500" }
+  supDetailVal: { color: "#fff", fontSize: 14, fontWeight: "500" },
 });
