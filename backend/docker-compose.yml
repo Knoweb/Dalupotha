@@ -10,6 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
     volumes:
       - dalupotha_postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
 
   api-gateway:
     build: ./services/api-gateway
@@ -38,7 +39,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_NAME: auth_db
       DB_USER: ${POSTGRES_USER:-dalupotha_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
     develop:
@@ -61,7 +62,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_NAME: collection_db
       DB_USER: ${POSTGRES_USER:-dalupotha_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
     develop:

@@ -19,15 +19,15 @@ type RootStackParamList = {
   Login: undefined;
   Register: { initialRole?: Role };
   Otp: { role: Role; contact?: string; isRegistering?: boolean; registerData?: any };
-  MainTabs: { role: Role };
-  CollectionInput: undefined;
+  MainTabs: { role: Role; token?: string; user?: any };
+  CollectionInput: { token: string; user: any };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
 function MainTabNavigator({ route, navigation }: any) {
-  const { role, user } = route.params || { role: "agent" };
+  const { role, user, token } = route.params || { role: "agent" };
 
   return (
     <Tab.Navigator
@@ -65,17 +65,17 @@ function MainTabNavigator({ route, navigation }: any) {
     >
       {role === "supplier" ? (
         <>
-          <Tab.Screen name="Home" children={() => <SupplierHomeScreen navigation={navigation} />} />
-          <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen navigation={navigation} />} />
-          <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen navigation={navigation} />} />
-          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen navigation={navigation} />} />
-          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen navigation={navigation} />} />
+          <Tab.Screen name="Home" children={() => <SupplierHomeScreen user={user} token={token} navigation={navigation} />} />
+          <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} />} />
+          <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} />} />
+          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} token={token} navigation={navigation} />} />
+          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} token={token} navigation={navigation} />} />
         </>
       ) : (
         <>
-          <Tab.Screen name="Dashboard" children={() => <DashboardScreen user={user} role={role} navigation={navigation} />} />
-          <Tab.Screen name="Collections" children={() => <CollectionsScreen navigation={navigation} />} />
-          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} />} />
+          <Tab.Screen name="Dashboard" children={() => <DashboardScreen user={user} role={role} navigation={navigation} token={route.params?.token} />} />
+          <Tab.Screen name="Collections" children={() => <CollectionsScreen navigation={navigation} user={user} token={route.params?.token} />} />
+          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={route.params?.token} />} />
           <Tab.Screen name="Profile" children={() => <ProfileScreen user={user} navigation={navigation} />} />
         </>
       )}
@@ -87,6 +87,30 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     Alakamanda: require("../../assests/Alakamanda.ttf"),
   });
+
+  React.useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const styleId = "dalupotha-autofill-fix";
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      textarea:-webkit-autofill,
+      select:-webkit-autofill {
+        -webkit-text-fill-color: #eaf3ff !important;
+        -webkit-box-shadow: 0 0 0px 1000px #04132b inset !important;
+        box-shadow: 0 0 0px 1000px #04132b inset !important;
+        transition: background-color 9999s ease-out 0s !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }, []);
 
   if (!fontsLoaded) {
     return (

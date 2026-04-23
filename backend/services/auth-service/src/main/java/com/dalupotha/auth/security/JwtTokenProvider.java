@@ -30,22 +30,22 @@ public class JwtTokenProvider {
         Date expiry = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
-                .subject(userId.toString())
+            .setSubject(userId.toString())
                 .claim("role",       role)
                 .claim("employeeId", employeeId)
                 .claim("fullName",   fullName)
-                .issuedAt(now)
-                .expiration(expiry)
+            .setIssuedAt(now)
+            .setExpiration(expiry)
                 .signWith(secretKey)
                 .compact();
     }
 
     public Claims parseToken(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return Jwts.parserBuilder()
+            .setSigningKey(secretKey)
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
     }
 
     public boolean validateToken(String token) {

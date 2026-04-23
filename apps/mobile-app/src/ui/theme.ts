@@ -239,4 +239,6 @@ export const styles = StyleSheet.create({
   supDetailRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 15 },
   supDetailKey: { color: palette.muted, fontSize: 14 },
   supDetailVal: { color: "#fff", fontSize: 14, fontWeight: "500" },
+  inlineError: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255, 107, 107, 0.1)", padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255, 107, 107, 0.3)", gap: 10 },
+  inlineErrorText: { color: "#ff6b6b", fontSize: 13, fontWeight: "500", flex: 1 },
 });

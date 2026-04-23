@@ -1,7 +1,10 @@
 package com.dalupotha.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -37,6 +40,7 @@ public class AuthDtos {
         @NotBlank(message = "Contact number is required")
         private String contact;   // e.g. +94711001001
         private String purpose = "LOGIN"; // LOGIN | REGISTRATION
+        private String passbookNo;         // optional, for early uniqueness check
     }
 
     /** Verify OTP submitted by Small Holder */
@@ -59,7 +63,7 @@ public class AuthDtos {
         @NotBlank private String fullName;
         @NotBlank private String pin;       // 4-digit PIN used for future logins
         @NotBlank private String passbookNo;
-        @NotBlank private String landName;
+        private String landName;
         private String address;
         private UUID   estateId;
         private BigDecimal arcs;
@@ -84,35 +88,21 @@ public class AuthDtos {
     // ──────────────────────────────────────────────
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class AuthResponse {
-        private String token;
-        private String role;
-        private String userId;
-        private String employeeId;
-        private String fullName;
-        private String contact;
-        private String routeName;
-        private UUID   estateId;
-        private String estateName;
-        private BigDecimal arcs;
-        private long   expiresIn;  // seconds
-
-        public AuthResponse(String token, String role, String userId,
-                            String employeeId, String fullName, String contact, 
-                            String routeName, UUID estateId, String estateName,
-                            BigDecimal arcs, long expiresIn) {
-            this.token      = token;
-            this.role       = role;
-            this.userId     = userId;
-            this.employeeId = employeeId;
-            this.fullName   = fullName;
-            this.contact    = contact;
-            this.routeName  = routeName;
-            this.estateId   = estateId;
-            this.estateName = estateName;
-            this.arcs       = arcs;
-            this.expiresIn  = expiresIn;
-        }
+        @JsonProperty("token") private String token;
+        @JsonProperty("role") private String role;
+        @JsonProperty("userId") private String userId;
+        @JsonProperty("employeeId") private String employeeId;
+        @JsonProperty("fullName") private String fullName;
+        @JsonProperty("contact") private String contact;
+        @JsonProperty("routeName") private String routeName;
+        @JsonProperty("estateId") private UUID   estateId;
+        @JsonProperty("estateName") private String estateName;
+        @JsonProperty("arcs") private BigDecimal arcs;
+        @JsonProperty("passbookNo") private String passbookNo;
+        @JsonProperty("expiresIn") private long   expiresIn;
     }
 
     @Data

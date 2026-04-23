@@ -15,6 +15,7 @@ export function RegisterScreen({ route, navigation }: any) {
 
   const [role, setRole] = useState<"supplier" | "agent">(route.params?.initialRole ?? "supplier");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Common fields
   const [contact, setContact] = useState("");
@@ -24,7 +25,7 @@ export function RegisterScreen({ route, navigation }: any) {
   const [passbookNo, setPassbookNo] = useState("");
   const [landName, setLandName] = useState("");
   const [address, setAddress] = useState("");
-  const [inChargeId, setInChargeId] = useState("");
+
 
   const [employeeId, setEmployeeId] = useState("");
   const [pin, setPin] = useState("");
@@ -38,7 +39,6 @@ export function RegisterScreen({ route, navigation }: any) {
   const [showEstateModal, setShowEstateModal] = useState(false);
   const [estatesLoading, setEstatesLoading] = useState(true);
   const [estatesError, setEstatesError] = useState<string | null>(null);
-  const [arcs, setArcs] = useState("");
 
   const fetchEstates = React.useCallback(async () => {
     setEstatesLoading(true);
@@ -73,65 +73,64 @@ export function RegisterScreen({ route, navigation }: any) {
   }, [fetchEstates]);
 
   const handleRegister = async () => {
+    setErrorMsg(null);
+
     // Basic validation
     if (!contact.trim() || !fullName.trim() || !selectedEstate) {
-      Alert.alert("Missing Info", "Please fill in all required fields including Estate.");
+      setErrorMsg("Please fill in all required fields including Estate.");
       return;
     }
 
     if (role === "supplier") {
-      if (!passbookNo.trim() || !landName.trim() || !inChargeId.trim() || !arcs.trim() || !pin.trim()) {
-        Alert.alert("Missing Info", "Supplier details (Passbook, Land, Arcs, PIN) are required.");
+      if (!passbookNo.trim() || !pin.trim()) {
+        setErrorMsg("Passbook Number and PIN are required.");
         return;
       }
     } else {
       if (!employeeId.trim() || !pin.trim()) {
-        Alert.alert("Missing Info", "Agent details (ID, PIN) are required.");
+        setErrorMsg("Agent ID and PIN are required.");
         return;
       }
     }
 
     if (pin.trim() !== confirmPin.trim()) {
-      Alert.alert("PIN Mismatch", "Your PIN and Confirm PIN do not match. Please try again.");
+      setErrorMsg("PIN and Confirm PIN do not match. Please check and try again.");
       return;
     }
 
     if (pin.trim().length < 4) {
-      Alert.alert("PIN Too Short", "PIN must be at least 4 digits.");
+      setErrorMsg("PIN must be at least 4 digits.");
       return;
     }
 
     setLoading(true);
     try {
-      let gpsLat = 0, gpsLong = 0;
+      // Try to capture GPS — non-blocking (fail gracefully)
+      let gpsLat: number | null = null;
+      let gpsLong: number | null = null;
 
-      // Small Holders MUST provide GPS coordinates (Anti-fraud)
       if (role === "supplier") {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert("Permission Denied", "GPS is required to register your land.");
-          setLoading(false);
-          return;
-        }
-
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-          gpsLat = loc.coords.latitude;
-          gpsLong = loc.coords.longitude;
-        } catch (gpsErr) {
-          Alert.alert("GPS Error", "Please move to an open area before finalizing registration.");
-          setLoading(false);
-          return;
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === "granted") {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            gpsLat = loc.coords.latitude;
+            gpsLong = loc.coords.longitude;
+          }
+          // If denied — continue without GPS (recorded as null)
+        } catch {
+          // GPS unavailable — continue without it
         }
       }
 
-      // Step 2: Send OTP
+      // Early uniqueness check: pass contact and passbook to sendOtp for backend validation
       await apiPost(AuthAPI.sendOtp, { 
         contact: contact.trim(),
-        purpose: "REGISTRATION" 
+        purpose: "REGISTRATION",
+        passbookNo: role === "supplier" ? passbookNo.trim() : undefined
       });
 
-      // Prepare common registration data
+      // Build registration payload
       const registerData: any = {
         contact: contact.trim(),
         fullName: fullName.trim(),
@@ -141,30 +140,28 @@ export function RegisterScreen({ route, navigation }: any) {
       if (role === "supplier") {
         Object.assign(registerData, {
           passbookNo: passbookNo.trim(),
-          landName: landName.trim(),
-          address: address.trim(),
-          inChargeId: inChargeId.trim(),
-          arcs: arcs ? parseFloat(arcs) : 0,
+          landName: landName.trim() || undefined,
+          address: address.trim() || undefined,
           gpsLat,
           gpsLong,
-          pin: pin.trim()
+          pin: pin.trim(),
         });
       } else {
         Object.assign(registerData, {
           employeeId: employeeId.trim(),
-          pin: pin.trim()
+          pin: pin.trim(),
         });
       }
 
-      // Step 3: Navigate to OTP verification
-      navigation.navigate("Otp", { 
-        role, 
+      // Navigate to OTP verification
+      navigation.navigate("Otp", {
+        role,
         contact: contact.trim(),
         isRegistering: true,
-        registerData
+        registerData,
       });
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Could not send OTP. Make sure phone number is correct.");
+      setErrorMsg(err.message ?? "Could not send OTP. Please check your phone number and try again.");
     } finally {
       setLoading(false);
     }
@@ -264,7 +261,7 @@ export function RegisterScreen({ route, navigation }: any) {
                       autoCapitalize="characters"
                     />
                   </View>
-                  <Text style={styles.label}>LAND NAME *</Text>
+                  <Text style={styles.label}>LAND NAME</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={landName}
@@ -274,28 +271,7 @@ export function RegisterScreen({ route, navigation }: any) {
                       placeholderTextColor="#7d93b4"
                     />
                   </View>
-                  <Text style={styles.label}>LAND AREA (ARCS/PERCHES) *</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      value={arcs}
-                      onChangeText={setArcs}
-                      style={styles.inputField}
-                      placeholder="0.5"
-                      placeholderTextColor="#7d93b4"
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  <Text style={styles.label}>IN-CHARGE OFFICER ID *</Text>
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      value={inChargeId}
-                      onChangeText={setInChargeId}
-                      style={styles.inputField}
-                      placeholder="EXT-201"
-                      placeholderTextColor="#7d93b4"
-                      autoCapitalize="characters"
-                    />
-                  </View>
+
                   <Text style={styles.label}>CREATE LOGIN PIN *</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
@@ -399,6 +375,14 @@ export function RegisterScreen({ route, navigation }: any) {
                     <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>PINs do not match</Text>
                   )}
                 </>
+              )}
+
+              {/* ── Inline error banner ─────────────────────────────────── */}
+              {errorMsg && (
+                <View style={[styles.inlineError, { marginBottom: 15 }]}>
+                  <Ionicons name="alert-circle-outline" size={18} color="#ff6b6b" />
+                  <Text style={styles.inlineErrorText}>{errorMsg}</Text>
+                </View>
               )}
 
               <Pressable

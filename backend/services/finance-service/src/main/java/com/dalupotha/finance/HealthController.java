@@ -1,4 +1,4 @@
-﻿package com.dalupotha.finance;
+package com.dalupotha.finance;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;

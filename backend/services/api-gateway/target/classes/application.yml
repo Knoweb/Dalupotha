@@ -27,6 +27,27 @@ spring:
             - Path=/auth/**
           filters:
             - RewritePath=/auth/(?<segment>.*), /api/auth/$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - id: collection-service-routes
+          uri: http://collection-service:8082
+          predicates:
+            - Path=/collection/**
+          filters:
+            - RewritePath=/collection/(?<segment>.*), /api/collection/$\{segment}
+        - id: finance-service-routes
+          uri: http://finance-service:8083
+          predicates:
+            - Path=/finance/**
+          filters:
+            - RewritePath=/finance/(?<segment>.*), /api/finance/$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - id: services-routes
+          uri: http://finance-service:8083
+          predicates:
+            - Path=/services/**
+          filters:
+            - RewritePath=/services/(?<segment>.*), /api/services/$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
 
 server:
   port: 8080

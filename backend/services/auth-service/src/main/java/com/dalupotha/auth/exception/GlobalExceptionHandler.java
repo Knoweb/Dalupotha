@@ -3,6 +3,7 @@ package com.dalupotha.auth.exception;
 import com.dalupotha.auth.dto.AuthDtos.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +32,13 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse(400, "Validation Error", message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableJson(HttpMessageNotReadableException ex) {
+        log.warn("Malformed JSON payload: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse(400, "Bad Request", "Malformed JSON request body"));
     }
 
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)

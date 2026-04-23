@@ -62,14 +62,23 @@ public class AuthController {
                 .body(authService.registerSmallHolder(request));
     }
 
-    /**
-     * POST /api/auth/agent/register
-     * Register a new Transport Agent
-     */
     @PostMapping("/agent/register")
     public ResponseEntity<AuthResponse> registerAgent(
             @Valid @RequestBody AgentRegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(authService.registerAgent(request));
+    }
+
+    /**
+     * GET /api/auth/suppliers
+     * Fetch suppliers for picker, filtered by estateId
+     */
+    @GetMapping("/suppliers")
+    public ResponseEntity<java.util.List<com.dalupotha.auth.dto.SupplierSummaryResponse>> getSuppliers(
+            @RequestParam(required = false) java.util.UUID estateId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(authService.getSuppliers(estateId, search, limit));
     }
 }

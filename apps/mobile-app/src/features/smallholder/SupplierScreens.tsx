@@ -1,20 +1,165 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
+import { CollectionAPI, FinanceAPI, apiGet } from "../../services/api";
 
-export function SupplierHomeScreen({ navigation }: any) {
+type SupplierHistoryItem = {
+  collectionId: string;
+  supplierId: string;
+  supplierName: string;
+  passbookNo: string;
+  grossWeight: number;
+  netWeight: number | null;
+  collectedAt: string;
+  syncStatus: string;
+  gpsStatus: string;
+  manualOverride: boolean;
+};
+
+type SupplierLedger = {
+  currentDebt: number;
+  estimatedBalance: number;
+  advanceTaken: number;
+};
+
+type SupplierIdentity = {
+  supplierId: string;
+  fullName: string;
+  passbookNo: string;
+  estateId?: string;
+};
+
+const toNumber = (value: any): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatKg = (value: number) => `${value.toFixed(1)} kg`;
+const formatLKR = (value: number) => `Rs. ${Math.round(value).toLocaleString()}`;
+
+const getSupplierId = (user: any) => user?.supplierId || user?.userId;
+const getPassbookNo = (user: any) => user?.passbookNo || user?.passbook_no || null;
+
+const normalizeLedger = (raw: any): SupplierLedger => {
+  if (!raw || typeof raw !== "object") {
+    return { currentDebt: 0, estimatedBalance: 0, advanceTaken: 0 };
+  }
+
+  return {
+    currentDebt: toNumber(raw.currentDebt ?? raw.totalDebt ?? raw.outstanding ?? raw.deductions),
+    estimatedBalance: toNumber(raw.estimatedBalance ?? raw.netBalance ?? raw.availableBalance ?? raw.netAmount),
+    advanceTaken: toNumber(raw.advanceTaken ?? raw.totalAdvance ?? raw.advances),
+  };
+};
+
+const fetchSupplierHistory = async (token: string, supplierId: string): Promise<SupplierHistoryItem[]> => {
+  const data = await apiGet<SupplierHistoryItem[]>(`${CollectionAPI.history(supplierId)}?limit=250`, token);
+  return Array.isArray(data) ? data : [];
+};
+
+const resolveSupplierIdentity = async (token: string, user: any): Promise<SupplierIdentity | null> => {
+  const passbookNo = getPassbookNo(user);
+  if (!token || !passbookNo) return null;
+
+  const estateId = user?.estateId ? String(user.estateId) : undefined;
+  const params = new URLSearchParams();
+  params.set("search", passbookNo);
+  params.set("limit", "20");
+  if (estateId) params.set("estateId", estateId);
+
+  const suppliers = await apiGet<any[]>(`${CollectionAPI.suppliers}?${params.toString()}`, token);
+  const exactMatch = Array.isArray(suppliers)
+    ? suppliers.find((item) => String(item?.passbookNo || "").trim().toLowerCase() === passbookNo.trim().toLowerCase())
+    : null;
+
+  if (!exactMatch?.supplierId) return null;
+
+  return {
+    supplierId: String(exactMatch.supplierId),
+    fullName: String(exactMatch.fullName || user?.fullName || "Supplier"),
+    passbookNo: String(exactMatch.passbookNo || passbookNo),
+    estateId: exactMatch.estateId ? String(exactMatch.estateId) : undefined,
+  };
+};
+
+export function SupplierHomeScreen({ user, token, navigation }: any) {
+  const getPassbook = (u: any) => u?.passbookNo || u?.passbook_no || "N/A";
+  const initials = user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "SH";
+  const fallbackSupplierId = getSupplierId(user);
+  const passbookNo = getPassbookNo(user);
+
+  const [history, setHistory] = useState<SupplierHistoryItem[]>([]);
+  const [ledger, setLedger] = useState<SupplierLedger>({ currentDebt: 0, estimatedBalance: 0, advanceTaken: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(fallbackSupplierId || null);
+  const [resolvedLabel, setResolvedLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!token || !passbookNo) {
+        setError("Missing supplier session data.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const identity = await resolveSupplierIdentity(token, user).catch(() => null);
+        const supplierId = identity?.supplierId || fallbackSupplierId;
+
+        if (!supplierId) {
+          setError("Unable to resolve supplier record. Please re-login.");
+          setLoading(false);
+          return;
+        }
+
+        setResolvedSupplierId(supplierId);
+        setResolvedLabel(identity?.fullName || user?.fullName || null);
+
+        const historyData = await fetchSupplierHistory(token, supplierId);
+        setHistory(historyData);
+
+        try {
+          const ledgerData = await apiGet<any>(FinanceAPI.ledger(supplierId), token);
+          setLedger(normalizeLedger(ledgerData));
+        } catch {
+          setLedger({ currentDebt: 0, estimatedBalance: 0, advanceTaken: 0 });
+        }
+      } catch (err: any) {
+        setError(err?.message || "Failed to load supplier dashboard data.");
+        setHistory([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [fallbackSupplierId, passbookNo, token, user]);
+
+  const weekStats = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const weekItems = history.filter((item) => new Date(item.collectedAt).getTime() >= cutoff);
+    const gross = weekItems.reduce((sum, item) => sum + toNumber(item.grossWeight), 0);
+    const syncedCount = weekItems.filter((item) => String(item.syncStatus).toUpperCase() === "SYNCED").length;
+
+    return { gross, syncedCount };
+  }, [history]);
+
   return (
     <View style={styles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
         <View style={styles.topBar}>
           <View style={[styles.avatar, { backgroundColor: "#5b61f2" }]}>
-            <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>SB</Text>
+            <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 16 }}>{initials}</Text>
           </View>
           <View style={{ marginLeft: 15 }}>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "bold" }}>Hello, Sunil Bandara 👋</Text>
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "bold" }}>Hello, {user?.fullName || "Supplier"} 👋</Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ color: palette.muted, fontSize: 13 }}>SH-1042 · PB-0934</Text>
+              <Text style={{ color: palette.muted, fontSize: 13 }}>SH-{user?.userId?.slice(-4) || "0000"} · {getPassbook(user)}</Text>
               <Text style={{ color: palette.accentGreen, fontSize: 13, fontWeight: "600", marginLeft: 8 }}>✓ Verified</Text>
             </View>
           </View>
@@ -27,25 +172,37 @@ export function SupplierHomeScreen({ navigation }: any) {
         </View>
         <View style={{ paddingHorizontal: 20, paddingBottom: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={styles.onlineBadge}><Ionicons name="globe-outline" size={14} color={palette.accentGreen} /><Text style={styles.onlineBadgeText}> Online Status</Text></View>
-          <Text style={{ color: palette.muted, fontSize: 12 }}>Last update: Today · 12:58 PM</Text>
+          <Text style={{ color: palette.muted, fontSize: 12 }}>
+            Last update: {loading ? "Syncing..." : error ? "Offline" : "Live"}
+          </Text>
         </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
+        {!!error && (
+          <View style={[styles.infoBox, { marginBottom: 14, borderColor: "rgba(231,76,60,0.35)", borderWidth: 1 }]}> 
+            <Ionicons name="warning-outline" size={18} color="#e74c3c" />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={{ color: "#ff8b8b", fontSize: 12 }}>Could not refresh all backend data: {error}</Text>
+              {!!resolvedSupplierId && <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>Supplier record: {resolvedSupplierId}</Text>}
+            </View>
+          </View>
+        )}
+
         <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1 }]}>FINANCIAL OVERVIEW</Text>
         
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
           <View style={[styles.supCard, { borderTopColor: palette.accentGreen }]}>
             <View style={[styles.supCardIcon, { backgroundColor: "rgba(31,190,87,0.1)" }]}><MaterialCommunityIcons name="leaf" size={20} color={palette.accentGreen} /></View>
             <Text style={styles.supCardLabel}>THIS WEEK SUPPLY</Text>
-            <Text style={styles.supCardValue}>275.6 kg</Text>
-            <Text style={styles.supCardSub}>3 deliveries synced</Text>
+            <Text style={styles.supCardValue}>{formatKg(weekStats.gross)}</Text>
+            <Text style={styles.supCardSub}>{weekStats.syncedCount} deliveries synced</Text>
           </View>
           <View style={[styles.supCard, { borderTopColor: "#e74c3c" }]}>
             <View style={[styles.supCardIcon, { backgroundColor: "rgba(231,76,60,0.1)" }]}><Ionicons name="clipboard-outline" size={20} color="#e74c3c" /></View>
             <Text style={styles.supCardLabel}>CURRENT DEBT</Text>
-            <Text style={styles.supCardValue}>Rs. 7,850</Text>
-            <Text style={styles.supCardSub}>Tap to view details</Text>
+            <Text style={styles.supCardValue}>{formatLKR(ledger.currentDebt)}</Text>
+            <Text style={styles.supCardSub}>From finance ledger</Text>
           </View>
         </View>
 
@@ -56,8 +213,8 @@ export function SupplierHomeScreen({ navigation }: any) {
               <View style={{ backgroundColor: palette.accentGreen, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}><Text style={{ color: "#fff", fontSize: 10, fontWeight: "bold" }}>+ REQ</Text></View>
             </View>
             <Text style={styles.supCardLabel}>ADVANCE TAKEN</Text>
-            <Text style={styles.supCardValue}>Rs. 8,000</Text>
-            <Text style={styles.supCardSub}>February 2026</Text>
+            <Text style={styles.supCardValue}>{formatLKR(ledger.advanceTaken)}</Text>
+            <Text style={styles.supCardSub}>From finance ledger</Text>
           </View>
           <View style={[styles.supCard, { borderTopColor: palette.accentBlue }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -65,8 +222,8 @@ export function SupplierHomeScreen({ navigation }: any) {
               <View style={{ backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: "row", alignItems: "center" }}><Ionicons name="time-outline" size={10} color={palette.muted} /><Text style={{ color: palette.muted, fontSize: 10 }}> Pending</Text></View>
             </View>
             <Text style={styles.supCardLabel}>EST. BALANCE</Text>
-            <Text style={styles.supCardValue}>Rs. 12,420</Text>
-            <Text style={styles.supCardSub}>Pay date: 28 Feb</Text>
+            <Text style={styles.supCardValue}>{formatLKR(ledger.estimatedBalance)}</Text>
+            <Text style={styles.supCardSub}>Live estimate</Text>
           </View>
         </View>
 
@@ -95,8 +252,86 @@ export function SupplierHomeScreen({ navigation }: any) {
   );
 }
 
-export function SupplierSupplyScreen({ navigation }: any) {
+export function SupplierSupplyScreen({ user, token, navigation }: any) {
   const [activeTab, setActiveTab] = useState("Week");
+  const [history, setHistory] = useState<SupplierHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const fallbackSupplierId = getSupplierId(user);
+  const passbookNo = getPassbookNo(user);
+  const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(fallbackSupplierId || null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!token || !passbookNo) {
+        setError("Missing supplier session data.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const identity = await resolveSupplierIdentity(token, user).catch(() => null);
+        const supplierId = identity?.supplierId || fallbackSupplierId;
+
+        if (!supplierId) {
+          setError("Unable to resolve supplier record. Please re-login.");
+          setLoading(false);
+          return;
+        }
+
+        setResolvedSupplierId(supplierId);
+
+        const historyData = await fetchSupplierHistory(token, supplierId);
+        setHistory(historyData);
+      } catch (err: any) {
+        setError(err?.message || "Failed to load supply history.");
+        setHistory([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [fallbackSupplierId, passbookNo, token, user]);
+
+  const filteredHistory = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    return history.filter((item) => {
+      const ts = new Date(item.collectedAt).getTime();
+      if (activeTab === "Today") return ts >= startOfToday;
+      if (activeTab === "Week") return ts >= Date.now() - 7 * 24 * 60 * 60 * 1000;
+      if (activeTab === "Month") {
+        const d = new Date(item.collectedAt);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  }, [activeTab, history]);
+
+  const totals = useMemo(() => {
+    const totalGross = filteredHistory.reduce((sum, item) => sum + toNumber(item.grossWeight), 0);
+    const totalNet = filteredHistory.reduce((sum, item) => sum + toNumber(item.netWeight ?? item.grossWeight), 0);
+    return {
+      totalGross,
+      totalNet,
+      deliveries: filteredHistory.length,
+    };
+  }, [filteredHistory]);
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  };
+
   return (
     <View style={styles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
@@ -109,19 +344,29 @@ export function SupplierSupplyScreen({ navigation }: any) {
         </View>
       </SafeAreaView>
       <View style={{ padding: 20, flex: 1 }}>
+        {!!error && (
+          <View style={[styles.infoBox, { marginBottom: 12, borderColor: "rgba(231,76,60,0.35)", borderWidth: 1 }]}> 
+            <Ionicons name="warning-outline" size={18} color="#e74c3c" />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={{ color: "#ff8b8b", fontSize: 12 }}>Could not load supply history: {error}</Text>
+              {!!resolvedSupplierId && <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>Supplier record: {resolvedSupplierId}</Text>}
+            </View>
+          </View>
+        )}
+
         <View style={styles.supplySummaryBox}>
           <View style={{ alignItems: "center" }}>
-             <Text style={styles.supplySummValue}>788.5<Text style={styles.supplySummUnit}> kg</Text></Text>
+             <Text style={styles.supplySummValue}>{totals.totalGross.toFixed(1)}<Text style={styles.supplySummUnit}> kg</Text></Text>
              <Text style={styles.supplySummLabel}>TOTAL GROSS</Text>
           </View>
           <View style={styles.supSummDivider} />
           <View style={{ alignItems: "center" }}>
-             <Text style={styles.supplySummValue}>770.5<Text style={styles.supplySummUnit}> kg</Text></Text>
+             <Text style={styles.supplySummValue}>{totals.totalNet.toFixed(1)}<Text style={styles.supplySummUnit}> kg</Text></Text>
              <Text style={styles.supplySummLabel}>TOTAL NET</Text>
           </View>
           <View style={styles.supSummDivider} />
           <View style={{ alignItems: "center", justifyContent: "center" }}>
-             <Text style={styles.supplySummValue}>7</Text>
+             <Text style={styles.supplySummValue}>{totals.deliveries}</Text>
              <Text style={styles.supplySummLabel}>DELIVERIES</Text>
           </View>
         </View>
@@ -135,21 +380,23 @@ export function SupplierSupplyScreen({ navigation }: any) {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {[
-            { date: "22 Feb 2026", time: "09:14 AM", agent: "Kumara P.", gross: "87.5 kg", net: "Net: 85.0 kg" },
-            { date: "20 Feb 2026", time: "08:50 AM", agent: "Kumara P.", gross: "124.0 kg", net: "Net: 121.0 kg" },
-            { date: "18 Feb 2026", time: "10:10 AM", agent: "Roshan M.", gross: "63.0 kg", net: "Net: 63.0 kg" },
-            { date: "15 Feb 2026", time: "09:35 AM", agent: "Kumara P.", gross: "201.5 kg", net: "Net: 196.5 kg" },
-            { date: "13 Feb 2026", time: "08:00 AM", agent: "Roshan M.", gross: "95.0 kg", net: "Net: 93.0 kg" },
-          ].map((item, idx) => (
-            <View key={idx} style={styles.supplyHistItem}>
+          {loading ? (
+            <View style={styles.supplyHistItem}>
+              <Text style={styles.supHistSub}>Loading supply history...</Text>
+            </View>
+          ) : filteredHistory.length === 0 ? (
+            <View style={styles.supplyHistItem}>
+              <Text style={styles.supHistSub}>No collection records for this period.</Text>
+            </View>
+          ) : filteredHistory.map((item) => (
+            <View key={item.collectionId} style={styles.supplyHistItem}>
               <View>
-                <Text style={styles.supHistDate}>{item.date}</Text>
-                <Text style={styles.supHistSub}>{item.time} · {item.agent}</Text>
+                <Text style={styles.supHistDate}>{formatDate(item.collectedAt)}</Text>
+                <Text style={styles.supHistSub}>{formatTime(item.collectedAt)} · {String(item.gpsStatus || "NO_GPS") === "GPS" ? "GPS" : "No GPS"}</Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.supHistGross}>{item.gross}</Text>
-                <Text style={styles.supHistSub}>{item.net}</Text>
+                <Text style={styles.supHistGross}>{formatKg(toNumber(item.grossWeight))}</Text>
+                <Text style={styles.supHistSub}>Net: {toNumber(item.netWeight ?? item.grossWeight).toFixed(1)} kg</Text>
               </View>
             </View>
           ))}
@@ -160,7 +407,7 @@ export function SupplierSupplyScreen({ navigation }: any) {
   );
 }
 
-export function SupplierPaymentsScreen({ navigation }: any) {
+export function SupplierPaymentsScreen({ user, navigation }: any) {
   const [activeTab, setActiveTab] = useState("Balance Payments");
   return (
     <View style={styles.dashboardWrap}>
@@ -230,7 +477,7 @@ export function SupplierPaymentsScreen({ navigation }: any) {
   );
 }
 
-export function SupplierDebtsScreen({ navigation }: any) {
+export function SupplierDebtsScreen({ user, navigation }: any) {
   return (
     <View style={styles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
@@ -290,7 +537,10 @@ export function SupplierDebtsScreen({ navigation }: any) {
   );
 }
 
-export function SupplierProfileScreen({ navigation }: any) {
+export function SupplierProfileScreen({ user, navigation }: any) {
+  const getPassbook = (u: any) => u?.passbookNo || u?.passbook_no || "N/A";
+  const initials = user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "SH";
+
   return (
     <View style={styles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
@@ -306,23 +556,23 @@ export function SupplierProfileScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={styles.profileHeader}>
           <View style={styles.profileAvatarBig}>
-            <Text style={styles.profileAvatarBigText}>SB</Text>
+            <Text style={styles.profileAvatarBigText}>{initials}</Text>
           </View>
-          <Text style={styles.profileName}>Sunil Bandara</Text>
+          <Text style={styles.profileName}>{user?.fullName || "Supplier"}</Text>
           <View style={styles.supplierBadge}>
             <Ionicons name="checkmark-circle-outline" size={14} color={palette.accentBlue} />
             <Text style={styles.supplierBadgeText}> Verified Supplier</Text>
           </View>
           <View style={styles.supProfileIdBadge}>
-            <Text style={styles.supProfileIdText}>SH-1042 · PB-0934</Text>
+            <Text style={styles.supProfileIdText}>SH-{user?.userId?.slice(-4) || "0000"} · {getPassbook(user)}</Text>
           </View>
         </View>
 
         <View style={styles.supDetailsBox}>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>Land Name</Text><Text style={styles.supDetailVal}>Halpewatte Estate – Block C</Text></View>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>In-Charge</Text><Text style={styles.supDetailVal}>EXT-Nimal</Text></View>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>Passbook No.</Text><Text style={styles.supDetailVal}>PB-0934</Text></View>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>Supplier ID</Text><Text style={styles.supDetailVal}>SH-1042</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>Land Name</Text><Text style={styles.supDetailVal}>{user?.estateName || "Not Assigned"}</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>In-Charge</Text><Text style={styles.supDetailVal}>Pending Assignment</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>Passbook No.</Text><Text style={styles.supDetailVal}>{getPassbook(user)}</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>Supplier ID</Text><Text style={styles.supDetailVal}>SH-{user?.userId?.slice(-4) || "0000"}</Text></View>
         </View>
 
         <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>ACCOUNT</Text>
@@ -340,12 +590,12 @@ export function SupplierProfileScreen({ navigation }: any) {
           </View>
           <View style={styles.settingItem}>
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="chatbox-ellipses-outline" size={20} color={palette.accentBlue} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>Contact Support</Text><Text style={styles.settingItemSub}>Officer: EXT-Nimal</Text></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>Contact Support</Text><Text style={styles.settingItemSub}>Extension Officer</Text></View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
           </View>
           <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Login")}>
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}><Ionicons name="log-out-outline" size={20} color={palette.muted} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>Sign Out</Text><Text style={styles.settingItemSub}>Sunil Bandara · SH-1042</Text></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>Sign Out</Text><Text style={styles.settingItemSub}>{user?.fullName} · SH-{user?.userId?.slice(-4)}</Text></View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
           </Pressable>
         </View>

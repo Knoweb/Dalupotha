@@ -22,11 +22,57 @@ export function LoginScreen({ navigation }: any) {
   const { width, height } = useWindowDimensions();
   const compact = width < 390 || height < 780;
 
+  const normalizeEmployeeId = (value: string) =>
+    value
+      .trim()
+      .toUpperCase()
+      .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, "-")
+      .replace(/\s+/g, "");
+
   const [role, setRole]               = useState<Role>("supplier");
   const [id, setId]                   = useState("");
   const [pin, setPin]                 = useState("");
   const [showPin, setShowPin]         = useState(false);
   const [loading, setLoading]         = useState(false);
+  const [errorMsg, setErrorMsg]       = useState<string | null>(null);
+  const [errorField, setErrorField]   = useState<"id" | "pin" | "both" | null>(null);
+
+  // Clear errors when user edits either field
+  const handleIdChange = (val: string) => { setId(val); setErrorMsg(null); setErrorField(null); };
+  const handlePinChange = (val: string) => { setPin(val); setErrorMsg(null); setErrorField(null); };
+
+  /** Parse backend error message → determine which field is at fault */
+  const parseLoginError = (msg: string, isSupplier: boolean): { field: "id" | "pin" | "both"; display: string } => {
+    const lower = msg.toLowerCase();
+    if (
+      lower.includes("error 500") ||
+      lower.includes("internal server error") ||
+      lower.includes("network request failed") ||
+      lower.includes("failed to fetch") ||
+      lower.includes("load failed")
+    ) {
+      return {
+        field: "both",
+        display: "Cannot reach login server. Please check API IP/server and try again.",
+      };
+    }
+    if (lower.includes("no account found") || lower.includes("not found") || lower.includes("register")) {
+      const idLabel = isSupplier ? "Passbook / Supplier ID" : "Agent ID";
+      return {
+        field: "id",
+        display: `No account found for this ${idLabel}. Please check and try again.`,
+      };
+    }
+    if (lower.includes("pin") && !lower.includes("id")) {
+      return { field: "pin", display: "Incorrect PIN. Please try again." };
+    }
+    if (lower.includes("not active") || lower.includes("account is not active")) {
+      return { field: "both", display: "Your account is not active. Please contact support." };
+    }
+    // Generic fallback — highlight both
+    const idLabel = isSupplier ? "Passbook / Supplier ID" : "Agent ID";
+    return { field: "both", display: `Incorrect ${idLabel} or PIN. Please try again.` };
+  };
 
   const cardTitle    = useMemo(() => (role === "supplier" ? "Supplier Portal" : "Agent Portal"), [role]);
   const portalSubtitle = role === "supplier"
@@ -37,11 +83,24 @@ export function LoginScreen({ navigation }: any) {
 
   // ── Supplier: PIN login ───────────────────────────────────────────────────
   const handleSupplierLogin = async () => {
-    if (!id.trim() || !pin.trim()) {
-      Alert.alert("Missing Info", "Please enter your Passbook / Supplier ID and PIN.");
+    if (!id.trim() && !pin.trim()) {
+      setErrorField("both");
+      setErrorMsg("Please enter your Passbook / Supplier ID and PIN.");
+      return;
+    }
+    if (!id.trim()) {
+      setErrorField("id");
+      setErrorMsg("Please enter your Passbook / Supplier ID.");
+      return;
+    }
+    if (!pin.trim()) {
+      setErrorField("pin");
+      setErrorMsg("Please enter your PIN.");
       return;
     }
     setLoading(true);
+    setErrorMsg(null);
+    setErrorField(null);
     try {
       const res: any = await apiPost(AuthAPI.supplierLogin, {
         passbookNo: id.trim(),
@@ -49,7 +108,9 @@ export function LoginScreen({ navigation }: any) {
       });
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
-      Alert.alert("Login Failed", err.message ?? "Invalid Passbook ID or PIN.");
+      const { field, display } = parseLoginError(err.message ?? "", true);
+      setErrorField(field);
+      setErrorMsg(display);
     } finally {
       setLoading(false);
     }
@@ -57,25 +118,46 @@ export function LoginScreen({ navigation }: any) {
 
   // ── Agent: PIN login ──────────────────────────────────────────────────────
   const handleAgentLogin = async () => {
-    if (!id.trim() || !pin.trim()) {
-      Alert.alert("Missing Info", "Please enter your Agent ID and PIN.");
+    const normalizedId = normalizeEmployeeId(id);
+    const normalizedPin = pin.trim();
+
+    if (!normalizedId && !normalizedPin) {
+      setErrorField("both");
+      setErrorMsg("Please enter your Agent ID and PIN.");
+      return;
+    }
+    if (!normalizedId) {
+      setErrorField("id");
+      setErrorMsg("Please enter your Agent ID.");
+      return;
+    }
+    if (!normalizedPin) {
+      setErrorField("pin");
+      setErrorMsg("Please enter your PIN.");
       return;
     }
     setLoading(true);
+    setErrorMsg(null);
+    setErrorField(null);
     try {
       const res: any = await apiPost(AuthAPI.login, {
-        employeeId: id.trim(),
-        pin:        pin.trim(),
+        employeeId: normalizedId,
+        pin:        normalizedPin,
       });
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
-      Alert.alert("Login Failed", err.message ?? "Invalid credentials.");
+      const { field, display } = parseLoginError(err.message ?? "", false);
+      setErrorField(field);
+      setErrorMsg(display);
     } finally {
       setLoading(false);
     }
   };
 
   const handleContinue = role === "supplier" ? handleSupplierLogin : handleAgentLogin;
+
+  // Clear error on role switch
+  const handleRoleSwitch = (newRole: Role) => { setRole(newRole); setErrorMsg(null); setErrorField(null); setId(""); setPin(""); };
 
   return (
     <LinearGradient
@@ -103,35 +185,44 @@ export function LoginScreen({ navigation }: any) {
 
           <View style={[styles.authCard, compact && styles.authCardCompact]}>
             <View style={styles.roleTabs}>
-              <RoleTab icon="car-outline"    label="Agent"    active={role === "agent"}    onPress={() => setRole("agent")} />
-              <RoleTab icon="person-outline" label="Supplier" active={role === "supplier"} onPress={() => setRole("supplier")} />
+              <RoleTab icon="car-outline"    label="Agent"    active={role === "agent"}    onPress={() => handleRoleSwitch("agent")} />
+              <RoleTab icon="person-outline" label="Supplier" active={role === "supplier"} onPress={() => handleRoleSwitch("supplier")} />
             </View>
             <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>{cardTitle}</Text>
             <Text style={styles.cardSubtitle}>{portalSubtitle}</Text>
 
-            <Text style={styles.label}>{idLabel}</Text>
-            <View style={styles.inputContainer}>
+            <Text style={[styles.label, (errorField === "id" || errorField === "both") && { color: "#ff6b6b" }]}>
+              {idLabel}{(errorField === "id" || errorField === "both") ? " ✗" : ""}
+            </Text>
+            <View style={[styles.inputContainer, (errorField === "id" || errorField === "both") && { borderColor: "#ff6b6b", borderWidth: 1.5 }]}>
               <TextInput
                 value={id}
-                onChangeText={setId}
+                onChangeText={handleIdChange}
                 style={styles.inputField}
                 placeholder={idPlaceholder}
                 placeholderTextColor="#7d93b4"
-                autoCapitalize="none"
+                autoCapitalize={role === "agent" ? "characters" : "none"}
+                autoCorrect={false}
               />
               {role === "supplier" && (
                 <View style={styles.inputRightIcon}>
-                  <Ionicons name="car-sport-outline" size={20} color={palette.muted} />
+                  <Ionicons
+                    name={errorField === "id" || errorField === "both" ? "alert-circle-outline" : "car-sport-outline"}
+                    size={20}
+                    color={errorField === "id" || errorField === "both" ? "#ff6b6b" : palette.muted}
+                  />
                 </View>
               )}
             </View>
 
             {/* PIN field — shown for both roles */}
-            <Text style={styles.label}>PIN</Text>
-            <View style={styles.inputContainer}>
+            <Text style={[styles.label, (errorField === "pin" || errorField === "both") && { color: "#ff6b6b" }]}>
+              PIN{(errorField === "pin" || errorField === "both") ? " ✗" : ""}
+            </Text>
+            <View style={[styles.inputContainer, (errorField === "pin" || errorField === "both") && { borderColor: "#ff6b6b", borderWidth: 1.5 }]}>
               <TextInput
                 value={pin}
-                onChangeText={setPin}
+                onChangeText={handlePinChange}
                 style={styles.inputField}
                 secureTextEntry={!showPin}
                 placeholder="Enter your PIN"
@@ -143,10 +234,31 @@ export function LoginScreen({ navigation }: any) {
                 <Ionicons
                   name={showPin ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color={palette.muted}
+                  color={errorField === "pin" || errorField === "both" ? "#ff6b6b" : palette.muted}
                 />
               </Pressable>
             </View>
+
+            {/* ── Inline error banner ──────────────────────────────────────── */}
+            {errorMsg && (
+              <View style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                backgroundColor: "rgba(255,107,107,0.12)",
+                borderRadius: 10,
+                borderLeftWidth: 3,
+                borderLeftColor: "#ff6b6b",
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginTop: 10,
+                gap: 8,
+              }}>
+                <Ionicons name="warning-outline" size={17} color="#ff6b6b" style={{ marginTop: 1 }} />
+                <Text style={{ color: "#ff9090", fontSize: 13, lineHeight: 18, flex: 1 }}>
+                  {errorMsg}
+                </Text>
+              </View>
+            )}
 
             <Pressable
               style={({ pressed }) => [
@@ -199,6 +311,7 @@ export function OtpScreen({ route, navigation }: any) {
   const [otp, setOtp]       = useState("");
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Countdown timer
   React.useEffect(() => {
@@ -208,10 +321,11 @@ export function OtpScreen({ route, navigation }: any) {
 
   const handleVerify = async () => {
     if (otp.length !== 6) {
-      Alert.alert("Invalid OTP", "Please enter the 6-digit code.");
+      setErrorMsg("Please enter the 6-digit code.");
       return;
     }
     setLoading(true);
+    setErrorMsg(null);
     try {
       let res: any;
       if (route.params.isRegistering) {
@@ -220,7 +334,7 @@ export function OtpScreen({ route, navigation }: any) {
           ...route.params.registerData,
           otpCode: otp
         });
-        Alert.alert("Success", "Registered Successfully!");
+        // Success handled by clean redirect
       } else {
         res = await apiPost(AuthAPI.verifyOtp, {
           contact: contact,
@@ -230,7 +344,7 @@ export function OtpScreen({ route, navigation }: any) {
       // Token received — navigate to main
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
-      Alert.alert("Verification Failed", err.message ?? "Invalid or expired OTP.");
+      setErrorMsg(err.message ?? "Invalid or expired OTP.");
     } finally {
       setLoading(false);
     }
@@ -269,9 +383,16 @@ export function OtpScreen({ route, navigation }: any) {
               <Text style={{ color: "#fff", fontWeight: "600" }}>{contact}</Text>
             </Text>
 
+            {errorMsg && (
+              <View style={[styles.inlineError, { marginBottom: 15 }]}>
+                <Ionicons name="alert-circle-outline" size={18} color="#ff6b6b" />
+                <Text style={styles.inlineErrorText}>{errorMsg}</Text>
+              </View>
+            )}
+
             <TextInput
               value={otp}
-              onChangeText={setOtp}
+              onChangeText={(t) => { setOtp(t); if(errorMsg) setErrorMsg(null); }}
               style={styles.otpInput}
               keyboardType="number-pad"
               maxLength={6}

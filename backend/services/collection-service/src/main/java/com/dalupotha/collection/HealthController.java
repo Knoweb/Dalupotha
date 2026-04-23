@@ -1,4 +1,4 @@
-﻿package com.dalupotha.collection;
+package com.dalupotha.collection;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
