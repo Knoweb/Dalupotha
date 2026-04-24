@@ -96,7 +96,8 @@ public class AuthService {
             }
         }
 
-        log.info("Staff login successful: {} ({}) - Estate: {}", user.getEmployeeId(), user.getRole(), estateName);
+        log.info("Staff login successful: {} ({}) - Estate: {}. Returning FullName: {}", 
+            user.getEmployeeId(), user.getRole(), estateName, user.getFullName());
         return new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
                 user.getEmployeeId(), user.getFullName(), user.getContact(),
                 routeName, estateId, estateName, arcs, null, jwtExpirationMs / 1000);
@@ -430,5 +431,11 @@ public class AuthService {
         SecureRandom random = new SecureRandom();
         int code = 100000 + random.nextInt(900000);
         return String.valueOf(code);
+    }
+
+    public UserResponse getUser(java.util.UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return new UserResponse(user.getUserId(), user.getFullName(), user.getEmployeeId(), user.getContact());
     }
 }

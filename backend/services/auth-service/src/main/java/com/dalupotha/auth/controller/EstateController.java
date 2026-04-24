@@ -43,7 +43,7 @@ public class EstateController {
 
         // 2. Create Master Admin User for this Estate
         User admin = User.builder()
-                .fullName("Master Admin")
+                .fullName(request.getManagerName())
                 .contact(request.getAdminEmail()) // Use email as primary contact
                 .role(UserRole.MG) // Manager role
                 .estate(estate)

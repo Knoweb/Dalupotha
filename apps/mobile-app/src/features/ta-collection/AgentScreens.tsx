@@ -6,7 +6,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { palette, styles } from "../../ui/theme";
-import { CollectionAPI, ServicesAPI, apiGet, apiPost } from "../../services/api";
+import { CollectionAPI, ServicesAPI, apiGet, apiPatch, apiPost } from "../../services/api";
 import { getOfflineCollections, syncQueuedCollections } from "./collectionData";
 
 type ApiCollectionHistory = {
@@ -491,7 +491,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
 // Requests Screen
 // ─────────────────────────────────────────────────────────────
 
-export function RequestsScreen({ navigation, user, token }: any) {
+export function RequestsScreen({ navigation, user, token, role }: any) {
   const [activeTab, setActiveTab] = useState("Advance");
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -503,6 +503,8 @@ export function RequestsScreen({ navigation, user, token }: any) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [formSupplier, setFormSupplier] = useState<any>(null);
   const [formAmount, setFormAmount] = useState("");
+  const [formQuantity, setFormQuantity] = useState("");
+  const [formItemType, setFormItemType] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [suppliersLoading, setSuppliersLoading] = useState(false);
 
@@ -519,7 +521,11 @@ export function RequestsScreen({ navigation, user, token }: any) {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("createdById", String(user.userId));
+      if (user?.supplierId) {
+        params.set("supplierId", String(user.supplierId));
+      } else {
+        params.set("createdById", String(user.userId));
+      }
       params.set("requestType", requestType);
       params.set("limit", "120");
       const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
@@ -559,6 +565,8 @@ export function RequestsScreen({ navigation, user, token }: any) {
   const openForm = () => {
     setFormSupplier(null);
     setFormAmount("");
+    setFormQuantity("");
+    setFormItemType("");
     setFormNotes("");
     setSearchQuery("");
     setShowForm(true);
@@ -575,6 +583,14 @@ export function RequestsScreen({ navigation, user, token }: any) {
       Alert.alert("Required", "Please enter a valid request amount.");
       return;
     }
+    if ((activeTab === "Fertilizer" || activeTab === "Tools") && !formItemType.trim()) {
+      Alert.alert("Required", `Please enter a specific ${activeTab} Type.`);
+      return;
+    }
+    if ((activeTab === "Fertilizer" || activeTab === "Tools") && (!formQuantity || Number(formQuantity) <= 0)) {
+      Alert.alert("Required", "Please enter a valid quantity.");
+      return;
+    }
 
     setCreating(true);
     try {
@@ -587,7 +603,11 @@ export function RequestsScreen({ navigation, user, token }: any) {
           createdById: user.userId,
           requestType: requestType,
           requestedAmount: activeTab === "Advance" ? amount : 0,
-          notes: formNotes || `Requested via Mobile by ${user.fullName || "Agent"}`,
+          quantity: (activeTab === "Fertilizer" || activeTab === "Tools") ? Number(formQuantity) : null,
+          itemType: formItemType,
+          creatorName: user.fullName || "Agent",
+          creatorId: user.employeeId || "No ID",
+          notes: formNotes.trim(),
         },
         token
       );
@@ -598,6 +618,32 @@ export function RequestsScreen({ navigation, user, token }: any) {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    Alert.alert(
+      "Remove Request",
+      "Are you sure you want to remove this request?",
+      [
+        { text: "No", style: "cancel" },
+        { 
+          text: "Yes, Remove", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiPatch(
+                ServicesAPI.updateStatus(requestId),
+                { status: "CANCELLED", approverId: user.userId },
+                token
+              );
+              loadRequests();
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Failed to cancel request.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const statusColor = (status: string) => {
@@ -705,6 +751,22 @@ export function RequestsScreen({ navigation, user, token }: any) {
           </View>
         )}
 
+        {role !== "supplier" && (
+          <View style={{ marginBottom: 15, gap: 10 }}>
+            <Pressable 
+              style={{ flexDirection: "row", height: 52, backgroundColor: palette.accentGreen, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 8 }}
+              onPress={openForm}
+            >
+              <Ionicons name="add" size={24} color="#111" />
+              <Text style={{ color: "#111", fontSize: 16, fontWeight: "bold" }}>Create New Request</Text>
+            </Pressable>
+            <View style={[styles.warningBox, { marginTop: 0, paddingVertical: 10 }]}>
+              <Ionicons name="alert-circle-outline" size={16} color="#f39c12" />
+              <Text style={styles.warningText}>Only for suppliers under your assignment</Text>
+            </View>
+          </View>
+        )}
+
         <ScrollView showsVerticalScrollIndicator={false}>
           {loading && (
             <View style={{ paddingVertical: 20, alignItems: "center" }}>
@@ -726,13 +788,33 @@ export function RequestsScreen({ navigation, user, token }: any) {
                   <Text style={styles.cardItemSub}>{item.passbookNo || "No passbook"} · {String(item.requestId).slice(0, 8)}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                  <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>{String(item.status || "PENDING")}</Text>
+                  <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>
+                    {String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' ')}
+                  </Text>
                 </View>
               </View>
               {activeTab === "Advance" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                   <Text style={styles.reqCardLabel}>Amount</Text>
                   <Text style={styles.reqCardValue}>Rs. {Number(item.requestedAmount || 0).toLocaleString()}</Text>
+                </View>
+              )}
+              {activeTab === "Fertilizer" && (
+                <>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                    <Text style={styles.reqCardLabel}>Type</Text>
+                    <Text style={styles.reqCardValue}>{item.itemType || "Standard"}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                    <Text style={styles.reqCardLabel}>Quantity</Text>
+                    <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
+                  </View>
+                </>
+              )}
+              {activeTab === "Tools" && (
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                  <Text style={styles.reqCardLabel}>Units</Text>
+                  <Text style={styles.reqCardValue}>{item.quantity || 1}</Text>
                 </View>
               )}
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 15 }}>
@@ -743,21 +825,22 @@ export function RequestsScreen({ navigation, user, token }: any) {
                 <Text style={styles.reqCardLabel}>Notes</Text>
                 <Text style={[styles.reqCardValue, { color: palette.muted, flex: 1, textAlign: "right" }]} numberOfLines={1}>{item.notes || "-"}</Text>
               </View>
+
+              {item.status === "PENDING" && role !== "supplier" && (
+                <View style={{ marginTop: 15, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 15 }}>
+                  <Pressable 
+                    onPress={() => handleCancelRequest(item.requestId)}
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 8, borderRadius: 8, backgroundColor: "rgba(231,76,60,0.1)", borderWidth: 1, borderColor: "rgba(231,76,60,0.2)" }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#e74c3c" />
+                    <Text style={{ color: "#e74c3c", fontSize: 13, fontWeight: "bold" }}>Remove Request</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           ))}
           <View style={{ height: 100 }} />
         </ScrollView>
-      </View>
-
-      <View style={styles.floatingBottom}>
-        <Pressable style={styles.newReqBtn} onPress={openForm}>
-          <Ionicons name="add" size={24} color="#fff" />
-          <Text style={styles.newReqBtnText}>Create New Request</Text>
-        </Pressable>
-        <View style={styles.warningBox}>
-          <Ionicons name="alert-circle-outline" size={16} color="#f39c12" />
-          <Text style={styles.warningText}>Only for suppliers under your tracking assignment</Text>
-        </View>
       </View>
 
       {/* NEW REQUEST MODAL */}
@@ -823,6 +906,72 @@ export function RequestsScreen({ navigation, user, token }: any) {
                       <Text style={{ color: "white", fontSize: 11 }}>Change</Text>
                     </Pressable>
                   </View>
+
+                  {activeTab === "Fertilizer" && (
+                      <View style={{ gap: 20, marginBottom: 25 }}>
+                         <View>
+                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Fertilizer Type</Text>
+                            <View style={[styles.inputContainer, { height: 56 }]}>
+                               <TextInput
+                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
+                                  placeholder="e.g. T.65, UREA"
+                                  placeholderTextColor="#7d93b4"
+                                  value={formItemType}
+                                  onChangeText={setFormItemType}
+                                />
+                            </View>
+                         </View>
+                         
+                         <View>
+                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Quantity (kg)</Text>
+                            <View style={[styles.inputContainer, { height: 56 }]}>
+                               <TextInput
+                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
+                                  placeholder="Enter kg..."
+                                  placeholderTextColor="#7d93b4"
+                                  keyboardType="number-pad"
+                                  value={formQuantity}
+                                  onChangeText={setFormQuantity}
+                                />
+                            </View>
+                         </View>
+                      </View>
+                   )}
+ 
+                   {activeTab === "Tools" && (
+                      <View style={{ gap: 20, marginBottom: 25 }}>
+                         <View style={{ backgroundColor: "rgba(243, 156, 18, 0.1)", padding: 15, borderRadius: 12, borderWidth: 1, borderColor: "rgba(243, 156, 18, 0.2)" }}>
+                            <Text style={{ color: "#f39c12", fontSize: 12, fontWeight: "600", lineHeight: 18 }}>Note: Tool purchases will be billed as debt via the leaf bag deduction route.</Text>
+                         </View>
+                         
+                         <View>
+                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Tool Type</Text>
+                            <View style={[styles.inputContainer, { height: 56 }]}>
+                               <TextInput
+                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
+                                  placeholder="e.g. Shovel, Machete"
+                                  placeholderTextColor="#7d93b4"
+                                  value={formItemType}
+                                  onChangeText={setFormItemType}
+                                />
+                            </View>
+                         </View>
+
+                         <View>
+                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Number of Units</Text>
+                            <View style={[styles.inputContainer, { height: 56 }]}>
+                               <TextInput
+                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
+                                  placeholder="e.g. 5"
+                                  placeholderTextColor="#7d93b4"
+                                  keyboardType="number-pad"
+                                  value={formQuantity}
+                                  onChangeText={setFormQuantity}
+                               />
+                            </View>
+                         </View>
+                      </View>
+                   )}
 
                   {activeTab === "Advance" && (
                      <>

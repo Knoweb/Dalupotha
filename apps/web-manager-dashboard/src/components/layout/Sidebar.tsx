@@ -6,17 +6,19 @@ import {
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  userInfo: { fullName: string, estateName: string, employeeId?: string };
+  onLogout: () => void;
 }
 
-export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export default function Sidebar({ activeTab, onTabChange, userInfo, onLogout }: SidebarProps) {
   return (
     <aside className="w-[260px] bg-[var(--sidebar-bg)] flex flex-col shadow-xl z-20">
       <div className="p-6 flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-white p-1.5 rounded-lg flex items-center justify-center border border-white/20 shadow-inner overflow-hidden">
-            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-white/10 shadow-lg overflow-hidden group">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-cover transform transition-transform group-hover:scale-110 duration-500" />
           </div>
-          <span className="text-lg font-black text-white tracking-tight">Dalu Potha</span>
+          <span className="text-lg font-bold text-white tracking-tight uppercase">{userInfo.estateName}</span>
         </div>
         <button className="text-white/50 hover:text-white bg-black/5 p-1 rounded-md">
           <ChevronLeft size={16} />
@@ -36,16 +38,12 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         <NavItem icon={<Settings size={18}/>} label="Settings" active={activeTab === 'settings'} onClick={() => onTabChange('settings')} />
       </nav>
 
-      <div className="p-6 border-t border-white/10">
-        <div className="flex items-center gap-3 mb-4 p-2 rounded-lg bg-black/10">
-          <div className="w-8 h-8 rounded-full bg-green-400 border border-white/20" />
-          <div className="flex-1 overflow-hidden">
-             <p className="text-xs font-bold text-white truncate">Uva Halpewatte</p>
-             <p className="text-[10px] text-white/50 truncate">Full Access</p>
-          </div>
-        </div>
-        <button className="flex items-center gap-2 text-white/60 hover:text-white transition-colors text-sm font-medium">
-          <LogOut size={16} />
+      <div className="p-6 border-t border-white/10 mt-auto">
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white hover:bg-black/10 rounded-xl transition-all text-sm font-semibold group"
+        >
+          <LogOut size={18} className="group-hover:translate-x-1 transition-transform" />
           <span>Sign Out</span>
         </button>
       </div>
@@ -64,8 +62,8 @@ function NavItem({ icon, label, active, onClick, badge }: { icon: any, label: st
       }`}
     >
       <span className={active ? 'text-white' : 'text-white/60'}>{icon}</span>
-      <span className="flex-1 text-left font-bold text-xs tracking-tight">{label}</span>
-      {badge && <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border border-white/20 uppercase tracking-tighter">{badge}</span>}
+      <span className="flex-1 text-left font-semibold text-xs tracking-tight">{label}</span>
+      {badge && <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-white/20 uppercase tracking-tighter">{badge}</span>}
     </button>
   );
 }

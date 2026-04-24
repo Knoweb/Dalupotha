@@ -1,14 +1,24 @@
+import { useEffect, useState } from 'react'
 import { TrendingUp, Users, CheckSquare, AlertTriangle } from 'lucide-react'
+import { FinanceAPI } from '../services/api'
 
 export default function DashboardPage() {
+  const [pendingCount, setPendingCount] = useState<number | string>('...');
+
+  useEffect(() => {
+    FinanceAPI.getRequests({ status: 'PENDING' })
+      .then(reqs => setPendingCount(reqs.length))
+      .catch(() => setPendingCount('!'));
+  }, []);
+
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       <section>
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Key Performance Indicators</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <KPICard title="4,820 kg" subtitle="Today's Green Leaf" icon={<TrendingUp size={20} className="text-green-500" />} trend="+8.4%" />
           <KPICard title="247" subtitle="Active Small Holders" icon={<Users size={20} className="text-blue-500" />} trend="12 new this month" />
-          <KPICard title="18" subtitle="Pending Approvals" icon={<CheckSquare size={20} className="text-orange-500" />} trend="Adv 9 • Fert 6 • Mech 3" />
+          <KPICard title={pendingCount.toString()} subtitle="Pending Approvals" icon={<CheckSquare size={20} className="text-orange-500" />} trend="Service queue active" />
         </div>
       </section>
 
@@ -55,10 +65,10 @@ function KPICard({ title, subtitle, icon, trend }: any) {
           <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">{trend}</span>
         )}
       </div>
-      <p className="text-sm font-bold text-slate-400">{subtitle}</p>
-      <p className="text-3xl font-black text-slate-900 tracking-tighter">{title}</p>
+      <p className="text-sm font-semibold text-slate-500">{subtitle}</p>
+      <p className="text-3xl font-bold text-slate-900 tracking-tight">{title}</p>
       {!trend.includes('%') && (
-        <p className="text-[10px] font-bold text-slate-400 mt-2 italic">{trend}</p>
+        <p className="text-[10px] font-medium text-slate-400 mt-2 italic">{trend}</p>
       )}
     </div>
   );

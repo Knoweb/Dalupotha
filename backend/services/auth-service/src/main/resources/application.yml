@@ -1,63 +1,22 @@
 spring:
   application:
     name: auth-service
-
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:auth_db}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:dalupotha}
     username: ${DB_USER:dalupotha_user}
-    password: ${DB_PASSWORD:superman9}
-    driver-class-name: org.postgresql.Driver
-
+    password: ${DB_PASSWORD:dalupotha_password}
   jpa:
     hibernate:
-      ddl-auto: validate
-    show-sql: false
+      ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: false
-
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-    validate-on-migrate: true
+        format_sql: true
 
 server:
   port: 8081
-
-jwt:
-  secret: ${JWT_SECRET:dalupotha-super-secret-jwt-key-change-in-production-2024}
-  expiration-ms: 86400000   # 24 hours
-
-otp:
-  expiry-minutes: 5
-
-vonage:
-  api:
-    key: ${VONAGE_API_KEY:}
-    secret: ${VONAGE_API_SECRET:}
-  sender:
-    id: ${VONAGE_SENDER_ID:VonageAPIs}
-
-# Eureka registration
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
-    registry-fetch-interval-seconds: 5
-  instance:
-    prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 10
-    lease-expiration-duration-in-seconds: 30
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-
-logging:
-  level:
-    com.dalupotha: INFO
-    org.flywaydb: INFO

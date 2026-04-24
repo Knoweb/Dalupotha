@@ -67,15 +67,16 @@ function MainTabNavigator({ route, navigation }: any) {
         <>
           <Tab.Screen name="Home" children={() => <SupplierHomeScreen user={user} token={token} navigation={navigation} />} />
           <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} />} />
+          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={token} role={role} />} />
           <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} />} />
-          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} token={token} navigation={navigation} />} />
-          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} token={token} navigation={navigation} />} />
+          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} navigation={navigation} />} />
+          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} />} />
         </>
       ) : (
         <>
           <Tab.Screen name="Dashboard" children={() => <DashboardScreen user={user} role={role} navigation={navigation} token={route.params?.token} />} />
           <Tab.Screen name="Collections" children={() => <CollectionsScreen navigation={navigation} user={user} token={route.params?.token} />} />
-          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={route.params?.token} />} />
+          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={route.params?.token} role={role} />} />
           <Tab.Screen name="Profile" children={() => <ProfileScreen user={user} navigation={navigation} />} />
         </>
       )}

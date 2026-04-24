@@ -16,20 +16,49 @@ import UsersPage from './pages/Users'
 import SettingsPage from './pages/Settings'
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<'manager' | 'super-admin' | null>(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('is_auth') === 'true';
+  });
+  const [userRole, setUserRole] = useState<'manager' | 'super-admin' | null>(() => {
+    return localStorage.getItem('user_role') as any;
+  });
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('active_tab') || 'dashboard';
+  });
 
-  const handleLogin = (role: 'manager' | 'super-admin') => {
-    setUserRole(role);
+  const [userInfo, setUserInfo] = useState<{ fullName: string, estateName: string, employeeId?: string }>(() => {
+    return {
+      fullName: localStorage.getItem('user_name') || 'Estate Manager',
+      estateName: localStorage.getItem('estate_name') || 'Weliwita Estate',
+      employeeId: localStorage.getItem('employee_id') || undefined
+    };
+  });
+
+  const handleLogin = (data: { role: 'manager' | 'super-admin', fullName: string, estateName: string, employeeId?: string }) => {
+    setUserRole(data.role);
     setIsAuthenticated(true);
-    // Reset tab when switching roles/logging in
+    setUserInfo({ fullName: data.fullName, estateName: data.estateName, employeeId: data.employeeId });
+    
+    localStorage.setItem('is_auth', 'true');
+    localStorage.setItem('user_role', data.role);
+    localStorage.setItem('user_name', data.fullName);
+    localStorage.setItem('estate_name', data.estateName);
+    if (data.employeeId) localStorage.setItem('employee_id', data.employeeId);
+    else localStorage.removeItem('employee_id');
+
     setActiveTab('dashboard');
+    localStorage.setItem('active_tab', 'dashboard');
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole(null);
+    localStorage.clear(); // Clear all meta on logout
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    localStorage.setItem('active_tab', tab);
   };
 
   if (!isAuthenticated) {
@@ -57,16 +86,13 @@ export default function App() {
   };
 
   return (
-    <DashboardLayout activeTab={activeTab} onTabChange={setActiveTab}>
+    <DashboardLayout 
+      activeTab={activeTab} 
+      onTabChange={handleTabChange} 
+      userInfo={userInfo}
+      onLogout={handleLogout}
+    >
       <div className="flex flex-col gap-8 h-full">
-         <div className="flex justify-end">
-            <button 
-              onClick={handleLogout}
-              className="text-[10px] font-black text-slate-300 uppercase tracking-widest hover:text-red-500 transition-colors"
-            >
-              Sign Out
-            </button>
-         </div>
          {renderContent()}
       </div>
     </DashboardLayout>

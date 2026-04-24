@@ -17,6 +17,10 @@ public record ServiceRequestResponse(
         RequestStatus status,
         Integer quantity,
         BigDecimal requestedAmount,
+        String itemType,
+        String itemDetails,
+        String creatorName,
+        String creatorId,
         String notes,
         OffsetDateTime requestDate,
         OffsetDateTime updatedAt

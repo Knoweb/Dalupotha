@@ -5,5 +5,8 @@ public enum RequestType {
     TRANSPORT,
     MACHINE_RENT,
     ADVISORY,
-    ADVANCE
+    ADVANCE,
+    TOOL_PURCHASE,
+    TOOL_RENT,
+    OTHER
 }

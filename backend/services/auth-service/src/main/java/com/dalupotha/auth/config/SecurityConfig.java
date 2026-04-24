@@ -36,6 +36,7 @@ public class SecurityConfig {
                     "/api/auth/agent/register",
                     "/api/auth/estates/**",
                     "/api/auth/suppliers",
+                    "/api/auth/users/**",
                     "/actuator/health",
                     "/error"
                 ).permitAll()

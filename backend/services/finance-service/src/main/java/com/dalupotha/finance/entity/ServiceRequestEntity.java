@@ -60,6 +60,18 @@ public class ServiceRequestEntity {
     @Column(name = "passbook_no")
     private String passbookNo;
 
+    @Column(name = "item_type")
+    private String itemType;
+
+    @Column(name = "item_details")
+    private String itemDetails;
+
+    @Column(name = "creator_name")
+    private String creatorName;
+
+    @Column(name = "creator_id")
+    private String creatorId;
+
     @Column(name = "approver_id")
     private UUID approverId;
 
@@ -178,6 +190,38 @@ public class ServiceRequestEntity {
 
     public void setPassbookNo(String passbookNo) {
         this.passbookNo = passbookNo;
+    }
+
+    public String getItemType() {
+        return itemType;
+    }
+
+    public void setItemType(String itemType) {
+        this.itemType = itemType;
+    }
+
+    public String getItemDetails() {
+        return itemDetails;
+    }
+
+    public void setItemDetails(String itemDetails) {
+        this.itemDetails = itemDetails;
+    }
+
+    public String getCreatorName() {
+        return creatorName;
+    }
+
+    public void setCreatorName(String creatorName) {
+        this.creatorName = creatorName;
+    }
+
+    public String getCreatorId() {
+        return creatorId;
+    }
+
+    public void setCreatorId(String creatorId) {
+        this.creatorId = creatorId;
     }
 
     public UUID getApproverId() {

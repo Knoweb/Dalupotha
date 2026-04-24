@@ -106,6 +106,15 @@ public class AuthDtos {
     }
 
     @Data
+    @AllArgsConstructor
+    public static class UserResponse {
+        private java.util.UUID userId;
+        private String fullName;
+        private String employeeId;
+        private String contact;
+    }
+
+    @Data
     public static class OtpSendResponse {
         private String message;
         private String contact;
