@@ -1,4 +1,4 @@
-﻿package com.dalupotha.notification;
+package com.dalupotha.notification;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;

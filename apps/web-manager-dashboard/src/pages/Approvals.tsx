@@ -1,365 +1,418 @@
-import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle2, XCircle, Eye, RefreshCw, AlertCircle, Clock, Calendar, X, User, FileText, Landmark } from 'lucide-react'
-import { FinanceAPI, ServiceRequest, RequestStatus } from '../services/api'
+﻿import { useEffect, useState, useCallback } from "react"
+import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb } from "lucide-react"
+import { FinanceAPI, ServiceRequest, RequestStatus } from "../services/api"
 
-export default function ApprovalsPage() {
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
-  const [ledgerInfo, setLedgerInfo] = useState<{currentDebt: number; estimatedBalance: number} | null>(null);
-  const [ledgerLoading, setLedgerLoading] = useState(false);
-  const [filter, setFilter] = useState<'PENDING' | 'PROCESSED'>('PENDING');
+const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Machine Rent", "Advisory", "Leaf Bags"]
 
-  const loadRequests = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await FinanceAPI.getRequests({ limit: '50' });
-      const sorted = [...data].sort((a, b) => {
-        return new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime();
-      });
-      setRequests(sorted);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to establish connection to gateway.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const TYPE_META: Record<string, { label: string; color: string }> = {
+  ADVANCE:       { label: "Advance",       color: "text-green-600 font-semibold" },
+  FERTILIZER:    { label: "Fertilizer",    color: "text-green-500 font-semibold" },
+  TOOL_RENT:     { label: "Machine Rent",  color: "text-purple-600 font-semibold" },
+  TOOL_PURCHASE: { label: "Tool Purchase", color: "text-teal-600 font-semibold" },
+  ADVISORY:      { label: "Advisory",      color: "text-orange-500 font-semibold" },
+  LEAF_BAG:      { label: "Leaf Bags",     color: "text-green-400 font-semibold" },
+  TRANSPORT:     { label: "Transport",     color: "text-blue-500 font-semibold" },
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  PENDING:         "bg-yellow-100 text-yellow-700",
+  REVIEW:          "bg-blue-100 text-blue-600",
+  APPROVED_BY_EXT: "bg-green-100 text-green-700",
+  REJECTED:        "bg-red-100 text-red-500",
+  DISPATCHED:      "bg-purple-100 text-purple-600",
+  CANCELLED:       "bg-slate-100 text-slate-400",
+}
+
+function getAmountQty(req: ServiceRequest): string {
+  if (req.requestType === "ADVANCE") return `Rs. ${Number(req.requestedAmount || 0).toLocaleString()}`
+  if (req.requestType === "FERTILIZER") return `${Number(req.quantity || 0)} kg`
+  if (req.requestType === "LEAF_BAG") return `${Number(req.quantity || 0)} bags`
+  if (req.requestType === "TOOL_RENT") return `${Number(req.quantity || 0)} days`
+  if (req.requestType === "ADVISORY") return req.notes || "Soil query"
+  if (req.requestType === "TRANSPORT") return "Provision"
+  return `${Number(req.quantity || 0)} units`
+}
+
+function formatDate(str: string) {
+  return new Date(str).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+function formatTime(str: string) {
+  return new Date(str).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+}
+
+function matchesFilter(req: ServiceRequest, filter: string) {
+  if (filter === "All Types") return true
+  if (filter === "Advance") return req.requestType === "ADVANCE"
+  if (filter === "Fertilizer") return req.requestType === "FERTILIZER"
+  if (filter === "Machine Rent") return req.requestType === "TOOL_RENT"
+  if (filter === "Advisory") return req.requestType === "ADVISORY"
+  if (filter === "Leaf Bags") return req.requestType === "LEAF_BAG"
+  return true
+}
+
+function ViewModal({ req, code, debt, onClose, onApprove, onReject, processing }: {
+  req: ServiceRequest; code: string; debt: number | null
+  onClose: () => void; onApprove: () => void; onReject: () => void; processing: boolean
+}) {
+  const [comment, setComment] = useState("")
+  const [taInfo, setTaInfo] = useState<{ fullName: string; employeeId: string } | null>(null)
 
   useEffect(() => {
-    loadRequests();
-  }, [loadRequests]);
+    if (!req.createdById) return
+    fetch(`/api/auth/users/${req.createdById}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setTaInfo({ fullName: d.fullName, employeeId: d.employeeId }) })
+      .catch(() => {})
+  }, [req.createdById])
 
-  const handleSelectRequest = async (req: ServiceRequest | null) => {
-    setSelectedRequest(req);
-    if (req) {
-      setLedgerLoading(true);
-      try {
-        const info = await FinanceAPI.getSupplierLedger(req.supplierId);
-        setLedgerInfo(info);
-      } catch (err) {
-        console.error("Ledger fetch failed", err);
-        setLedgerInfo(null);
-      } finally {
-        setLedgerLoading(false);
-      }
-    } else {
-      setLedgerInfo(null);
-    }
-  };
-
-  const handleUpdateStatus = async (requestId: string, status: RequestStatus) => {
-    setProcessingId(requestId);
-    try {
-      const adminUuid = '11111111-1111-1111-1111-111111111111';
-      await FinanceAPI.updateStatus(requestId, status, adminUuid);
-      handleSelectRequest(null);
-      loadRequests();
-    } catch (err: any) {
-      alert(err?.message || 'Status update failed.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const pendingCount = requests.filter(r => r.status === 'PENDING').length;
-  const processedCount = requests.filter(r => r.status !== 'PENDING').length;
-
-  const filteredRequests = requests.filter(r => {
-    if (filter === 'PENDING') return r.status === 'PENDING';
-    return r.status !== 'PENDING';
-  });
-
-  const formatDateTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return {
-      date: date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
-    };
-  };
-
-  const getRequestAccent = (requestType: string) => {
-    if (requestType === 'ADVANCE') return 'emerald';
-    if (requestType === 'FERTILIZER') return 'blue';
-    if (requestType === 'TRANSPORT') return 'violet';
-    if (requestType === 'TOOL_PURCHASE' || requestType === 'TOOL_RENT') return 'teal';
-    return 'slate';
-  };
-
-  const getRequestLabel = (requestType: string) => requestType.replace(/_/g, ' ').toLowerCase();
-
-  const getRequestSpecification = (req: ServiceRequest) => {
-    if (req.requestType === 'ADVANCE') return `Rs. ${Number(req.requestedAmount || 0).toLocaleString()}`;
-    if (req.requestType === 'TRANSPORT') return 'Provision';
-    if (req.requestType === 'FERTILIZER') return `${Number(req.quantity || 0).toLocaleString()} kg`;
-    return `${Number(req.quantity || 0).toLocaleString()} units`;
-  };
+  const supplyThisMonth = (req as any).supplyThisMonth ?? 0
+  const debtVal = debt ?? 0
+  const ratio = supplyThisMonth > 0 ? ((debtVal / supplyThisMonth) * 100).toFixed(1) : "0.0"
+  const highRatio = Number(ratio) > 40
+  const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
+  const isPending = req.status === "PENDING" || req.status === "REVIEW"
 
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-500 pb-20 pr-4 lg:pr-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-4 gap-4">
-        <div>
-           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Approvals Queue</h1>
-           <p className="text-slate-500 text-sm font-medium">Verify and authorize field service requests</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()} style={{ fontFamily: "Poppins, sans-serif" }}>
+        <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-900">Request Detail - {code}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"><X size={18} /></button>
         </div>
-         <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl">
-            <StatusTab 
-              label={`${pendingCount} Pending`} 
-              color="text-orange-600" 
-              active={filter === 'PENDING'} 
-              onClick={() => setFilter('PENDING')}
-            />
-            <StatusTab 
-              label={`${processedCount} Processed`} 
-              color="text-green-600" 
-              active={filter === 'PROCESSED'} 
-              onClick={() => setFilter('PROCESSED')}
-            />
-         </div>
+        <div className="px-7 py-5 grid grid-cols-2 gap-5">
+          <div className="bg-slate-50 rounded-xl p-4">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Supplier Info</p>
+            {[
+              { label: "Supplier",     value: req.supplierName || "---" },
+              { label: "ID",           value: req.supplierId?.slice(-7)?.toUpperCase() || "---" },
+              { label: "Request Type", value: meta.label },
+              { label: "Amount / Qty", value: getAmountQty(req) },
+              { label: "Date",         value: formatDate(req.requestDate) },
+            ].map(row => (
+              <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                <span className="text-xs text-slate-500">{row.label}</span>
+                <span className="text-sm font-semibold text-slate-800">{row.value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <div className="bg-slate-50 rounded-xl p-4">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Financial Standing</p>
+              {[
+                { label: "Outstanding Debt",  value: `Rs. ${debtVal.toLocaleString()}` },
+                { label: "Supply This Month", value: `${supplyThisMonth.toLocaleString()} kg` },
+                { label: "Debt/Supply Ratio", value: `${ratio}%` },
+              ].map(row => (
+                <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                  <span className="text-xs text-slate-500">{row.label}</span>
+                  <span className="text-sm font-semibold text-slate-800">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            {highRatio && (
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3 flex gap-2 items-start">
+                <Lightbulb size={14} className="text-green-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-slate-600"><span className="font-semibold text-green-700">Recommendation: </span>High debt ratio - review carefully before approving</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="px-7 pb-4">
+          <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center gap-6">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">Transport Agent</p>
+            <div className="flex items-center gap-8">
+              <div>
+                <p className="text-[10px] text-slate-400">Name</p>
+                <p className="text-sm font-semibold text-slate-800">{taInfo?.fullName || "---"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400">Employee ID</p>
+                <p className="text-sm font-semibold text-slate-800">{taInfo?.employeeId || "---"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400">Submitted</p>
+                <p className="text-sm font-semibold text-slate-800">{formatDate(req.requestDate)}</p>
+                <p className="text-[10px] text-slate-400">{formatTime(req.requestDate)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        {isPending && (
+          <div className="px-7 pb-4">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Manager Comment</p>
+            <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Add comment (optional)..." rows={3}
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all resize-none" />
+          </div>
+        )}
+        <div className="px-7 py-4 border-t border-slate-100 flex justify-end gap-3">
+          {isPending ? (
+            <>
+              <button disabled={processing} onClick={onReject} className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
+                <XCircle size={16} /> Reject Request
+              </button>
+              <button disabled={processing} onClick={onApprove} className="inline-flex items-center gap-2 bg-[#2d6a4f] hover:bg-[#1b4332] text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
+                <CheckCircle2 size={16} /> Approve Request
+              </button>
+            </>
+          ) : (
+            <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Close</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function ApprovalsPage() {
+  const [requests, setRequests] = useState<ServiceRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const [typeFilter, setTypeFilter] = useState("All Types")
+  const [search, setSearch] = useState("")
+  const [debtMap, setDebtMap] = useState<Record<string, number>>({})
+  const [approverMap, setApproverMap] = useState<Record<string, string>>({})
+  const [creatorMap, setCreatorMap] = useState<Record<string, string>>({})
+  const [viewReq, setViewReq] = useState<{ req: ServiceRequest; code: string } | null>(null)
+
+  const loadRequests = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await FinanceAPI.getRequests({ limit: "50" })
+      const sorted = [...data].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
+      setRequests(sorted)
+      const pendingIds = [...new Set(sorted.filter(r => r.status === "PENDING" || r.status === "REVIEW").map(r => r.supplierId))]
+      const dmap: Record<string, number> = {}
+      await Promise.allSettled(pendingIds.map(async id => {
+        try { dmap[id] = (await FinanceAPI.getSupplierLedger(id)).currentDebt ?? 0 }
+        catch { dmap[id] = 0 }
+      }))
+      setDebtMap(dmap)
+      const approverIds = [...new Set(sorted.filter(r => r.approverId).map(r => r.approverId!))]
+      const amap: Record<string, string> = {}
+      await Promise.allSettled(approverIds.map(async id => {
+        try {
+          const u = await fetch(`/api/auth/users/${id}`).then(r => r.json())
+          const val = u.employeeId || u.fullName
+          amap[id] = (val && !val.startsWith("11111111")) ? val : "---"
+        } catch { amap[id] = "---" }
+      }))
+      setApproverMap(amap)
+      // Fetch TA names using createdById for all requests
+      const creatorIds = [...new Set(sorted.filter(r => r.createdById).map(r => r.createdById))]
+      const cmap: Record<string, string> = {}
+      await Promise.allSettled(creatorIds.map(async id => {
+        try {
+          const u = await fetch(`/api/auth/users/${id}`).then(r => r.json())
+          cmap[id] = u.employeeId ? `${u.fullName} (${u.employeeId})` : u.fullName || "---"
+        } catch { cmap[id] = "---" }
+      }))
+      setCreatorMap(cmap)
+    } catch (err) { console.error(err) }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { loadRequests() }, [loadRequests])
+
+  const handleAction = async (requestId: string, status: RequestStatus) => {
+    setProcessingId(requestId)
+    try {
+      await FinanceAPI.updateStatus(requestId, status, localStorage.getItem("current_user_id") || "")
+      setViewReq(null)
+      loadRequests()
+    } catch (err: any) { alert(err?.message || "Action failed.") }
+    finally { setProcessingId(null) }
+  }
+
+  const pending        = requests.filter(r => r.status === "PENDING")
+  const underReview    = requests.filter(r => r.status === "REVIEW")
+  const approvedToday  = requests.filter(r => r.status === "APPROVED_BY_EXT" && new Date(r.requestDate).toDateString() === new Date().toDateString())
+  const recentApproved = requests.filter(r => r.status === "APPROVED_BY_EXT" || r.status === "DISPATCHED")
+
+  const applyFilters = (list: ServiceRequest[]) => list.filter(r =>
+    matchesFilter(r, typeFilter) &&
+    (!search || (r.supplierName || "").toLowerCase().includes(search.toLowerCase()) || (r.requestId || "").toLowerCase().includes(search.toLowerCase()))
+  )
+
+  const code = (i: number) => `REQ-${String(i + 1).padStart(3, "0")}`
+  const TH = "px-4 py-2.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider text-left"
+  const TD = "px-4 py-2.5"
+
+  return (
+    <div className="space-y-4" style={{ fontFamily: "Poppins, sans-serif" }}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {[
+            { label: `${pending.length} Pending`,              cls: "bg-yellow-50 text-yellow-600 border-yellow-200" },
+            { label: `${underReview.length} Under Review`,     cls: "bg-blue-50 text-blue-500 border-blue-200" },
+            { label: `${approvedToday.length} Approved Today`, cls: "bg-green-50 text-green-600 border-green-200" },
+          ].map(p => (
+            <span key={p.label} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${p.cls}`}>{p.label}</span>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={loadRequests} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button className="inline-flex items-center gap-1.5 border border-slate-200 bg-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm">
+            <Download size={12} /> Export List
+          </button>
+        </div>
       </div>
 
-      {error && (
-        <div className="mx-4 bg-red-50 border border-red-200 p-4 rounded-2xl flex items-center gap-4 text-red-600 shadow-sm">
-           <AlertCircle size={20} />
-           <div className="flex-1 text-sm font-semibold">{error}</div>
-           <button onClick={loadRequests} className="px-4 py-2 bg-white rounded-lg border border-red-200 text-xs font-bold hover:bg-red-50 transition-colors">
-             Retry Sync
-           </button>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 pt-4 pb-3">
+          <p className="text-sm font-semibold text-slate-800 mb-3">Pending Approvals</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input type="text" placeholder="Search by name or ID..." value={search} onChange={e => setSearch(e.target.value)}
+                className="pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all w-48" />
+            </div>
+            {TYPE_FILTERS.map(f => (
+              <button key={f} onClick={() => setTypeFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${typeFilter === f ? "bg-[#2d6a4f] text-white border-[#2d6a4f]" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
-
-      <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm mx-4 overflow-hidden bg-white/50 backdrop-blur-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-separate border-spacing-0">
+          <table className="w-full">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-200 text-slate-500 text-[10px] font-bold uppercase tracking-[0.1em]">
-                <th className="px-6 py-5">Supplier Profile</th>
-                <th className="px-6 py-5">Requested By</th>
-                <th className="px-6 py-5">Request Category</th>
-                <th className="px-6 py-5">Submission Log</th>
-                <th className="px-6 py-5 text-center">Status</th>
-                <th className="px-8 py-5 text-right">Action</th>
+              <tr className="border-y border-slate-100">
+                <th className={TH}>Request ID</th>
+                <th className={TH}>Supplier</th>
+                <th className={TH}>Type</th>
+                <th className={TH}>Amount / Qty</th>
+                <th className={TH}>Requested</th>
+                <th className={TH}>Debt</th>
+                <th className={TH}>Status</th>
+                <th className={`${TH} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-8 py-24 text-center">
-                     <RefreshCw className="animate-spin inline-block text-green-500 mb-4" size={32} />
-                     <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">Refreshing Request Database...</p>
-                  </td>
-                </tr>
-              ) : requests.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-8 py-24 text-center text-slate-400 text-sm italic font-medium">
-                     No active service requests found.
-                  </td>
-                </tr>
-              ) : filteredRequests.map((req) => {
-                const dt = formatDateTime(req.requestDate);
-                return (
-                  <tr key={req.requestId} className="group hover:bg-white transition-all duration-200">
-                    <td className="px-8 py-7">
-                       <p className="font-bold text-slate-900 text-[15px] leading-tight mb-1">{req.supplierName || 'System ID Entry'}</p>
-                       <p className="text-[11px] text-slate-400 font-bold tracking-wider uppercase">{req.passbookNo || 'PB-000000'}</p>
-                    </td>
-                    <td className="px-6 py-6">
-                      <p className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                        {req.creatorName || "Transport Agent"}
-                      </p>
-                      <p className="text-xs text-slate-400 font-medium">ID: {req.creatorId || "—"}</p>
-                    </td>
-                    <td className="px-6 py-6">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        req.requestType === 'ADVANCE' ? 'bg-emerald-50 text-emerald-600' : 
-                        req.requestType === 'FERTILIZER' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-600'
-                      }`}>
-                        {req.requestType}
-                      </span>
-                    </td>
-                    <td className="px-6 py-7">
-                       <div className="flex items-center gap-2 mb-1">
-                          <Calendar size={13} className="text-slate-400" />
-                          <span className="text-slate-900 text-xs font-bold">{dt.date}</span>
-                       </div>
-                       <div className="flex items-center gap-2">
-                          <Clock size={13} className="text-slate-400" />
-                          <span className="text-slate-400 text-[11px] font-semibold uppercase">{dt.time}</span>
-                       </div>
-                    </td>
-                    <td className="px-6 py-7 text-center">
-                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                          req.status === 'PENDING' ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 
-                          req.status.startsWith('APPROVED') || req.status === 'DISPATCHED' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' :
-                          req.status === 'CANCELLED' ? 'bg-slate-100 text-slate-400' :
-                          'bg-red-500 text-white shadow-lg shadow-red-100'
-                        }`}>{req.status.startsWith('APPROVED') ? 'APPROVED' : req.status.replace(/_/g, ' ')}</span>
-                    </td>
-                    <td className="px-8 py-7 text-right">
-                       <button 
-                         onClick={() => handleSelectRequest(req)}
-                         className="px-5 py-2.5 bg-slate-900 text-white rounded-xl transition-all flex items-center gap-2 text-xs font-bold ml-auto hover:bg-slate-800 hover:scale-105 active:scale-95 shadow-md shadow-slate-200"
-                       >
-                         <Eye size={15}/>
-                         Review
-                       </button>
-                    </td>
+                [...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {[...Array(8)].map((_, j) => <td key={j} className={TD}><div className="h-3 bg-slate-100 rounded w-3/4" /></td>)}
                   </tr>
-                );
-              })}
+                ))
+              ) : applyFilters(pending).length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-xs">No pending requests</td></tr>
+              ) : (
+                applyFilters(pending).map((req, i) => {
+                  const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
+                  const debt = debtMap[req.supplierId] ?? null
+                  const isProcessing = processingId === req.requestId
+                  const c = code(i)
+                  return (
+                    <tr key={req.requestId} className="hover:bg-slate-50/60 transition-colors">
+                      <td className={TD}><span className="text-xs font-medium text-slate-600">{c}</span></td>
+                      <td className={TD}>
+                        <p className="text-sm font-semibold text-slate-800 leading-tight">{req.supplierName || "---"}</p>
+                        <p className="text-[10px] text-slate-400">{req.supplierId?.slice(-7)?.toUpperCase()}</p>
+                      </td>
+                      <td className={TD}><span className={`text-sm ${meta.color}`}>{meta.label}</span></td>
+                      <td className={TD}><span className="text-sm font-semibold text-slate-800">{getAmountQty(req)}</span></td>
+                      <td className={TD}>
+                        <span className="text-xs text-slate-500 block">{formatDate(req.requestDate)}</span>
+                        <span className="text-[10px] text-slate-400">{formatTime(req.requestDate)}</span>
+                      </td>
+                      <td className={TD}>
+                        <span className={`text-sm font-semibold ${debt && debt > 0 ? "text-slate-800" : "text-slate-500"}`}>
+                          {debt === null ? "..." : `Rs. ${debt.toLocaleString()}`}
+                        </span>
+                      </td>
+                      <td className={TD}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-400"}`}>
+                          {req.status.charAt(0) + req.status.slice(1).toLowerCase()}
+                        </span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <div className="inline-flex items-center gap-1">
+                          <button onClick={() => setViewReq({ req, code: c })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                            <Eye size={14} /> View
+                          </button>
+                          <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "APPROVED_BY_EXT")} className="inline-flex items-center gap-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
+                            <CheckCircle2 size={14} /> Approve
+                          </button>
+                          <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "REJECTED")} className="inline-flex items-center gap-1.5 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
+                            <XCircle size={14} /> Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => handleSelectRequest(null)} />
-          <div className="bg-white w-full max-w-xl rounded-[24px] shadow-2xl z-10 overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200">
-            <div className="p-7 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-               <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Administrative Audit</p>
-                  <h3 className="text-xl font-bold text-slate-900">Request Details</h3>
-               </div>
-               <button onClick={() => handleSelectRequest(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400">
-                  <X size={20} />
-               </button>
-            </div>
-
-            <div className="p-6 space-y-5 bg-white">
-               <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 flex items-start justify-between gap-4">
-                 <div>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.22em] mb-1">Request</p>
-                   <h4 className="text-xl font-black text-slate-900 leading-tight capitalize">
-                     {getRequestLabel(selectedRequest.requestType)}
-                   </h4>
-                   <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                     {selectedRequest.notes?.trim() || '—'}
-                   </p>
-                 </div>
-                 <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] whitespace-nowrap ${
-                   getRequestAccent(selectedRequest.requestType) === 'emerald' ? 'bg-emerald-50 text-emerald-700' :
-                   getRequestAccent(selectedRequest.requestType) === 'blue' ? 'bg-blue-50 text-blue-700' :
-                   getRequestAccent(selectedRequest.requestType) === 'violet' ? 'bg-violet-50 text-violet-700' :
-                   getRequestAccent(selectedRequest.requestType) === 'teal' ? 'bg-teal-50 text-teal-700' :
-                   'bg-slate-100 text-slate-600'
-                 }`}>
-                   {selectedRequest.status.replace(/_/g, ' ')}
-                 </span>
-               </div>
-
-               <div className="grid grid-cols-2 gap-4">
-                   <DetailBlock icon={<User size={18} className="text-emerald-600"/>} label="Supplier">
-                      <p className="font-bold text-slate-900 text-lg leading-tight">{selectedRequest.supplierName}</p>
-                      <p className="text-xs text-slate-400 font-bold tracking-widest mt-1 uppercase">PB REF: {selectedRequest.passbookNo}</p>
-                   </DetailBlock>
-                   <DetailBlock icon={<Landmark size={18} className="text-blue-600"/>} label="Transport Agent">
-                      <p className="font-bold text-slate-900 text-lg leading-tight">
-                        {selectedRequest.creatorName || "Transport Agent"}
-                      </p>
-                      <p className="text-xs text-slate-400 font-bold tracking-widest mt-1 uppercase">AGENT REF: {selectedRequest.creatorId || "—"}</p>
-                   </DetailBlock>
-                  <DetailBlock icon={<Landmark size={18} className="text-emerald-600"/>} label="Request Specification">
-                     <p className="text-2xl font-bold text-emerald-600 leading-tight">
-                        {getRequestSpecification(selectedRequest)}
-                     </p>
-                     <div className="mt-3 grid grid-cols-2 gap-2.5">
-                       <div className="rounded-xl bg-white border border-slate-100 px-3 py-2.5">
-                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-0.5">Item</p>
-                         <p className="text-sm font-bold text-slate-900 leading-tight">{selectedRequest.itemType || '—'}</p>
-                       </div>
-                       <div className="rounded-xl bg-white border border-slate-100 px-3 py-2.5">
-                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-0.5">Units</p>
-                         <p className="text-sm font-bold text-slate-900 leading-tight">
-                           {selectedRequest.requestType === 'ADVANCE' ? '—' : selectedRequest.requestType === 'TRANSPORT' ? 'Provision' : `${selectedRequest.quantity?.toLocaleString() || '0'}`}
-                         </p>
-                       </div>
-                     </div>
-                  </DetailBlock>
-                  <DetailBlock icon={<AlertCircle size={18} className="text-orange-500"/>} label="Ledger Position">
-                     {ledgerLoading ? (
-                        <RefreshCw size={16} className="animate-spin text-slate-400" />
-                     ) : ledgerInfo ? (
-                        <>
-                           <p className="font-bold text-slate-900 text-lg leading-tight">Debt: Rs. {ledgerInfo.currentDebt.toLocaleString()}</p>
-                           <p className={`text-[11px] font-bold tracking-widest mt-1 uppercase ${ledgerInfo.estimatedBalance < 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                              BALANCE: Rs. {ledgerInfo.estimatedBalance.toLocaleString()}
-                           </p>
-                        </>
-                     ) : (
-                        <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest">No Ledger Data</p>
-                     )}
-                     <div className="mt-2 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider">Verification Required</p>
-                     </div>
-                  </DetailBlock>
-               </div>
-
-               {selectedRequest.status === 'PENDING' ? (
-                 <div className="pt-6 border-t border-slate-100 flex gap-4">
-                    <button 
-                      disabled={!!processingId}
-                      onClick={() => handleUpdateStatus(selectedRequest.requestId, 'REJECTED')}
-                      className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-red-50 text-red-600 font-bold hover:bg-red-50 hover:border-red-100 transition-all disabled:opacity-50"
-                    >
-                       <XCircle size={20} />
-                       Decline
-                    </button>
-                    <button 
-                      disabled={!!processingId}
-                      onClick={() => handleUpdateStatus(selectedRequest.requestId, 'APPROVED_BY_EXT')}
-                      className="flex-[2] flex items-center justify-center gap-2 py-4 rounded-2xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                       <CheckCircle2 size={20} />
-                       Authorize & Approve
-                    </button>
-                 </div>
-               ) : (
-                 <div className="pt-8 border-t border-slate-100 text-center">
-                    <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-xs uppercase tracking-[0.2em] shadow-sm shadow-slate-100 ${
-                      selectedRequest.status.startsWith('APPROVED') || selectedRequest.status === 'DISPATCHED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-                    }`}>
-                      {selectedRequest.status.startsWith('APPROVED') || selectedRequest.status === 'DISPATCHED' ? <CheckCircle2 size={16}/> : <XCircle size={16}/>}
-                      {selectedRequest.status.startsWith('APPROVED') ? 'APPROVED' : selectedRequest.status.replace(/_/g, ' ')}
-                    </div>
-                 </div>
-               )}
-            </div>
-          </div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <p className="text-sm font-semibold text-slate-800">Recently Approved</p>
         </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className={TH}>Request ID</th>
+                <th className={TH}>Supplier</th>
+                <th className={TH}>Type</th>
+                <th className={TH}>Amount</th>
+                <th className={TH}>Submitted By</th>
+                <th className={TH}>Status</th>
+                <th className={`${TH} text-right`}>Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {recentApproved.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-xs">No approved requests yet</td></tr>
+              ) : (
+                recentApproved.map((req, i) => {
+                  const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
+                  const c = code(i + 100)
+                  return (
+                    <tr key={req.requestId} className="hover:bg-slate-50/60 transition-colors">
+                      <td className={TD}><span className="text-xs font-medium text-slate-600">{c}</span></td>
+                      <td className={TD}>
+                        <p className="text-sm font-semibold text-slate-800 leading-tight">{req.supplierName || "---"}</p>
+                        <p className="text-[10px] text-slate-400">{req.supplierId?.slice(-7)?.toUpperCase()}</p>
+                      </td>
+                      <td className={TD}><span className={`text-sm ${meta.color}`}>{meta.label}</span></td>
+                      <td className={TD}><span className="text-sm font-semibold text-slate-800">{getAmountQty(req)}</span></td>
+                      <td className={TD}><span className="text-xs text-slate-500">{creatorMap[req.createdById] || "---"}</span></td>
+                      <td className={TD}><span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Approved</span></td>
+                      <td className={`${TD} text-right`}>
+                        <button onClick={() => setViewReq({ req, code: c })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                          <Eye size={14} /> View
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {viewReq && (
+        <ViewModal
+          req={viewReq.req}
+          code={viewReq.code}
+          debt={debtMap[viewReq.req.supplierId] ?? null}
+          onClose={() => setViewReq(null)}
+          onApprove={() => handleAction(viewReq.req.requestId!, "APPROVED_BY_EXT")}
+          onReject={() => handleAction(viewReq.req.requestId!, "REJECTED")}
+          processing={processingId === viewReq.req.requestId}
+        />
       )}
     </div>
-  );
+  )
 }
 
-function StatusTab({ label, color, active, onClick }: any) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all flex items-center gap-3 ${
-      active ? 'bg-white shadow-md ' + color : 'text-slate-400 hover:text-slate-600'
-    }`}>
-      {active && <span className="w-2 h-2 rounded-full bg-current shadow-sm" />}
-      {label}
-    </button>
-  );
-}
 
-function DetailBlock({ icon, label, children }: any) {
-  return (
-    <div className="space-y-2.5 rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-     <div className="flex items-center gap-3 text-slate-400">
-          <div className="p-2 bg-slate-50 rounded-lg shadow-inner">
-            {icon}
-          </div>
-       <span className="text-[10px] font-bold uppercase tracking-[0.22em]">{label}</span>
-       </div>
-       <div className="pl-1">
-          {children}
-       </div>
-    </div>
-  );
-}

@@ -206,7 +206,9 @@ public class CollectionService {
                 lc.getCollectedAt() != null ? lc.getCollectedAt().toInstant() : null,
                 lc.getSyncStatus() != null ? lc.getSyncStatus().name() : SyncStatus.SYNCED.name(),
                 lc.getGpsStatus() != null ? lc.getGpsStatus().name() : GpsStatus.NO_GPS.name(),
-                lc.isManualOverride()
+                lc.isManualOverride(),
+                lc.getTransportAgentId(),
+                "---" // Name will be resolved by the dashboard
         );
     }
 
@@ -237,6 +239,14 @@ public class CollectionService {
 
     private boolean hasCoordinates(BigDecimal lat, BigDecimal lon) {
         return lat != null && lon != null;
+    }
+
+    public List<CollectionHistoryItemResponse> getRecentCollections(Integer limit) {
+        int pageSize = normalizeLimit(limit, 50, 200);
+        return leafCollectionRepository.findAll(PageRequest.of(0, pageSize, org.springframework.data.domain.Sort.by("collectedAt").descending()))
+                .stream()
+                .map(this::toHistoryResponse)
+                .toList();
     }
 
     private int normalizeLimit(Integer requested, int fallback, int max) {

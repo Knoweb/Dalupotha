@@ -1,7 +1,6 @@
 package com.dalupotha.collection.dto;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public record CollectionHistoryItemResponse(
@@ -15,6 +14,8 @@ public record CollectionHistoryItemResponse(
         java.time.Instant collectedAt,
         String syncStatus,
         String gpsStatus,
-        boolean manualOverride
+        boolean manualOverride,
+        UUID transportAgentId,
+        String transportAgentName
 ) {
 }

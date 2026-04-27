@@ -8,11 +8,15 @@ import com.dalupotha.auth.entity.UserStatus;
 import com.dalupotha.auth.repository.EstateRepository;
 import com.dalupotha.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth/estates")
@@ -28,10 +32,25 @@ public class EstateController {
         return estateRepository.findAll();
     }
 
+    /** Returns all active Transport Agents (TA) for a given estate — used during supplier registration. */
+    @GetMapping("/{estateId}/agents")
+    public ResponseEntity<List<Map<String, Object>>> getAgentsByEstate(@PathVariable UUID estateId) {
+        List<User> agents = userRepository.findByEstate_EstateIdAndRoleAndStatus(
+                estateId, UserRole.TA, UserStatus.ACTIVE
+        );
+        List<Map<String, Object>> result = agents.stream()
+                .map(u -> Map.<String, Object>of(
+                        "userId",     u.getUserId().toString(),
+                        "fullName",   u.getFullName() != null ? u.getFullName() : "",
+                        "employeeId", u.getEmployeeId() != null ? u.getEmployeeId() : ""
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/register")
     @Transactional
     public Estate registerEstate(@RequestBody EstateRegistrationRequest request) {
-        // 1. Create and save Estate
         Estate estate = Estate.builder()
                 .name(request.getName())
                 .code(request.getCode())
@@ -41,11 +60,10 @@ public class EstateController {
                 .build();
         estate = estateRepository.save(estate);
 
-        // 2. Create Master Admin User for this Estate
         User admin = User.builder()
                 .fullName(request.getManagerName())
-                .contact(request.getAdminEmail()) // Use email as primary contact
-                .role(UserRole.MG) // Manager role
+                .contact(request.getAdminEmail())
+                .role(UserRole.MG)
                 .estate(estate)
                 .hashedPassword(passwordEncoder.encode(request.getAdminPassword()))
                 .status(UserStatus.ACTIVE)

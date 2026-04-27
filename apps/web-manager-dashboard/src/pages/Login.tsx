@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Plus, ShieldCheck, ArrowLeft, ArrowRight, RefreshCw, Lock, User, Eye, EyeOff } from 'lucide-react'
 
+import { UserRole } from '../App'
+
 interface LoginProps {
-  onLogin: (data: { role: 'manager' | 'super-admin', fullName: string, estateName: string, employeeId?: string }) => void;
+  onLogin: (data: { role: UserRole, fullName: string, estateName: string, employeeId?: string }) => void;
 }
 
 export default function LoginPage({ onLogin }: LoginProps) {
@@ -38,6 +40,12 @@ export default function LoginPage({ onLogin }: LoginProps) {
          onLogin({ role: 'super-admin', fullName: 'System Admin', estateName: 'Dalupotha Central' });
          return;
       }
+      // Demo role shortcuts (for testing)
+      if (username === 'mg' && password === '1234') { onLogin({ role: 'manager', fullName: 'A. Wickramasinghe', estateName: 'Weliwita Estate', employeeId: 'MG-001' }); return; }
+      if (username === 'ext' && password === '1234') { onLogin({ role: 'extension-officer', fullName: 'S. Rathnayake', estateName: 'Weliwita Estate', employeeId: 'EXT-001' }); return; }
+      if (username === 'st' && password === '1234') { onLogin({ role: 'office-staff', fullName: 'P. Kumari', estateName: 'Weliwita Estate', employeeId: 'ST-001' }); return; }
+      if (username === 'sk' && password === '1234') { onLogin({ role: 'store-keeper', fullName: 'R. Jayasinghe', estateName: 'Weliwita Estate', employeeId: 'SK-001' }); return; }
+      if (username === 'ft' && password === '1234') { onLogin({ role: 'factory-staff', fullName: 'N. Perera', estateName: 'Weliwita Estate', employeeId: 'FT-001' }); return; }
 
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -47,12 +55,8 @@ export default function LoginPage({ onLogin }: LoginProps) {
 
       if (res.ok) {
         const data = await res.json();
-        onLogin({ 
-          role: data.role.toLowerCase() as any, 
-          fullName: data.fullName, 
-          estateName: data.estateName,
-          employeeId: data.employeeId
-        });
+        localStorage.setItem("current_user_id", data.userId || "");
+        onLogin({ role: data.role.toLowerCase() as UserRole, fullName: data.fullName, estateName: data.estateName, employeeId: data.employeeId });
       } else {
         const err = await res.json();
         alert(err.message || 'Login failed. Please check your credentials.');
@@ -146,14 +150,14 @@ export default function LoginPage({ onLogin }: LoginProps) {
 
                   <form onSubmit={handleLogin} className="space-y-6">
                     <div className="group space-y-2">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-5 block transition-colors group-focus-within:text-[#3d7a2d]">User Identifier</label>
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-5 block transition-colors group-focus-within:text-[#3d7a2d]">Username or Email</label>
                       <div className="relative">
                          <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
                            <User className="text-slate-300 group-focus-within:text-[#3d7a2d] transition-colors" size={20} />
                          </div>
                          <input 
                            type="text" 
-                           placeholder="Enter Employee ID"
+                           placeholder="Enter username or email"
                            value={username}
                            onChange={e => setUsername(e.target.value)}
                            className="w-full bg-slate-50 border-2 border-transparent rounded-full px-14 py-4 focus:bg-white focus:border-[#3d7a2d] focus:ring-8 focus:ring-[#3d7a2d]/5 outline-none transition-all text-[15px] font-medium text-slate-800 placeholder:text-slate-400 shadow-inner"
@@ -163,7 +167,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
                     </div>
 
                     <div className="group space-y-2">
-                       <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-5 block transition-colors group-focus-within:text-[#3d7a2d]">Access Secret</label>
+                       <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-5 block transition-colors group-focus-within:text-[#3d7a2d]">Password</label>
                       <div className="relative">
                          <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
                             <Lock className="text-slate-300 group-focus-within:text-[#3d7a2d] transition-colors" size={20} />
@@ -333,3 +337,4 @@ export default function LoginPage({ onLogin }: LoginProps) {
     </div>
   );
 }
+

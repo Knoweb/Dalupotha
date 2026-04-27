@@ -40,6 +40,12 @@ export function RegisterScreen({ route, navigation }: any) {
   const [estatesLoading, setEstatesLoading] = useState(true);
   const [estatesError, setEstatesError] = useState<string | null>(null);
 
+  // Field In-Charge (Transport Agent) selection
+  const [agents, setAgents] = useState<any[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+
   const fetchEstates = React.useCallback(async () => {
     setEstatesLoading(true);
     setEstatesError(null);
@@ -72,6 +78,17 @@ export function RegisterScreen({ route, navigation }: any) {
     fetchEstates();
   }, [fetchEstates]);
 
+  // Fetch transport agents when estate is selected
+  React.useEffect(() => {
+    if (!selectedEstate?.estateId) return;
+    setAgentsLoading(true);
+    setSelectedAgent(null);
+    apiGet<any[]>(`${AuthAPI.getEstates}/${selectedEstate.estateId}/agents`, "")
+      .then((data) => setAgents(Array.isArray(data) ? data : []))
+      .catch(() => setAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, [selectedEstate?.estateId]);
+
   const handleRegister = async () => {
     setErrorMsg(null);
 
@@ -84,6 +101,10 @@ export function RegisterScreen({ route, navigation }: any) {
     if (role === "supplier") {
       if (!passbookNo.trim() || !pin.trim()) {
         setErrorMsg("Passbook Number and PIN are required.");
+        return;
+      }
+      if (!selectedAgent) {
+        setErrorMsg("Please select a Field In-Charge (Transport Agent).");
         return;
       }
     } else {
@@ -145,6 +166,7 @@ export function RegisterScreen({ route, navigation }: any) {
           gpsLat,
           gpsLong,
           pin: pin.trim(),
+          assignedAgentId: selectedAgent?.userId || undefined,
         });
       } else {
         Object.assign(registerData, {
@@ -271,6 +293,27 @@ export function RegisterScreen({ route, navigation }: any) {
                       placeholderTextColor="#7d93b4"
                     />
                   </View>
+
+                  <Text style={styles.label}>FIELD IN-CHARGE (TRANSPORT AGENT) *</Text>
+                  <Pressable
+                    style={styles.inputContainer}
+                    onPress={() => agents.length > 0 && setShowAgentModal(true)}
+                    disabled={agentsLoading || agents.length === 0}
+                  >
+                    <Ionicons name="person-outline" size={20} color={palette.muted} />
+                    <Text style={{ flex: 1, color: selectedAgent ? "white" : palette.muted, marginLeft: 10 }}>
+                      {agentsLoading
+                        ? "Loading agents..."
+                        : selectedAgent
+                          ? selectedAgent.fullName
+                          : agents.length === 0
+                            ? "No agents in this estate"
+                            : "Select Transport Agent"}
+                    </Text>
+                    {selectedAgent
+                      ? <Pressable onPress={() => setSelectedAgent(null)}><Ionicons name="close-circle" size={18} color={palette.muted} /></Pressable>
+                      : <Ionicons name="chevron-down" size={20} color={palette.muted} />}
+                  </Pressable>
 
                   <Text style={styles.label}>CREATE LOGIN PIN *</Text>
                   <View style={styles.inputContainer}>
@@ -450,6 +493,32 @@ export function RegisterScreen({ route, navigation }: any) {
                   </Pressable>
                 ))
               )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Agent (Field In-Charge) Selection Modal */}
+      <Modal visible={showAgentModal} animationType="fade" transparent={true}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 }}>
+          <View style={[styles.authCard, { maxHeight: "70%" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={styles.cardTitle}>Select Field In-Charge</Text>
+              <Pressable onPress={() => setShowAgentModal(false)}>
+                <Ionicons name="close" size={24} color={palette.muted} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {agents.map((agent, idx) => (
+                <Pressable
+                  key={idx}
+                  style={{ padding: 15, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" }}
+                  onPress={() => { setSelectedAgent(agent); setShowAgentModal(false); }}
+                >
+                  <Text style={{ color: "white", fontSize: 16, fontWeight: "500" }}>{agent.fullName}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{agent.employeeId || "Transport Agent"}</Text>
+                </Pressable>
+              ))}
             </ScrollView>
           </View>
         </View>

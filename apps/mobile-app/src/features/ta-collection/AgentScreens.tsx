@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView,
   Text, TextInput, View
 } from "react-native";
@@ -184,104 +185,209 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
 
   const recent = historyItems.slice(0, 3);
 
+  const todayItems = useMemo(() => {
+    const now = new Date();
+    return historyItems.filter((item) => {
+      const d = new Date(item.collectedAt);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    });
+  }, [historyItems]);
+
+  const todaySuppliersCount = useMemo(() => new Set(todayItems.map((i) => i.supplierId)).size, [todayItems]);
+
+  const avatarColors = ["#3498db", "#2ecc71", "#9b59b6", "#e67e22", "#1abc9c", "#e74c3c", "#f39c12", "#2980b9"];
+  const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
+
+  // ── Mock data for screenshots / documentation (set false to use real data) ──
+  const MOCK_MODE = true;
+  const mockCollections: CollectionCardItem[] = [
+    { key: "m1", supplierId: "s1", supplierName: "Jayasekara Ranjith",  passbookNo: "SH-0142", grossWeight: 87.5,  collectedAt: new Date(Date.now() - 1*60*60*1000).toISOString(), syncStatus: "SYNCED",  gpsStatus: "GPS",    manualOverride: false },
+    { key: "m2", supplierId: "s2", supplierName: "Perera Dhammika",     passbookNo: "SH-0089", grossWeight: 124.0, collectedAt: new Date(Date.now() - 2*60*60*1000).toISOString(), syncStatus: "QUEUED", gpsStatus: "GPS",    manualOverride: false },
+    { key: "m3", supplierId: "s3", supplierName: "Silva Mahinda",       passbookNo: "SH-0056", grossWeight: 62.0,  collectedAt: new Date(Date.now() - 3*60*60*1000).toISOString(), syncStatus: "SYNCED", gpsStatus: "NO_GPS", manualOverride: true  },
+    { key: "m4", supplierId: "s4", supplierName: "Kumari Nilanthi",     passbookNo: "SH-0203", grossWeight: 95.5,  collectedAt: new Date(Date.now() - 4*60*60*1000).toISOString(), syncStatus: "SYNCED", gpsStatus: "GPS",    manualOverride: false },
+  ];
+
+  const displayItems  = MOCK_MODE ? mockCollections : todayItems;
+  const displayKgToday      = MOCK_MODE ? 369.0 : todayKg;
+  const displayPendingSync  = MOCK_MODE ? 1      : pendingSync;
+  const displaySupToday     = MOCK_MODE ? 4      : todaySuppliersCount;
+  const displaySupTotal     = MOCK_MODE ? 20     : supplierCount;
+
+  const lastSyncText = displayPendingSync === 0 ? "just now" : `${displayPendingSync} pending`;
+
   return (
     <View style={styles.dashboardWrap}>
-      <SafeAreaView style={{ backgroundColor: "#111f38" }}>
-        <View style={styles.headerBar}>
-          <View>
-            <Text style={styles.headerTitle}>Dashboard</Text>
-            <Text style={[styles.cardItemSub, { fontSize: 11, marginTop: 2 }]}>{today}</Text>
+      {/* ── Header ── */}
+      <SafeAreaView style={{ backgroundColor: "#0b1a30" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 14 }}>
+          {/* Avatar */}
+          <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: "#1fbe57", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+            <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 17 }}>{initials}</Text>
           </View>
-          <Pressable style={styles.iconBtn}>
-            <Ionicons name="notifications-outline" size={22} color={palette.muted} />
-          </Pressable>
+          {/* Title */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800" }}>Transport Agent</Text>
+            <Text style={{ color: palette.muted, fontSize: 13 }}>{user?.fullName || "Agent"}</Text>
+          </View>
+          {/* Icons */}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="wifi-outline" size={20} color={palette.muted} />
+            </View>
+            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="notifications-outline" size={20} color={palette.muted} />
+            </View>
+            <Pressable onPress={() => navigation.navigate("Login")} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="log-out-outline" size={20} color={palette.muted} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Online / Sync bar */}
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingBottom: 14, gap: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(31,190,87,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: "rgba(31,190,87,0.25)" }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#1fbe57" }} />
+            <Text style={{ color: "#1fbe57", fontSize: 12, fontWeight: "700" }}>Online</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <Ionicons name="checkmark" size={14} color={palette.accentBlue} />
+            <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>Synced</Text>
+          </View>
+          <Text style={{ color: palette.muted, fontSize: 12, marginLeft: "auto" }}>Last sync: {lastSyncText}</Text>
         </View>
       </SafeAreaView>
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
-        {/* Agent Info Card */}
-        <View style={[styles.supCard, { marginBottom: 20, flexDirection: "row", alignItems: "center", gap: 15 }]}>
-          <View style={[styles.profileAvatarBig, { width: 50, height: 50 }]}>
-            <Text style={[styles.profileAvatarBigText, { fontSize: 18 }]}>{initials}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardItemTitle}>{user?.fullName || "Agent"}</Text>
-            <Text style={styles.cardItemSub}>{user?.employeeId || "TA-XXX"} · {user?.routeName || "No route assigned"}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: "rgba(31,190,87,0.15)" }]}>
-            <Text style={[styles.statusBadgeText, { color: palette.accentGreen }]}>ON DUTY</Text>
-          </View>
-        </View>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
 
-        {/* KPI Grid */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
-          {kpis.map((kpi, i) => (
-            <View key={i} style={[styles.supCard, { flex: 1, minWidth: "44%", padding: 16, alignItems: "center" }]}>
-              <Ionicons name={kpi.icon} size={24} color={kpi.color} style={{ marginBottom: 8 }} />
-              <Text style={[styles.cardWeight, { fontSize: 18, color: kpi.color }]}>{kpi.value}</Text>
-              <Text style={[styles.cardItemSub, { fontSize: 10, marginTop: 4, textAlign: "center" }]}>{kpi.label}</Text>
+        {/* ── KPI Cards ── */}
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
+          {/* Today's Leaf */}
+          <View style={{ flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: "#1fbe57", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(31,190,87,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+              <MaterialCommunityIcons name="leaf" size={18} color="#1fbe57" />
             </View>
-          ))}
+            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{displayKgToday.toFixed(1)} kg</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>TODAY'S LEAF</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupToday} suppliers</Text>
+          </View>
+
+          {/* Pending Sync */}
+          <View style={{ flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: "#f39c12", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(243,156,18,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+              <Ionicons name="time-outline" size={18} color="#f39c12" />
+            </View>
+            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{displayPendingSync}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>PENDING SYNC</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>records queued</Text>
+          </View>
+
+          {/* Route Progress */}
+          <View style={{ flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: palette.accentBlue, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(46,168,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+              <Ionicons name="location-outline" size={18} color={palette.accentBlue} />
+            </View>
+            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{displaySupToday}/{displaySupTotal || "—"}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>ROUTE PROGRESS</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% complete` : "No data"}</Text>
+          </View>
         </View>
 
-        {/* Primary Quick Actions */}
-        <Pressable
-          style={[styles.primaryBtn, { 
-            backgroundColor: palette.accentBlue, 
-            marginBottom: 25, 
-            flexDirection: "row", 
-            gap: 12,
-            height: 60,
-            borderRadius: 16,
-            shadowColor: palette.accentBlue,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.35,
-            shadowRadius: 10,
-            elevation: 10,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.1)"
-          }]}
-          onPress={() => navigation.navigate("CollectionInput", { token, user })}
-        >
-          <Ionicons name="add-circle" size={26} color="white" />
-          <Text style={[styles.primaryBtnText, { fontSize: 17, fontWeight: "800", letterSpacing: 0.5, color: "white" }]}>ADD NEW COLLECTION</Text>
-        </Pressable>
+        {/* ── Quick Actions ── */}
+        <Text style={[styles.sectionHeader, { marginBottom: 12 }]}>QUICK ACTIONS</Text>
+        <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
+          <Pressable
+            onPress={() => navigation.navigate("CollectionInput", { token, user })}
+            style={{ flex: 1, backgroundColor: "#1fbe57", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
+              shadowColor: "#1fbe57", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+          >
+            <Ionicons name="add" size={26} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>New Collection</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => navigation.navigate("Collections")}
+            style={{ flex: 1, backgroundColor: "#2563eb", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
+              shadowColor: "#2563eb", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+          >
+            <Ionicons name="search-outline" size={24} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>View History</Text>
+          </Pressable>
+        </View>
+        <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
+          <Pressable
+            onPress={() => navigation.navigate("SupplierList", { user, token })}
+            style={{ flex: 1, backgroundColor: "#7c3aed", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
+              shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+          >
+            <Ionicons name="list-outline" size={24} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Supplier List</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => navigation.navigate("Requests")}
+            style={{ flex: 1, backgroundColor: "#d97706", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
+              shadowColor: "#d97706", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+          >
+            <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Requests</Text>
+          </Pressable>
+        </View>
 
-        {/* Recent Collections */}
-        <Text style={[styles.sectionHeader, { marginBottom: 12 }]}>Recent Collections</Text>
+        {/* ── Today's Collections ── */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <Text style={styles.sectionHeader}>TODAY'S COLLECTIONS</Text>
+          <Pressable onPress={() => navigation.navigate("Collections")}>
+            <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: "600" }}>See All →</Text>
+          </Pressable>
+        </View>
+
         {loading && (
           <View style={{ paddingVertical: 24, alignItems: "center" }}>
             <ActivityIndicator color={palette.accentBlue} />
           </View>
         )}
 
-        {!loading && recent.length === 0 && (
-          <View style={styles.collectionItemCard}>
-            <Text style={styles.cardItemSub}>No collections yet.</Text>
+        {!loading && displayItems.length === 0 && (
+          <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 24, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+            <MaterialCommunityIcons name="leaf-off" size={28} color={palette.muted} />
+            <Text style={{ color: palette.muted, fontSize: 13, marginTop: 8 }}>No collections today yet</Text>
           </View>
         )}
 
-        {!loading && recent.map((item, idx) => (
-          <View key={idx} style={styles.collectionItemCard}>
-            <View style={[styles.collectionAvatarCompact, { backgroundColor: "#2ea8ff" }]}>
-              <Text style={styles.collectionAvatarText}>{(item.supplierName || "?").substring(0, 1).toUpperCase()}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardItemTitle}>{item.supplierName}</Text>
-              <Text style={styles.cardItemSub}>{item.passbookNo || "Passbook unavailable"}</Text>
-              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-                <StatusBadge type={toGpsBadgeType(item.gpsStatus)} text={item.gpsStatus === "GPS" ? "GPS" : "No GPS"} />
-                <StatusBadge type={toStatusBadgeType(item.syncStatus)} text={item.syncStatus.charAt(0) + item.syncStatus.slice(1).toLowerCase()} />
-                {item.manualOverride && <StatusBadge type="manual" text="Manual" />}
+        {!loading && displayItems.map((item, idx) => {
+          const initial = (item.supplierName || "?").charAt(0).toUpperCase();
+          const avatarBg = getAvatarColor(item.supplierName || "A");
+          const isSynced = item.syncStatus === "SYNCED";
+          const isGPS = item.gpsStatus === "GPS";
+          // Format name as "Surname, Initial."
+          const nameParts = (item.supplierName || "").split(" ");
+          const displayName = nameParts.length >= 2
+            ? `${nameParts[nameParts.length - 1]}, ${nameParts[0].charAt(0)}.`
+            : item.supplierName;
+          return (
+            <View key={item.key || idx} style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+              <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+                <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>{initial}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>{displayName}</Text>
+                <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 5 }}>{item.passbookNo || "—"}</Text>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: isGPS ? "rgba(31,190,87,0.12)" : "rgba(255,255,255,0.06)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                    <Ionicons name="location" size={10} color={isGPS ? "#1fbe57" : palette.muted} />
+                    <Text style={{ color: isGPS ? "#1fbe57" : palette.muted, fontSize: 10, fontWeight: "600" }}>GPS</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: isSynced ? "rgba(31,190,87,0.12)" : "rgba(243,156,18,0.12)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                    <Ionicons name={isSynced ? "checkmark" : "time-outline"} size={10} color={isSynced ? "#1fbe57" : "#f39c12"} />
+                    <Text style={{ color: isSynced ? "#1fbe57" : "#f39c12", fontSize: 10, fontWeight: "600" }}>{isSynced ? "Synced" : "Queued"}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{Number(item.grossWeight).toFixed(1)} kg</Text>
+                <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{formatTime(item.collectedAt)}</Text>
               </View>
             </View>
-            <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.cardWeight}>{item.grossWeight.toFixed(1)} kg</Text>
-              <Text style={styles.cardTime}>{formatTime(item.collectedAt)}</Text>
-            </View>
-          </View>
-        ))}
-
+          );
+        })}
 
       </ScrollView>
     </View>
@@ -505,8 +611,11 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
   const [formAmount, setFormAmount] = useState("");
   const [formQuantity, setFormQuantity] = useState("");
   const [formItemType, setFormItemType] = useState("");
+  const [fertilizerItems, setFertilizerItems] = useState<Array<{ type: string; quantity: string }>>([]);
+  const [toolItems, setToolItems] = useState<Array<{ type: string; quantity: string }>>([]);
   const [formNotes, setFormNotes] = useState("");
   const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const addItemBlink = useRef(new Animated.Value(1)).current;
 
   const [toolViewMode, setToolViewMode] = useState<"TOOL_PURCHASE" | "TOOL_RENT">("TOOL_PURCHASE");
 
@@ -514,7 +623,38 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
   if (activeTab === "Fertilizer") requestType = "FERTILIZER";
   if (activeTab === "Transport") requestType = "TRANSPORT";
   if (activeTab === "Tools") requestType = toolViewMode;
-  if (activeTab === "Other") requestType = "OTHER";
+  if (activeTab === "Leaf Bags") requestType = "LEAF_BAG";
+  if (activeTab === "Advisory") requestType = "ADVISORY";
+
+  useEffect(() => {
+    const shouldBlink =
+      activeTab === "Fertilizer" &&
+      (formItemType.trim() !== "" || formQuantity.trim() !== "");
+
+    if (!shouldBlink) {
+      addItemBlink.setValue(1);
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(addItemBlink, {
+          toValue: 0.35,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(addItemBlink, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [activeTab, addItemBlink, formItemType, formQuantity]);
 
   const loadRequests = useCallback(async () => {
     if (!token || !user?.userId) return;
@@ -567,6 +707,8 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
     setFormAmount("");
     setFormQuantity("");
     setFormItemType("");
+    setFertilizerItems([]);
+    setToolItems([]);
     setFormNotes("");
     setSearchQuery("");
     setShowForm(true);
@@ -583,17 +725,51 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
       Alert.alert("Required", "Please enter a valid request amount.");
       return;
     }
-    if ((activeTab === "Fertilizer" || activeTab === "Tools") && !formItemType.trim()) {
-      Alert.alert("Required", `Please enter a specific ${activeTab} Type.`);
+    const normalizedFertilizerItems = fertilizerItems
+      .map((item) => ({
+        type: item.type.trim(),
+        quantity: Number(item.quantity),
+      }))
+      .filter((item) => item.type && !Number.isNaN(item.quantity) && item.quantity > 0);
+
+    const normalizedToolItems = toolItems
+      .map((item) => ({
+        type: item.type.trim(),
+        quantity: Number(item.quantity),
+      }))
+      .filter((item) => item.type && !Number.isNaN(item.quantity) && item.quantity > 0);
+
+    if (activeTab === "Fertilizer" && normalizedFertilizerItems.length === 0) {
+      Alert.alert("Required", "Please save at least one fertilizer item.");
       return;
     }
-    if ((activeTab === "Fertilizer" || activeTab === "Tools") && (!formQuantity || Number(formQuantity) <= 0)) {
-      Alert.alert("Required", "Please enter a valid quantity.");
+
+    if (activeTab === "Fertilizer" && (formItemType.trim() || formQuantity.trim())) {
+      Alert.alert("Save Current Item", "You have an unsaved fertilizer item. Save it before submitting.");
+      return;
+    }
+
+    if (activeTab === "Tools" && normalizedToolItems.length === 0) {
+      Alert.alert("Required", "Please save at least one tool item.");
+      return;
+    }
+
+    if (activeTab === "Tools" && (formItemType.trim() || formQuantity.trim())) {
+      Alert.alert("Save Current Item", "You have an unsaved tool item. Save it before submitting.");
+      return;
+    }
+
+    const leafBagQty = Number(formQuantity);
+    if (activeTab === "Leaf Bags" && (Number.isNaN(leafBagQty) || leafBagQty <= 0)) {
+      Alert.alert("Required", "Please enter the number of leaf bags needed.");
       return;
     }
 
     setCreating(true);
     try {
+      const totalFertilizerQuantity = normalizedFertilizerItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalToolQuantity = normalizedToolItems.reduce((sum, item) => sum + item.quantity, 0);
+      
       await apiPost(
         ServicesAPI.createRequest,
         {
@@ -603,8 +779,9 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
           createdById: user.userId,
           requestType: requestType,
           requestedAmount: activeTab === "Advance" ? amount : 0,
-          quantity: (activeTab === "Fertilizer" || activeTab === "Tools") ? Number(formQuantity) : null,
-          itemType: formItemType,
+          quantity: activeTab === "Fertilizer" ? totalFertilizerQuantity : (activeTab === "Tools" ? totalToolQuantity : (activeTab === "Leaf Bags" ? leafBagQty : null)),
+          itemType: activeTab === "Fertilizer" ? (normalizedFertilizerItems[0]?.type || formItemType) : (activeTab === "Tools" ? (normalizedToolItems[0]?.type || formItemType) : (activeTab === "Leaf Bags" ? "Leaf Bag" : formItemType)),
+          itemDetails: activeTab === "Fertilizer" ? JSON.stringify(normalizedFertilizerItems) : (activeTab === "Tools" ? JSON.stringify(normalizedToolItems) : undefined),
           creatorName: user.fullName || "Agent",
           creatorId: user.employeeId || "No ID",
           notes: formNotes.trim(),
@@ -618,6 +795,30 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
     } finally {
       setCreating(false);
     }
+  };
+
+  const saveFertilizerItem = () => {
+    const type = formItemType.trim();
+    const quantity = Number(formQuantity);
+    if (!type || Number.isNaN(quantity) || quantity <= 0) {
+      Alert.alert("Invalid Item", "Enter a valid fertilizer type and quantity, then save.");
+      return;
+    }
+    setFertilizerItems((prev) => [...prev, { type, quantity: String(quantity) }]);
+    setFormItemType("");
+    setFormQuantity("");
+  };
+
+  const saveToolItem = () => {
+    const type = formItemType.trim();
+    const quantity = Number(formQuantity);
+    if (!type || Number.isNaN(quantity) || quantity <= 0) {
+      Alert.alert("Invalid Item", "Enter a valid tool type and quantity, then save.");
+      return;
+    }
+    setToolItems((prev) => [...prev, { type, quantity: String(quantity) }]);
+    setFormItemType("");
+    setFormQuantity("");
   };
 
   const handleCancelRequest = async (requestId: string) => {
@@ -652,6 +853,40 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
     return "#e74c3c";
   };
 
+  const parseItemDetails = (raw: any) => {
+    if (!raw) return [] as Array<{ type?: string; quantity?: number | string }>;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const getCleanCardNote = (request: any) => {
+    const raw = String(request?.notes || "").trim();
+    if (!raw) return "";
+
+    const [leftPart] = raw.split(" | ");
+    let note = (leftPart || "").trim();
+
+    note = note
+      .replace(/Requested via Mobile by .*$/i, "")
+      .replace(/Requested via Mobile.*$/i, "")
+      .trim();
+
+    if (request?.requestType === "FERTILIZER" || String(request?.requestType || "").startsWith("TOOL_")) {
+      const source = note || raw;
+      note = source
+        .replace(/\b[^,|()]+\(\s*\d+(?:\.\d+)?\s*(?:kg|units?)\s*\)/gi, "")
+        .replace(/[|,]+/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
+    return note;
+  };
+
   let placeholderTxt = "Specific request details...";
   if (activeTab === "Advance") placeholderTxt = "Reason for advance...";
   if (activeTab === "Fertilizer") placeholderTxt = "Specific fertilizer requirements...";
@@ -659,7 +894,8 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
   if (activeTab === "Tools") {
     placeholderTxt = toolViewMode === "TOOL_PURCHASE" ? "Which tools to purchase, quantity..." : "Which tools to rent, duration...";
   }
-  if (activeTab === "Other") placeholderTxt = "Describe what you need...";
+  if (activeTab === "Leaf Bags") placeholderTxt = "Any specific bag requirements...";
+  if (activeTab === "Advisory") placeholderTxt = "Describe your advisory request...";
 
   return (
     <View style={styles.dashboardWrap}>
@@ -678,54 +914,51 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
           {/* Row 1 */}
           <View style={{ flexDirection: "row", gap: 8 }}>
             {[
-              { id: "Advance", icon: "wallet-outline" },
-              { id: "Fertilizer", icon: "leaf", isMaterial: true },
-              { id: "Transport", icon: "car-outline" },
-            ].map((tab) => (
-              <Pressable
-                key={tab.id}
-                onPress={() => setActiveTab(tab.id)}
-                style={[
-                  styles.reqTab,
-                  { flex: 1, flexDirection: "column", height: 75, paddingHorizontal: 0, justifyContent: "center", alignItems: "center", gap: 6 },
-                  activeTab === tab.id ? styles.reqTabActive : { backgroundColor: "transparent", borderWidth: 1, borderColor: "transparent" }
-                ]}
-              >
-                {tab.isMaterial ? (
-                  <MaterialCommunityIcons name={tab.icon as any} size={22} color={activeTab === tab.id ? palette.accentBlue : palette.muted} />
-                ) : (
-                  <Ionicons name={tab.icon as any} size={22} color={activeTab === tab.id ? palette.accentBlue : palette.muted} />
-                )}
-                <Text style={[styles.reqTabText, { fontSize: 11, letterSpacing: 0, textAlign: "center" }, activeTab === tab.id && styles.reqTabTextActive]}>
-                  {tab.id}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          {/* Row 2 */}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {[
-              { id: "Tools", icon: "hammer-outline" },
-              { id: "Other", icon: "ellipsis-horizontal" },
-              { id: "phantom", icon: "" }
+                          { id: "Advance",    icon: "wallet-outline",      isMaterial: false, color: "#f39c12" },
+              { id: "Fertilizer", icon: "leaf",                isMaterial: true,  color: "#1fbe57" },
+              { id: "Transport",  icon: "truck-delivery",      isMaterial: true,  color: "#9b59b6" },
             ].map((tab) => {
-              if (tab.id === "phantom") return <View key="phantom" style={{ flex: 1 }} />;
+              const isActive = activeTab === tab.id;
+              const bgColor = isActive ? `${tab.color}30` : `${tab.color}14`;
+              const borderColor = isActive ? `${tab.color}66` : `${tab.color}25`;
               return (
                 <Pressable
                   key={tab.id}
                   onPress={() => setActiveTab(tab.id)}
-                  style={[
-                    styles.reqTab,
-                    { flex: 1, flexDirection: "column", height: 75, paddingHorizontal: 0, justifyContent: "center", alignItems: "center", gap: 6 },
-                    activeTab === tab.id ? styles.reqTabActive : { backgroundColor: "transparent", borderWidth: 1, borderColor: "transparent" }
-                  ]}
+                  style={{ flex: 1, flexDirection: "column", height: 80, justifyContent: "center", alignItems: "center", gap: 8, borderRadius: 14, backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent", borderWidth: 1, borderColor: isActive ? `${tab.color}33` : "transparent" }}
                 >
-                  { (tab as any).isMaterial ? (
-                    <MaterialCommunityIcons name={tab.icon as any} size={22} color={activeTab === tab.id ? palette.accentBlue : palette.muted} />
-                  ) : (
-                    <Ionicons name={tab.icon as any} size={22} color={activeTab === tab.id ? palette.accentBlue : palette.muted} />
-                  )}
-                  <Text style={[styles.reqTabText, { fontSize: 11, letterSpacing: 0, textAlign: "center" }, activeTab === tab.id && styles.reqTabTextActive]}>
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bgColor, borderWidth: 1, borderColor, alignItems: "center", justifyContent: "center" }}>
+                    {tab.isMaterial
+                      ? <MaterialCommunityIcons name={tab.icon as any} size={20} color={tab.color} />
+                      : <Ionicons name={tab.icon as any} size={20} color={tab.color} />}
+                  </View>
+                  <Text style={{ color: isActive ? tab.color : palette.muted, fontSize: 11, fontWeight: isActive ? "700" : "500", textAlign: "center" }}>
+                    {tab.id}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {/* Row 2 */}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {[
+                            { id: "Tools",     icon: "hammer-outline",              isMaterial: false, color: "#e67e22" },
+              { id: "Leaf Bags", icon: "bag-handle-outline",          isMaterial: false, color: "#2ea8ff" },
+              { id: "Advisory",  icon: "chatbubble-ellipses-outline", isMaterial: false, color: "#1abc9c" },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              const bgColor = isActive ? `${tab.color}30` : `${tab.color}14`;
+              const borderColor = isActive ? `${tab.color}66` : `${tab.color}25`;
+              return (
+                <Pressable
+                  key={tab.id}
+                  onPress={() => setActiveTab(tab.id)}
+                  style={{ flex: 1, flexDirection: "column", height: 80, justifyContent: "center", alignItems: "center", gap: 8, borderRadius: 14, backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent", borderWidth: 1, borderColor: isActive ? `${tab.color}33` : "transparent" }}
+                >
+                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bgColor, borderWidth: 1, borderColor, alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name={tab.icon as any} size={20} color={tab.color} />
+                  </View>
+                  <Text style={{ color: isActive ? tab.color : palette.muted, fontSize: 11, fontWeight: isActive ? "700" : "500", textAlign: "center" }}>
                     {tab.id}
                   </Text>
                 </Pressable>
@@ -780,12 +1013,22 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
             </View>
           )}
 
-          {!loading && items.map((item) => (
+          {!loading && items.map((item) => {
+            const fertilizerDetailItems = parseItemDetails(item.itemDetails);
+            const hasFertilizerDetailItems = activeTab === "Fertilizer" && fertilizerDetailItems.length > 0;
+            const toolDetailItems = parseItemDetails(item.itemDetails);
+            const hasToolDetailItems = activeTab === "Tools" && toolDetailItems.length > 0;
+            const submittedDate = item.requestDate ? new Date(item.requestDate) : null;
+            const submittedTime = submittedDate ? submittedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : "—";
+            const submittedDateStr = submittedDate ? submittedDate.toLocaleDateString() : "—";
+            const toolTypeLabel = String(item.requestType || "").startsWith("TOOL_PURCHASE") ? "Purchase" : String(item.requestType || "").startsWith("TOOL_RENT") ? "Rent" : null;
+
+            return (
             <View key={item.requestId} style={styles.reqCard}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 15 }}>
                 <View>
                   <Text style={styles.cardItemTitle}>{item.supplierName || "Supplier"}</Text>
-                  <Text style={styles.cardItemSub}>{item.passbookNo || "No passbook"} · {String(item.requestId).slice(0, 8)}</Text>
+                  <Text style={styles.cardItemSub}>{item.passbookNo || "No passbook"} · {submittedTime}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
                   <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>
@@ -801,29 +1044,65 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
               )}
               {activeTab === "Fertilizer" && (
                 <>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                    <Text style={styles.reqCardLabel}>Type</Text>
-                    <Text style={styles.reqCardValue}>{item.itemType || "Standard"}</Text>
-                  </View>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                    <Text style={styles.reqCardLabel}>Quantity</Text>
-                    <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
-                  </View>
+                  {!hasFertilizerDetailItems && (
+                    <>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                        <Text style={styles.reqCardLabel}>Type</Text>
+                        <Text style={styles.reqCardValue} numberOfLines={1}>{item.itemType || "Standard"}</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                        <Text style={styles.reqCardLabel}>Quantity</Text>
+                        <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
+                      </View>
+                    </>
+                  )}
+                  {hasFertilizerDetailItems && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                      <Text style={styles.reqCardLabel}>Items</Text>
+                      <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={1}>
+                        {fertilizerDetailItems.map((entry: any) => `${entry.type} (${entry.quantity}kg)`).join(", ")}
+                      </Text>
+                    </View>
+                  )}
                 </>
               )}
               {activeTab === "Tools" && (
+                <>
+                  {toolTypeLabel && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                      <Text style={styles.reqCardLabel}>Type</Text>
+                      <Text style={styles.reqCardValue}>{toolTypeLabel}</Text>
+                    </View>
+                  )}
+                  {!hasToolDetailItems && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                      <Text style={styles.reqCardLabel}>Units</Text>
+                      <Text style={styles.reqCardValue}>{item.quantity || 1}</Text>
+                    </View>
+                  )}
+                  {hasToolDetailItems && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                      <Text style={styles.reqCardLabel}>Items</Text>
+                      <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={1}>
+                        {toolDetailItems.map((entry: any) => `${entry.type} (${entry.quantity}units)`).join(", ")}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+              {activeTab === "Leaf Bags" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                  <Text style={styles.reqCardLabel}>Units</Text>
-                  <Text style={styles.reqCardValue}>{item.quantity || 1}</Text>
+                  <Text style={styles.reqCardLabel}>Bags Requested</Text>
+                  <Text style={styles.reqCardValue}>{item.quantity || 0} bags</Text>
                 </View>
               )}
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 15 }}>
-                <Text style={styles.reqCardLabel}>Date</Text>
-                <Text style={styles.reqCardValue}>{item.requestDate ? new Date(item.requestDate).toLocaleDateString() : "-"}</Text>
+                <Text style={styles.reqCardLabel}>Submitted</Text>
+                <Text style={styles.reqCardValue}>{submittedDateStr}{submittedDate ? ` · ${submittedTime}` : ""}</Text>
               </View>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={styles.reqCardLabel}>Notes</Text>
-                <Text style={[styles.reqCardValue, { color: palette.muted, flex: 1, textAlign: "right" }]} numberOfLines={1}>{item.notes || "-"}</Text>
+                <Text style={styles.reqCardLabel}>Add notes</Text>
+                <Text style={[styles.reqCardValue, { color: palette.muted, flex: 1, textAlign: "right" }]} numberOfLines={1}>{getCleanCardNote(item)}</Text>
               </View>
 
               {item.status === "PENDING" && role !== "supplier" && (
@@ -838,7 +1117,7 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                 </View>
               )}
             </View>
-          ))}
+          );})}
           <View style={{ height: 100 }} />
         </ScrollView>
       </View>
@@ -908,71 +1187,152 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                   </View>
 
                   {activeTab === "Fertilizer" && (
-                      <View style={{ gap: 20, marginBottom: 25 }}>
-                         <View>
-                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Fertilizer Type</Text>
-                            <View style={[styles.inputContainer, { height: 56 }]}>
-                               <TextInput
-                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
-                                  placeholder="e.g. T.65, UREA"
-                                  placeholderTextColor="#7d93b4"
-                                  value={formItemType}
-                                  onChangeText={setFormItemType}
-                                />
-                            </View>
+                      <View style={{ gap: 14, marginBottom: 25 }}>
+                         <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "bold" }}>Fertilizer Items</Text>
+
+                         <View style={{ gap: 12, padding: 14, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+                           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                             <Text style={{ color: palette.muted, fontSize: 12, fontWeight: "bold" }}>New Item</Text>
+                             <Animated.View style={{ opacity: addItemBlink }}>
+                               <Pressable
+                                 onPress={saveFertilizerItem}
+                                 style={{
+                                   paddingHorizontal: 12,
+                                   paddingVertical: 7,
+                                   borderRadius: 999,
+                                   backgroundColor: "rgba(31,190,87,0.2)",
+                                   borderWidth: 1,
+                                   borderColor: "rgba(31,190,87,0.45)",
+                                 }}
+                               >
+                                 <Text style={{ color: palette.accentGreen, fontSize: 12, fontWeight: "bold" }}>Add Item</Text>
+                               </Pressable>
+                             </Animated.View>
+                           </View>
+                           <View style={{ flexDirection: "row", gap: 10 }}>
+                             <View style={{ flex: 1.5 }}>
+                               <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Fertilizer Type</Text>
+                               <View style={[styles.inputContainer, { height: 52 }]}> 
+                                 <TextInput
+                                   style={[styles.inputField, { paddingLeft: 15, fontSize: 15, fontWeight: "bold" }]}
+                                   placeholder="e.g. U709"
+                                   placeholderTextColor="#7d93b4"
+                                   value={formItemType}
+                                   onChangeText={setFormItemType}
+                                 />
+                               </View>
+                             </View>
+                             <View style={{ flex: 1 }}>
+                               <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Quantity (kg)</Text>
+                               <View style={[styles.inputContainer, { height: 52 }]}> 
+                                 <TextInput
+                                   style={[styles.inputField, { paddingLeft: 15, fontSize: 15, fontWeight: "bold" }]}
+                                   placeholder="kg"
+                                   placeholderTextColor="#7d93b4"
+                                   keyboardType="number-pad"
+                                   value={formQuantity}
+                                   onChangeText={setFormQuantity}
+                                 />
+                               </View>
+                             </View>
+                           </View>
                          </View>
-                         
-                         <View>
-                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Quantity (kg)</Text>
-                            <View style={[styles.inputContainer, { height: 56 }]}>
-                               <TextInput
-                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
-                                  placeholder="Enter kg..."
-                                  placeholderTextColor="#7d93b4"
-                                  keyboardType="number-pad"
-                                  value={formQuantity}
-                                  onChangeText={setFormQuantity}
-                                />
-                            </View>
-                         </View>
+
+                         {fertilizerItems.length > 0 && (
+                           <View style={{ borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                             <View style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+                               <Text style={{ flex: 2, color: palette.muted, fontSize: 11, fontWeight: "bold" }}>Fertilizer</Text>
+                               <Text style={{ flex: 1, color: palette.muted, fontSize: 11, fontWeight: "bold", textAlign: "right" }}>Qty (kg)</Text>
+                             </View>
+                             {fertilizerItems.map((item, idx) => (
+                               <View key={`saved-${idx}`} style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: idx === fertilizerItems.length - 1 ? 0 : 1, borderBottomColor: "rgba(255,255,255,0.06)", alignItems: "center" }}>
+                                 <Text style={{ flex: 2, color: "white", fontSize: 13, fontWeight: "600" }}>{item.type}</Text>
+                                 <Text style={{ flex: 1, color: palette.accentGreen, fontSize: 13, fontWeight: "700", textAlign: "right" }}>{item.quantity}</Text>
+                                 <Pressable onPress={() => setFertilizerItems((prev) => prev.filter((_, i) => i !== idx))} style={{ marginLeft: 10 }}>
+                                   <Ionicons name="trash-outline" size={14} color="#e74c3c" />
+                                 </Pressable>
+                               </View>
+                             ))}
+                           </View>
+                         )}
                       </View>
                    )}
  
                    {activeTab === "Tools" && (
-                      <View style={{ gap: 20, marginBottom: 25 }}>
+                      <View style={{ gap: 14 }}>
                          <View style={{ backgroundColor: "rgba(243, 156, 18, 0.1)", padding: 15, borderRadius: 12, borderWidth: 1, borderColor: "rgba(243, 156, 18, 0.2)" }}>
-                            <Text style={{ color: "#f39c12", fontSize: 12, fontWeight: "600", lineHeight: 18 }}>Note: Tool purchases will be billed as debt via the leaf bag deduction route.</Text>
-                         </View>
-                         
-                         <View>
-                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Tool Type</Text>
-                            <View style={[styles.inputContainer, { height: 56 }]}>
-                               <TextInput
-                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
-                                  placeholder="e.g. Shovel, Machete"
-                                  placeholderTextColor="#7d93b4"
-                                  value={formItemType}
-                                  onChangeText={setFormItemType}
-                                />
-                            </View>
+                            <Text style={{ color: "#f39c12", fontSize: 12, fontWeight: "600", lineHeight: 18 }}>Note: {toolViewMode === "TOOL_PURCHASE" ? "Tool purchases will be billed as debt via the leaf bag deduction route." : "Tool rental charges will be processed separately."}</Text>
                          </View>
 
-                         <View>
-                            <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 10, fontWeight: "bold" }}>Number of Units</Text>
-                            <View style={[styles.inputContainer, { height: 56 }]}>
-                               <TextInput
-                                  style={[styles.inputField, { paddingLeft: 15, fontSize: 16, fontWeight: "bold" }]}
-                                  placeholder="e.g. 5"
-                                  placeholderTextColor="#7d93b4"
-                                  keyboardType="number-pad"
-                                  value={formQuantity}
-                                  onChangeText={setFormQuantity}
-                               />
+                         <View style={{ gap: 14 }}>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                               <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "bold" }}>Tool Items</Text>
+                               <Animated.View style={{ opacity: addItemBlink }}>
+                                  <Pressable onPress={saveToolItem} style={{ backgroundColor: palette.accentGreen, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                                     <Text style={{ color: "white", fontSize: 12, fontWeight: "700" }}>Add Item</Text>
+                                  </Pressable>
+                               </Animated.View>
                             </View>
-                         </View>
-                      </View>
-                   )}
 
+                            <View style={{ flexDirection: "row", gap: 10 }}>
+                               <View style={{ flex: 1 }}>
+                                  <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Tool Type</Text>
+                                  <View style={[styles.inputContainer, { height: 48 }]}>
+                                     <TextInput
+                                        style={[styles.inputField, { paddingLeft: 12, fontSize: 14, fontWeight: "600" }]}
+                                        placeholder="e.g. Shovel"
+                                        placeholderTextColor="#7d93b4"
+                                        value={formItemType}
+                                        onChangeText={setFormItemType}
+                                     />
+                                  </View>
+                               </View>
+                               <View style={{ flex: 0.6 }}>
+                                  <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Qty</Text>
+                                  <View style={[styles.inputContainer, { height: 48 }]}>
+                                     <TextInput
+                                     style={[styles.inputField, { paddingLeft: 12, fontSize: 14, fontWeight: "600" }]}
+                                     placeholder="5"
+                                     placeholderTextColor="#7d93b4"
+                                     keyboardType="number-pad"
+                                     value={formQuantity}
+                                     onChangeText={setFormQuantity}
+                                   />
+                                 </View>
+                               </View>
+                             </View>
+
+                             {toolItems.length > 0 && (
+                               <View style={{ gap: 8, marginTop: 8 }}>
+                                 {toolItems.map((item, index) => (
+                                   <View
+                                    key={index}
+                                    style={{
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      backgroundColor: "rgba(46, 168, 255, 0.1)",
+                                      padding: 12,
+                                      borderRadius: 10,
+                                      borderWidth: 1,
+                                      borderColor: palette.accentBlue + "30",
+                                    }}
+                                   >
+                                     <View style={{ flex: 1 }}>
+                                       <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "bold", marginBottom: 3 }}>Item {index + 1}</Text>
+                                           <Text style={{ fontSize: 13, fontWeight: "bold", color: "white" }}>{item.type}</Text>
+                                     </View>
+                                     <Text style={{ fontSize: 13, fontWeight: "bold", color: palette.accentBlue, marginRight: 10 }}>{Number(item.quantity).toLocaleString()} units</Text>
+                                     <Pressable onPress={() => setToolItems((prev) => prev.filter((_, i) => i !== index))} style={{ padding: 6 }}>
+                                       <MaterialCommunityIcons name="delete-outline" size={18} color="#e74c3c" />
+                                     </Pressable>
+                                   </View>
+                                 ))}
+                               </View>
+                             )}
+                           </View>
+                         </View>
+                       )}
                   {activeTab === "Advance" && (
                      <>
                       <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Requested Amount (Rs.)</Text>
@@ -990,10 +1350,24 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                     </>
                   )}
 
-                  {activeTab === "Buy Tools" && (
-                    <View style={{ backgroundColor: "rgba(243, 156, 18, 0.1)", padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: "rgba(243, 156, 18, 0.3)" }}>
-                      <Text style={{ color: "#f39c12", fontSize: 12 }}>Note: Tool purchases will be billed as debt via the leaf bag deduction route.</Text>
-                    </View>
+                  {activeTab === "Leaf Bags" && (
+                    <>
+                      <View style={{ backgroundColor: "rgba(46,168,255,0.08)", padding: 12, borderRadius: 10, marginBottom: 18, borderWidth: 1, borderColor: "rgba(46,168,255,0.2)" }}>
+                        <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600", lineHeight: 18 }}>Leaf bags are factory-issued and will be billed as a debt deducted from your balance payment.</Text>
+                      </View>
+                      <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Number of Bags Needed</Text>
+                      <View style={[styles.inputContainer, { marginBottom: 20 }]}>
+                        <Ionicons name="bag-handle-outline" size={20} color={palette.muted} style={{ marginLeft: 15 }} />
+                        <TextInput
+                          style={[styles.inputField, { fontSize: 18, fontWeight: "bold", paddingLeft: 10 }]}
+                          placeholder="e.g. 5"
+                          placeholderTextColor="#7d93b4"
+                          keyboardType="number-pad"
+                          value={formQuantity}
+                          onChangeText={setFormQuantity}
+                        />
+                      </View>
+                    </>
                   )}
 
                   <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Additional Notes</Text>
@@ -1111,6 +1485,189 @@ export function ProfileScreen({ user, navigation }: any) {
         </View>
 
         <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Supplier List Screen
+// ─────────────────────────────────────────────────────────────
+
+const MOCK_SUPPLIERS = [
+  { supplierId: "s1", supplierName: "Jayasekara Ranjith",  passbookNo: "SH-0142", lastWeight: 87.5,  lastDate: new Date(Date.now() - 1*60*60*1000).toISOString(), syncStatus: "SYNCED",  gpsStatus: "GPS" },
+  { supplierId: "s2", supplierName: "Perera Dhammika",     passbookNo: "SH-0089", lastWeight: 124.0, lastDate: new Date(Date.now() - 2*60*60*1000).toISOString(), syncStatus: "QUEUED", gpsStatus: "GPS" },
+  { supplierId: "s3", supplierName: "Silva Mahinda",       passbookNo: "SH-0056", lastWeight: 62.0,  lastDate: new Date(Date.now() - 3*60*60*1000).toISOString(), syncStatus: "SYNCED", gpsStatus: "NO_GPS" },
+  { supplierId: "s4", supplierName: "Kumari Nilanthi",     passbookNo: "SH-0203", lastWeight: 95.5,  lastDate: new Date(Date.now() - 4*60*60*1000).toISOString(), syncStatus: "SYNCED", gpsStatus: "GPS" },
+  { supplierId: "s5", supplierName: "Fernando Chaminda",   passbookNo: "SH-0117", lastWeight: 0,     lastDate: "",                                                  syncStatus: "QUEUED", gpsStatus: "NO_GPS" },
+  { supplierId: "s6", supplierName: "Bandara Sunil",       passbookNo: "SH-0031", lastWeight: 110.0, lastDate: new Date(Date.now() - 5*60*60*1000).toISOString(), syncStatus: "SYNCED", gpsStatus: "GPS" },
+  { supplierId: "s7", supplierName: "Rajapaksha Nimal",    passbookNo: "SH-0078", lastWeight: 0,     lastDate: "",                                                  syncStatus: "QUEUED", gpsStatus: "NO_GPS" },
+  { supplierId: "s8", supplierName: "Wickramasinghe Tissa",passbookNo: "SH-0155", lastWeight: 73.5,  lastDate: new Date(Date.now() - 6*60*60*1000).toISOString(), syncStatus: "SYNCED", gpsStatus: "GPS" },
+];
+
+const avatarPalette = ["#3498db","#2ecc71","#9b59b6","#e67e22","#1abc9c","#e74c3c","#f39c12","#2980b9"];
+const getBgColor = (name: string) => avatarPalette[name.charCodeAt(0) % avatarPalette.length];
+
+export function SupplierListScreen({ user, token, navigation }: any) {
+  const [search, setSearch] = useState("");
+  const [historyItems, setHistoryItems] = useState<ApiCollectionHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (!token || !user?.userId) { setLoading(false); return; }
+      try {
+        const data = await apiGet<ApiCollectionHistory[]>(`${CollectionAPI.agentHistory(user.userId)}?limit=250`, token);
+        setHistoryItems(Array.isArray(data) ? data : []);
+      } catch { /* offline — will use mock */ }
+      finally { setLoading(false); }
+    })();
+  }, [token, user?.userId]);
+
+  // Build per-supplier summary from real data
+  const supplierMap = useMemo(() => {
+    const map = new Map<string, { supplierName: string; passbookNo: string; lastWeight: number; lastDate: string; syncStatus: string; gpsStatus: string }>();
+    [...historyItems].sort((a, b) => new Date(b.collectedAt).getTime() - new Date(a.collectedAt).getTime())
+      .forEach((item) => {
+        if (!map.has(item.supplierId)) {
+          map.set(item.supplierId, {
+            supplierName: item.supplierName,
+            passbookNo: item.passbookNo,
+            lastWeight: Number(item.grossWeight || 0),
+            lastDate: item.collectedAt,
+            syncStatus: item.syncStatus,
+            gpsStatus: item.gpsStatus,
+          });
+        }
+      });
+    return map;
+  }, [historyItems]);
+
+  const useMock = !loading && historyItems.length === 0;
+  const suppliers = useMock
+    ? MOCK_SUPPLIERS
+    : Array.from(supplierMap.entries()).map(([supplierId, v]) => ({ supplierId, ...v }));
+
+  const filtered = suppliers.filter((s) =>
+    s.supplierName.toLowerCase().includes(search.toLowerCase()) ||
+    s.passbookNo.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const collected = suppliers.filter((s) => s.lastWeight > 0).length;
+
+  return (
+    <View style={styles.dashboardWrap}>
+      <SafeAreaView style={{ backgroundColor: "#0b1a30" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 14 }}>
+          {/* Back button */}
+          <Pressable onPress={() => navigation.goBack()} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+            <Ionicons name="chevron-back" size={22} color="#fff" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>Supplier List</Text>
+            <Text style={{ color: palette.muted, fontSize: 13 }}>{suppliers.length} suppliers · {collected} collected today</Text>
+          </View>
+          <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="filter-outline" size={20} color={palette.muted} />
+          </View>
+        </View>
+
+        {/* Search */}
+        <View style={{ marginHorizontal: 18, marginBottom: 14, flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+          <Ionicons name="search-outline" size={18} color={palette.muted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search name or passbook..."
+            placeholderTextColor={palette.muted}
+            style={{ flex: 1, color: "#fff", paddingVertical: 10, paddingHorizontal: 8, fontSize: 14 }}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={18} color={palette.muted} />
+            </Pressable>
+          )}
+        </View>
+
+        {/* Summary strip */}
+        <View style={{ flexDirection: "row", paddingHorizontal: 18, paddingBottom: 14, gap: 10 }}>
+          <View style={{ flex: 1, backgroundColor: "rgba(31,190,87,0.1)", borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "rgba(31,190,87,0.2)" }}>
+            <Text style={{ color: "#1fbe57", fontSize: 18, fontWeight: "800" }}>{collected}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10 }}>Collected</Text>
+          </View>
+          <View style={{ flex: 1, backgroundColor: "rgba(243,156,18,0.1)", borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "rgba(243,156,18,0.2)" }}>
+            <Text style={{ color: "#f39c12", fontSize: 18, fontWeight: "800" }}>{suppliers.length - collected}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10 }}>Pending</Text>
+          </View>
+          <View style={{ flex: 1, backgroundColor: "rgba(46,168,255,0.1)", borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "rgba(46,168,255,0.2)" }}>
+            <Text style={{ color: palette.accentBlue, fontSize: 18, fontWeight: "800" }}>{suppliers.length}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10 }}>Total</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+        {loading && <ActivityIndicator color={palette.accentBlue} style={{ marginTop: 40 }} />}
+
+        {!loading && filtered.length === 0 && (
+          <View style={{ alignItems: "center", paddingTop: 40 }}>
+            <Ionicons name="people-outline" size={40} color={palette.muted} />
+            <Text style={{ color: palette.muted, marginTop: 12, fontSize: 14 }}>No suppliers found</Text>
+          </View>
+        )}
+
+        {!loading && filtered.map((s, idx) => {
+          const initial = s.supplierName.charAt(0).toUpperCase();
+          const bg = getBgColor(s.supplierName);
+          const hasCollection = s.lastWeight > 0;
+          const isSynced = s.syncStatus === "SYNCED";
+          const isGPS = s.gpsStatus === "GPS";
+          const nameParts = s.supplierName.split(" ");
+          const displayName = nameParts.length >= 2
+            ? `${nameParts[nameParts.length - 1]}, ${nameParts[0]}`
+            : s.supplierName;
+          const timeStr = s.lastDate ? new Date(s.lastDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : null;
+
+          return (
+            <Pressable key={s.supplierId} onPress={() => navigation.navigate("CollectionInput", { token, user, prefillSupplier: s })}
+              style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: hasCollection ? "rgba(31,190,87,0.15)" : "rgba(255,255,255,0.06)", borderLeftWidth: 3, borderLeftColor: hasCollection ? "#1fbe57" : "#f39c12" }}>
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: bg, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+                <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>{initial}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>{displayName}</Text>
+                <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 5 }}>{s.passbookNo}</Text>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  {hasCollection ? (
+                    <>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(31,190,87,0.12)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                        <MaterialCommunityIcons name="leaf" size={10} color="#1fbe57" />
+                        <Text style={{ color: "#1fbe57", fontSize: 10, fontWeight: "600" }}>{s.lastWeight} kg</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: isGPS ? "rgba(31,190,87,0.12)" : "rgba(255,255,255,0.06)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                        <Ionicons name="location" size={10} color={isGPS ? "#1fbe57" : palette.muted} />
+                        <Text style={{ color: isGPS ? "#1fbe57" : palette.muted, fontSize: 10, fontWeight: "600" }}>GPS</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: isSynced ? "rgba(31,190,87,0.12)" : "rgba(243,156,18,0.12)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                        <Ionicons name={isSynced ? "checkmark" : "time-outline"} size={10} color={isSynced ? "#1fbe57" : "#f39c12"} />
+                        <Text style={{ color: isSynced ? "#1fbe57" : "#f39c12", fontSize: 10, fontWeight: "600" }}>{isSynced ? "Synced" : "Queued"}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(243,156,18,0.12)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                      <Ionicons name="time-outline" size={10} color="#f39c12" />
+                      <Text style={{ color: "#f39c12", fontSize: 10, fontWeight: "600" }}>Not yet collected</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                {timeStr && <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>{timeStr}</Text>}
+                <Ionicons name="add-circle-outline" size={22} color={palette.accentGreen} style={{ marginTop: 4 }} />
+              </View>
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );

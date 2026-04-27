@@ -10,7 +10,7 @@ import { palette, styles } from "../ui/theme";
 
 import { LoginScreen, OtpScreen } from "../features/auth/AuthScreens";
 import { RegisterScreen } from "../features/auth/RegisterScreen";
-import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen } from "../features/ta-collection/AgentScreens";
+import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen, SupplierListScreen } from "../features/ta-collection/AgentScreens";
 import { CollectionInputScreen } from "../features/ta-collection/CollectionInputScreen";
 import { SupplierHomeScreen, SupplierSupplyScreen, SupplierPaymentsScreen, SupplierDebtsScreen, SupplierProfileScreen } from "../features/smallholder/SupplierScreens";
 
@@ -58,7 +58,6 @@ function MainTabNavigator({ route, navigation }: any) {
           else if (route.name === "Supply") return <MaterialCommunityIcons name="leaf" size={size} color={color} />;
           else if (route.name === "Payments") iconName = "cash-outline";
           else if (route.name === "Debts") iconName = "wallet-outline";
-          
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
@@ -74,10 +73,10 @@ function MainTabNavigator({ route, navigation }: any) {
         </>
       ) : (
         <>
-          <Tab.Screen name="Dashboard" children={() => <DashboardScreen user={user} role={role} navigation={navigation} token={route.params?.token} />} />
-          <Tab.Screen name="Collections" children={() => <CollectionsScreen navigation={navigation} user={user} token={route.params?.token} />} />
-          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={route.params?.token} role={role} />} />
-          <Tab.Screen name="Profile" children={() => <ProfileScreen user={user} navigation={navigation} />} />
+          <Tab.Screen name="Dashboard"   children={(props) => <DashboardScreen   {...props} user={user} role={role} token={route.params?.token} />} />
+          <Tab.Screen name="Collections" children={(props) => <CollectionsScreen  {...props} user={user} token={route.params?.token} />} />
+          <Tab.Screen name="Requests"    children={(props) => <RequestsScreen     {...props} user={user} token={route.params?.token} role={role} />} />
+          <Tab.Screen name="Profile"     children={(props) => <ProfileScreen      {...props} user={user} />} />
         </>
       )}
     </Tab.Navigator>
@@ -98,6 +97,27 @@ export default function App() {
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
+      input,
+      textarea,
+      select {
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        border: 0 !important;
+        outline: 0 !important;
+        box-shadow: none !important;
+      }
+
+      input:focus,
+      input:focus-visible,
+      textarea:focus,
+      textarea:focus-visible,
+      select:focus-visible,
+      select:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        border: 0 !important;
+      }
+
       input:-webkit-autofill,
       input:-webkit-autofill:hover,
       input:-webkit-autofill:focus,
@@ -130,6 +150,7 @@ export default function App() {
         <Stack.Screen name="Otp" component={OtpScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
+        <Stack.Screen name="SupplierList" children={(props) => <SupplierListScreen {...props} user={props.route.params?.user} token={props.route.params?.token} />} />
       </Stack.Navigator>
     </NavigationContainer>
   );

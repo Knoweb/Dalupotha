@@ -42,6 +42,10 @@ services:
       DB_NAME: auth_db
       DB_USER: ${POSTGRES_USER:-dalupotha_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+      JWT_SECRET: ${JWT_SECRET:-dalupotha-secret}
+      VONAGE_API_KEY: ${VONAGE_API_KEY:-}
+      VONAGE_API_SECRET: ${VONAGE_API_SECRET:-}
+      VONAGE_SENDER_ID: ${VONAGE_SENDER_ID:-VonageAPIs}
     develop:
       watch:
         - path: ./services/auth-service/src
@@ -65,6 +69,10 @@ services:
       DB_NAME: collection_db
       DB_USER: ${POSTGRES_USER:-dalupotha_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_REALTIME_CHANNEL: ${SUPABASE_REALTIME_CHANNEL}
     develop:
       watch:
         - path: ./services/collection-service/src

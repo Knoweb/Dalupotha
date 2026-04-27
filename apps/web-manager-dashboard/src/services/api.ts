@@ -1,6 +1,6 @@
 const API_BASE = '/api';
 
-export type RequestStatus = 'PENDING' | 'APPROVED_BY_EXT' | 'APPROVED_BY_FIN' | 'REJECTED' | 'DISPATCHED' | 'CANCELLED';
+export type RequestStatus = 'PENDING' | 'APPROVED_BY_EXT' | 'REJECTED' | 'DISPATCHED' | 'CANCELLED';
 
 export interface ServiceRequest {
   requestId: string;
@@ -12,6 +12,7 @@ export interface ServiceRequest {
   requestedAmount: number;
   quantity?: number;
   itemType?: string;
+  itemDetails?: string;
   creatorName?: string;
   creatorId?: string;
   status: RequestStatus;
@@ -48,5 +49,37 @@ export const FinanceAPI = {
       payoutTotal: number;
       estimatedBalance: number;
     }>;
+  }
+};
+
+export interface CollectionItem {
+  collectionId: string;
+  supplierId: string;
+  supplierName: string;
+  passbookNo: string;
+  grossWeight: number;
+  netWeight: number;
+  collectedAt: string;
+  syncStatus: string;
+  gpsStatus: string;
+  manualOverride: boolean;
+  transportAgentId: string;
+  transportAgentName: string;
+}
+
+export const CollectionAPI = {
+  getRecentCollections: async (limit: number = 50) => {
+    // Note: We'll use the agent history or a new recent endpoint if available.
+    // For now, let's assume the gateway routes /api/collection/recent or similar.
+    // Since we don't have a global "all" yet, we might need to fetch per agent or use a mock fallback if needed.
+    // BUT looking at the controller, we only have history/agent or history/supplier.
+    // I'll add a placeholder for now or use the Suppliers list as a base.
+    const res = await fetch(`${API_BASE}/collection/recent?limit=${limit}`);
+    if (!res.ok) {
+       // Fallback to searching suppliers if "recent" isn't implemented yet
+       console.warn('Realtime fetch failed, using fallback');
+       return [] as CollectionItem[];
+    }
+    return res.json() as Promise<CollectionItem[]>;
   }
 };

@@ -1,4 +1,4 @@
-﻿package com.dalupotha.staffing;
+package com.dalupotha.staffing;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

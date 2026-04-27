@@ -1,4 +1,4 @@
-﻿package com.dalupotha.inventory;
+package com.dalupotha.inventory;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;

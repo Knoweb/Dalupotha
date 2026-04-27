@@ -194,13 +194,13 @@ export function SupplierHomeScreen({ user, token, navigation }: any) {
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
           <View style={[styles.supCard, { borderTopColor: palette.accentGreen }]}>
             <View style={[styles.supCardIcon, { backgroundColor: "rgba(31,190,87,0.1)" }]}><MaterialCommunityIcons name="leaf" size={20} color={palette.accentGreen} /></View>
-            <Text style={styles.supCardLabel}>THIS WEEK SUPPLY</Text>
+            <Text style={[styles.supCardLabel, { letterSpacing: 0, fontSize: 12 }]}>සතියේ දළු සැපයුම</Text>
             <Text style={styles.supCardValue}>{formatKg(weekStats.gross)}</Text>
             <Text style={styles.supCardSub}>{weekStats.syncedCount} deliveries synced</Text>
           </View>
           <View style={[styles.supCard, { borderTopColor: "#e74c3c" }]}>
             <View style={[styles.supCardIcon, { backgroundColor: "rgba(231,76,60,0.1)" }]}><Ionicons name="clipboard-outline" size={20} color="#e74c3c" /></View>
-            <Text style={styles.supCardLabel}>CURRENT DEBT</Text>
+            <Text style={[styles.supCardLabel, { letterSpacing: 0, fontSize: 12 }]}>දැනට ණය</Text>
             <Text style={styles.supCardValue}>{formatLKR(ledger.currentDebt)}</Text>
             <Text style={styles.supCardSub}>From finance ledger</Text>
           </View>
@@ -212,7 +212,7 @@ export function SupplierHomeScreen({ user, token, navigation }: any) {
               <View style={[styles.supCardIcon, { backgroundColor: "rgba(243,156,18,0.1)" }]}><Ionicons name="wallet-outline" size={20} color="#f39c12" /></View>
               <View style={{ backgroundColor: palette.accentGreen, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}><Text style={{ color: "#fff", fontSize: 10, fontWeight: "bold" }}>+ REQ</Text></View>
             </View>
-            <Text style={styles.supCardLabel}>ADVANCE TAKEN</Text>
+            <Text style={[styles.supCardLabel, { letterSpacing: 0, fontSize: 12 }]}>ඇත්තිකාරම්</Text>
             <Text style={styles.supCardValue}>{formatLKR(ledger.advanceTaken)}</Text>
             <Text style={styles.supCardSub}>From finance ledger</Text>
           </View>
@@ -221,7 +221,7 @@ export function SupplierHomeScreen({ user, token, navigation }: any) {
               <View style={[styles.supCardIcon, { backgroundColor: "rgba(46,168,255,0.1)" }]}><Ionicons name="cash-outline" size={20} color={palette.accentBlue} /></View>
               <View style={{ backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, flexDirection: "row", alignItems: "center" }}><Ionicons name="time-outline" size={10} color={palette.muted} /><Text style={{ color: palette.muted, fontSize: 10 }}> Pending</Text></View>
             </View>
-            <Text style={styles.supCardLabel}>EST. BALANCE</Text>
+            <Text style={[styles.supCardLabel, { letterSpacing: 0, fontSize: 12 }]}>ඇස්තමේන්තු ගත ඉතිරිය</Text>
             <Text style={styles.supCardValue}>{formatLKR(ledger.estimatedBalance)}</Text>
             <Text style={styles.supCardSub}>Live estimate</Text>
           </View>
@@ -229,23 +229,99 @@ export function SupplierHomeScreen({ user, token, navigation }: any) {
 
         <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1 }]}>SERVICES & SUPPORT</Text>
         
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          <View style={styles.serviceCard}>
-            <View style={[styles.serviceIcon, {borderColor: palette.accentGreen}]}><MaterialCommunityIcons name="leaf" size={24} color={palette.accentGreen} /></View>
-            <Text style={styles.serviceTitle}>Fertilizer</Text>
-            <View style={styles.serviceBadge}><Ionicons name="checkmark-circle-outline" size={12} color={palette.muted} /><Text style={styles.serviceBadgeText}> Approved</Text></View>
+        {(() => {
+          const services = [
+            { title: "පොහොර",     icon: { lib: "mc",  name: "sprout" },                      color: "#1fbe57", status: "Approved", statusIcon: "checkmark-circle-outline", hideStatus: false },
+            { title: "දළු බෑග්",  icon: { lib: "ion", name: "bag-handle-outline" },           color: "#00d2d3", status: "Pending",  statusIcon: "time-outline",             hideStatus: false },
+            { title: "Circulars", icon: { lib: "ion", name: "document-text-outline" },        color: "#9b59b6", status: "New",      statusIcon: "notifications-outline",    hideStatus: false },
+            { title: "ප්‍රවාහන", icon: { lib: "mc",  name: "truck-delivery-outline" },       color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true  },
+            { title: "උපදේශන",   icon: { lib: "ion", name: "chatbox-outline" },              color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true  },
+            { title: "Settings",  icon: { lib: "ion", name: "settings-outline" },             color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true  },
+          ];
+          const renderCard = (item: typeof services[0], idx: number) => {
+            const isColored = !item.hideStatus;
+            return (
+              <View key={idx} style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+                <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: isColored ? `${item.color}20` : "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: isColored ? `${item.color}35` : "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+                  {item.icon.lib === "mc"
+                    ? <MaterialCommunityIcons name={item.icon.name as any} size={26} color={item.color} />
+                    : <Ionicons name={item.icon.name as any} size={26} color={item.color} />}
+                </View>
+                <Text style={{ color: isColored ? item.color : "#c0cfe0", fontSize: 12, fontWeight: "700", textAlign: "center", marginBottom: 4 }}>{item.title}</Text>
+                {!item.hideStatus && (
+                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: `${item.color}15`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 3 }}>
+                    <Ionicons name={item.statusIcon as any} size={10} color={item.color} />
+                    <Text style={{ color: item.color, fontSize: 9, marginLeft: 2 }}>{item.status}</Text>
+                  </View>
+                )}
+              </View>
+            );
+          };
+          return (
+            <>
+              <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+                {services.slice(0, 3).map(renderCard)}
+              </View>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {services.slice(3, 6).map((item, idx) => renderCard(item, idx + 3))}
+              </View>
+            </>
+          );
+        })()}
+        {/* RECENT HISTORY */}
+        <View style={{ marginTop: 22, marginBottom: 6 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1 }]}>RECENT HISTORY</Text>
+            {history.length > 5 && (
+              <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>View All →</Text>
+            )}
           </View>
-          <View style={styles.serviceCard}>
-            <View style={[styles.serviceIcon, {borderColor: palette.accentBlue}]}><Ionicons name="bag-handle-outline" size={24} color={palette.accentBlue} /></View>
-            <Text style={styles.serviceTitle}>Leaf Bags</Text>
-            <View style={styles.serviceBadge}><Ionicons name="time-outline" size={12} color={palette.muted} /><Text style={styles.serviceBadgeText}> Pending</Text></View>
-          </View>
-          <View style={styles.serviceCard}>
-            <View style={[styles.serviceIcon, {borderColor: "#9b59b6"}]}><Ionicons name="document-text-outline" size={24} color="#9b59b6" /></View>
-            <Text style={styles.serviceTitle}>Circulars</Text>
-            <View style={styles.serviceBadge}><Ionicons name="notifications-outline" size={12} color={palette.muted} /><Text style={styles.serviceBadgeText}> New</Text></View>
-          </View>
+
+          {loading && (
+            <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <Text style={{ color: palette.muted, fontSize: 13 }}>Loading history...</Text>
+            </View>
+          )}
+
+          {!loading && history.length === 0 && (
+            <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 14, padding: 20, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+              <MaterialCommunityIcons name="leaf-off" size={28} color={palette.muted} />
+              <Text style={{ color: palette.muted, fontSize: 13, marginTop: 8 }}>No delivery history yet</Text>
+            </View>
+          )}
+
+          {!loading && history.slice(0, 5).map((item, idx) => {
+            const d = new Date(item.collectedAt);
+            const dateStr = d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+            const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+            const isSynced = String(item.syncStatus).toUpperCase() === "SYNCED";
+            const isGPS = String(item.gpsStatus).toUpperCase() === "GPS";
+            const netWt = item.netWeight ?? item.grossWeight;
+            return (
+              <View key={item.collectionId || idx} style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", borderLeftWidth: 3, borderLeftColor: isSynced ? palette.accentGreen : "#f39c12" }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(31,190,87,0.12)", borderWidth: 1, borderColor: "rgba(31,190,87,0.25)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+                  <MaterialCommunityIcons name="leaf" size={20} color={palette.accentGreen} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: "white", fontSize: 14, fontWeight: "700" }}>
+                    Delivered {Number(item.grossWeight || 0).toFixed(1)} kg
+                    {netWt && netWt !== item.grossWeight ? <Text style={{ color: palette.muted, fontWeight: "400", fontSize: 12 }}> (Net: {Number(netWt).toFixed(1)} kg)</Text> : null}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 3, gap: 6 }}>
+                    <Text style={{ color: palette.muted, fontSize: 12 }}>{dateStr}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 12 }}>·</Text>
+                    <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>{timeStr}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 12 }}>·</Text>
+                    <Ionicons name={isGPS ? "location" : "location-outline"} size={12} color={isGPS ? palette.accentGreen : palette.muted} />
+                    <Text style={{ color: isSynced ? palette.accentGreen : "#f39c12", fontSize: 11, fontWeight: "600" }}>{isSynced ? "Synced" : "Pending"}</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={palette.muted} />
+              </View>
+            );
+          })}
         </View>
+
         <View style={{height: 100}} />
       </ScrollView>
     </View>

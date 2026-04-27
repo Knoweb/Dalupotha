@@ -41,6 +41,13 @@ public class CollectionController {
         return collectionService.syncCollections(request);
     }
 
+    @GetMapping("/recent")
+    public List<CollectionHistoryItemResponse> getRecentCollections(
+            @RequestParam(required = false) Integer limit
+    ) {
+        return collectionService.getRecentCollections(limit);
+    }
+
     @GetMapping("/history/agent/{transportAgentId}")
     public List<CollectionHistoryItemResponse> getAgentHistory(
             @PathVariable UUID transportAgentId,
