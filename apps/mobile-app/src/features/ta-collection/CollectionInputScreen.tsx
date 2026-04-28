@@ -398,10 +398,7 @@ export function CollectionInputScreen({ navigation, route }: any) {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: 14,
-            shadowColor: palette.accentGreen,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
+            boxShadow: "0px 4px 8px rgba(31, 190, 87, 0.3)",
             elevation: 8,
           }]}
           onPress={() => {

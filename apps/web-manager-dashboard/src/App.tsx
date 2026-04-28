@@ -1,20 +1,30 @@
 import { useState } from 'react'
 import DashboardLayout from './components/layout/DashboardLayout'
 
-// Pages
+// Portals
 import LoginPage from './pages/Login'
 import SuperAdminView from './pages/SuperAdminView'
-import DashboardPage from './pages/Dashboard'
-import CollectionsPage from './pages/Collections'
-import FinancialsPage from './pages/Financials'
-import InventoryPage from './pages/Inventory'
-import ApprovalsPage from './pages/Approvals'
-import TrackingPage from './pages/Tracking'
-import CircularsPage from './pages/Circulars'
-import ReportsPage from './pages/Reports'
-import UsersPage from './pages/Users'
-import SettingsPage from './pages/Settings'
-import QualityPage from './pages/QualityPage'
+
+// Manager Portal
+import DashboardPage from './portals/manager/Dashboard'
+import TrackingPage from './portals/manager/Tracking'
+import UsersPage from './portals/manager/Users'
+import SettingsPage from './portals/manager/Settings'
+
+// Factory Portal
+import QualityPage from './portals/factory/Quality'
+import CollectionsPage from './portals/factory/Collections'
+
+// Office Portal
+import FinancialsPage from './portals/office/Financials'
+import ReportsPage from './portals/office/Reports'
+
+// Store Keeper Portal
+import InventoryPage from './portals/store-keeper/Inventory'
+
+// Extension Portal
+import ApprovalsPage from './portals/extension/Approvals'
+import CircularsPage from './portals/extension/Circulars'
 
 export type UserRole = 'manager' | 'super-admin' | 'extension-officer' | 'store-keeper' | 'factory-staff' | 'office-staff';
 
@@ -71,7 +81,7 @@ export default function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':   return <DashboardPage />;
+      case 'dashboard':   return <DashboardPage onNavigate={handleTabChange} />;
       case 'collections': return <CollectionsPage />;
       case 'financials':  return <FinancialsPage />;
       case 'inventory':   return <InventoryPage />;

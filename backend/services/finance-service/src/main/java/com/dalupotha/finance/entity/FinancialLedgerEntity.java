@@ -32,7 +32,16 @@ public class FinancialLedgerEntity {
     private LedgerTransactionType transactionType;
 
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
-    private BigDecimal amount;
+    private BigDecimal amount; // Serves as the Net Amount for payouts or requested amount for advances
+
+    @Column(name = "gross_amount", precision = 12, scale = 2)
+    private BigDecimal grossAmount;
+
+    @Column(name = "deductions", precision = 12, scale = 2)
+    private BigDecimal deductions;
+
+    @Column(name = "remaining", precision = 12, scale = 2)
+    private BigDecimal remaining;
 
     @Column(name = "description")
     private String description;
@@ -113,5 +122,29 @@ public class FinancialLedgerEntity {
 
     public void setStatus(LedgerStatus status) {
         this.status = status;
+    }
+
+    public BigDecimal getGrossAmount() {
+        return grossAmount;
+    }
+
+    public void setGrossAmount(BigDecimal grossAmount) {
+        this.grossAmount = grossAmount;
+    }
+
+    public BigDecimal getDeductions() {
+        return deductions;
+    }
+
+    public void setDeductions(BigDecimal deductions) {
+        this.deductions = deductions;
+    }
+
+    public BigDecimal getRemaining() {
+        return remaining;
+    }
+
+    public void setRemaining(BigDecimal remaining) {
+        this.remaining = remaining;
     }
 }

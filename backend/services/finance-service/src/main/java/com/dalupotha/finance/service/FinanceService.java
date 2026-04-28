@@ -4,6 +4,7 @@ import com.dalupotha.finance.dto.CreateServiceRequestRequest;
 import com.dalupotha.finance.dto.ServiceRequestResponse;
 import com.dalupotha.finance.dto.SupplierLedgerResponse;
 import com.dalupotha.finance.dto.UpdateRequestStatusRequest;
+import com.dalupotha.finance.dto.LedgerTransactionResponse;
 import com.dalupotha.finance.entity.FinancialLedgerEntity;
 import com.dalupotha.finance.entity.ServiceRequestEntity;
 import com.dalupotha.finance.model.LedgerStatus;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -116,12 +118,35 @@ public class FinanceService {
 
         entity.setStatus(request.getStatus());
         entity.setApproverId(request.getApproverId());
-        if (request.getNotes() != null && !request.getNotes().isBlank()) {
-            entity.setNotes(request.getNotes());
+        if (request.getApproverComment() != null && !request.getApproverComment().isBlank()) {
+            entity.setApproverComment(request.getApproverComment());
         }
 
         ServiceRequestEntity saved = serviceRequestRepository.save(entity);
         return toResponse(saved);
+    }
+
+    public List<LedgerTransactionResponse> getLedgerTransactions(UUID supplierId) {
+        return financialLedgerRepository.findBySupplierIdOrderByTransactionDateDesc(supplierId)
+                .stream()
+                .map(this::toLedgerTransactionResponse)
+                .collect(Collectors.toList());
+    }
+
+    private LedgerTransactionResponse toLedgerTransactionResponse(FinancialLedgerEntity entity) {
+        return new LedgerTransactionResponse(
+                entity.getTransactionId(),
+                entity.getSupplierId(),
+                entity.getApproverId(),
+                entity.getTransactionType(),
+                entity.getAmount(),
+                entity.getGrossAmount(),
+                entity.getDeductions(),
+                entity.getRemaining(),
+                entity.getDescription(),
+                entity.getTransactionDate(),
+                entity.getStatus()
+        );
     }
 
     public SupplierLedgerResponse getSupplierLedger(UUID supplierId) {
@@ -211,6 +236,7 @@ public class FinanceService {
                 name,
                 id,
                 entity.getNotes(),
+                entity.getApproverComment(),
                 entity.getRequestDate(),
                 entity.getUpdatedAt()
         );

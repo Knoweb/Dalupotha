@@ -1,6 +1,7 @@
 package com.dalupotha.finance.controller;
 
 import com.dalupotha.finance.dto.CreateServiceRequestRequest;
+import com.dalupotha.finance.dto.LedgerTransactionResponse;
 import com.dalupotha.finance.dto.ServiceRequestResponse;
 import com.dalupotha.finance.dto.SupplierLedgerResponse;
 import com.dalupotha.finance.dto.UpdateRequestStatusRequest;
@@ -31,6 +32,11 @@ public class FinanceController {
     @GetMapping("/api/finance/ledger/{supplierId}")
     public SupplierLedgerResponse getLedger(@PathVariable UUID supplierId) {
         return financeService.getSupplierLedger(supplierId);
+    }
+
+    @GetMapping("/api/finance/ledger/{supplierId}/transactions")
+    public List<LedgerTransactionResponse> getLedgerTransactions(@PathVariable UUID supplierId) {
+        return financeService.getLedgerTransactions(supplierId);
     }
 
     @PostMapping("/api/finance/advance-request")

@@ -175,7 +175,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
                          <input 
                            type={showPassword ? 'text' : 'password'} 
                            placeholder="••••"
-                           maxLength={4}
+                           
                            value={password}
                            onChange={e => setPassword(e.target.value)}
                            className="w-full bg-slate-50 border-2 border-transparent rounded-full px-14 py-4 focus:bg-white focus:border-[#3d7a2d] focus:ring-8 focus:ring-[#3d7a2d]/5 outline-none transition-all text-[15px] font-medium text-slate-800 placeholder:text-slate-400 shadow-inner"

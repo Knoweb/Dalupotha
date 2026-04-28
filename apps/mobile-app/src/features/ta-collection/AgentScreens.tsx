@@ -9,6 +9,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { palette, styles } from "../../ui/theme";
 import { CollectionAPI, ServicesAPI, apiGet, apiPatch, apiPost } from "../../services/api";
 import { getOfflineCollections, syncQueuedCollections } from "./collectionData";
+import { getTranslation } from "../smallholder/SupplierScreens";
 
 type ApiCollectionHistory = {
   collectionId: string;
@@ -59,9 +60,17 @@ export const StatusBadge = ({ type, text }: any) => {
   );
 };
 
-const formatTime = (value: string) => {
+const formatDateTime = (value: string) => {
   const date = new Date(value);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  
+  const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  
+  if (isToday) return `Today • ${timeStr}`;
+  
+  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return `${dateStr} • ${timeStr}`;
 };
 
 const toStatusBadgeType = (status: CollectionCardItem["syncStatus"]) => {
@@ -199,7 +208,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
   const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
 
   // ── Mock data for screenshots / documentation (set false to use real data) ──
-  const MOCK_MODE = true;
+  const MOCK_MODE = false;
   const mockCollections: CollectionCardItem[] = [
     { key: "m1", supplierId: "s1", supplierName: "Jayasekara Ranjith",  passbookNo: "SH-0142", grossWeight: 87.5,  collectedAt: new Date(Date.now() - 1*60*60*1000).toISOString(), syncStatus: "SYNCED",  gpsStatus: "GPS",    manualOverride: false },
     { key: "m2", supplierId: "s2", supplierName: "Perera Dhammika",     passbookNo: "SH-0089", grossWeight: 124.0, collectedAt: new Date(Date.now() - 2*60*60*1000).toISOString(), syncStatus: "QUEUED", gpsStatus: "GPS",    manualOverride: false },
@@ -262,34 +271,52 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         {/* ── KPI Cards ── */}
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 20 }}>
           {/* Today's Leaf */}
-          <View style={{ flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: "#1fbe57", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+          <Pressable 
+            onPress={() => navigation.navigate("Collections")}
+            style={({pressed}) => [{ 
+              flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: "#1fbe57", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+              opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }]
+            }]}
+          >
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(31,190,87,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <MaterialCommunityIcons name="leaf" size={18} color="#1fbe57" />
             </View>
-            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{displayKgToday.toFixed(1)} kg</Text>
+            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayKgToday.toFixed(1)} kg</Text>
             <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>TODAY'S LEAF</Text>
             <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupToday} suppliers</Text>
-          </View>
+          </Pressable>
 
           {/* Pending Sync */}
-          <View style={{ flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: "#f39c12", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+          <Pressable 
+            onPress={() => navigation.navigate("Collections")}
+            style={({pressed}) => [{ 
+              flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: "#f39c12", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+              opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }]
+            }]}
+          >
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(243,156,18,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <Ionicons name="time-outline" size={18} color="#f39c12" />
             </View>
-            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{displayPendingSync}</Text>
+            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayPendingSync}</Text>
             <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>PENDING SYNC</Text>
             <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>records queued</Text>
-          </View>
+          </Pressable>
 
           {/* Route Progress */}
-          <View style={{ flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: palette.accentBlue, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+          <Pressable 
+            onPress={() => navigation.navigate("SupplierList", { user, token })}
+            style={({pressed}) => [{ 
+              flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: palette.accentBlue, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+              opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }]
+            }]}
+          >
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(46,168,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <Ionicons name="location-outline" size={18} color={palette.accentBlue} />
             </View>
-            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{displaySupToday}/{displaySupTotal || "—"}</Text>
+            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displaySupToday}/{displaySupTotal || "—"}</Text>
             <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>ROUTE PROGRESS</Text>
             <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% complete` : "No data"}</Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* ── Quick Actions ── */}
@@ -298,7 +325,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
           <Pressable
             onPress={() => navigation.navigate("CollectionInput", { token, user })}
             style={{ flex: 1, backgroundColor: "#1fbe57", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
-              shadowColor: "#1fbe57", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+              boxShadow: "0px 6px 10px rgba(31, 190, 87, 0.35)", elevation: 8 }}
           >
             <Ionicons name="add" size={26} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>New Collection</Text>
@@ -306,7 +333,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
           <Pressable
             onPress={() => navigation.navigate("Collections")}
             style={{ flex: 1, backgroundColor: "#2563eb", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
-              shadowColor: "#2563eb", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+              boxShadow: "0px 6px 10px rgba(37, 99, 235, 0.35)", elevation: 8 }}
           >
             <Ionicons name="search-outline" size={24} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>View History</Text>
@@ -316,7 +343,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
           <Pressable
             onPress={() => navigation.navigate("SupplierList", { user, token })}
             style={{ flex: 1, backgroundColor: "#7c3aed", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
-              shadowColor: "#7c3aed", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+              boxShadow: "0px 6px 10px rgba(124, 58, 237, 0.35)", elevation: 8 }}
           >
             <Ionicons name="list-outline" size={24} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Supplier List</Text>
@@ -324,7 +351,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
           <Pressable
             onPress={() => navigation.navigate("Requests")}
             style={{ flex: 1, backgroundColor: "#d97706", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
-              shadowColor: "#d97706", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 }}
+              boxShadow: "0px 6px 10px rgba(217, 119, 6, 0.35)", elevation: 8 }}
           >
             <Ionicons name="paper-plane-outline" size={24} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Requests</Text>
@@ -383,7 +410,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{Number(item.grossWeight).toFixed(1)} kg</Text>
-                <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{formatTime(item.collectedAt)}</Text>
+                <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{formatDateTime(item.collectedAt)}</Text>
               </View>
             </View>
           );
@@ -567,7 +594,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
           )}
 
           {!isLoading && filtered.map((item, idx) => (
-            <View key={idx} style={styles.collectionItemCard}>
+            <Pressable key={idx} style={styles.collectionItemCard} onPress={() => navigation.navigate("CollectionDetail", { item })}>
               <View style={[styles.collectionAvatarCompact, { backgroundColor: "#2ea8ff" }]}>
                 <Text style={styles.collectionAvatarText}>{(item.supplierName || "?").substring(0, 1).toUpperCase()}</Text>
               </View>
@@ -582,9 +609,9 @@ export function CollectionsScreen({ navigation, user, token }: any) {
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={styles.cardWeight}>{item.grossWeight.toFixed(1)} kg</Text>
-                <Text style={styles.cardTime}>{formatTime(item.collectedAt)}</Text>
+                <Text style={styles.cardTime}>{formatDateTime(item.collectedAt)}</Text>
               </View>
-            </View>
+            </Pressable>
           ))}
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -597,7 +624,8 @@ export function CollectionsScreen({ navigation, user, token }: any) {
 // Requests Screen
 // ─────────────────────────────────────────────────────────────
 
-export function RequestsScreen({ navigation, user, token, role }: any) {
+export function RequestsScreen({ navigation, user, token, role, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const [activeTab, setActiveTab] = useState("Advance");
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -614,7 +642,9 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
   const [fertilizerItems, setFertilizerItems] = useState<Array<{ type: string; quantity: string }>>([]);
   const [toolItems, setToolItems] = useState<Array<{ type: string; quantity: string }>>([]);
   const [formNotes, setFormNotes] = useState("");
+  const [formDays, setFormDays] = useState("");
   const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [supplierProfile, setSupplierProfile] = useState<any>(null);
   const addItemBlink = useRef(new Animated.Value(1)).current;
 
   const [toolViewMode, setToolViewMode] = useState<"TOOL_PURCHASE" | "TOOL_RENT">("TOOL_PURCHASE");
@@ -703,16 +733,26 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
   };
 
   const openForm = () => {
-    setFormSupplier(null);
+    if (role === "supplier") {
+      setFormSupplier({
+        supplierId: user?.supplierId || user?.userId,
+        fullName: user?.fullName || "Supplier",
+        passbookNo: user?.passbookNo || user?.passbook_no || "N/A",
+        estateId: user?.estateId
+      });
+    } else {
+      setFormSupplier(null);
+    }
     setFormAmount("");
     setFormQuantity("");
     setFormItemType("");
     setFertilizerItems([]);
     setToolItems([]);
     setFormNotes("");
+    setFormDays("");
     setSearchQuery("");
     setShowForm(true);
-    fetchSuppliers("");
+    if (role !== "supplier") fetchSuppliers("");
   };
 
   const submitRequest = async () => {
@@ -769,6 +809,7 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
     try {
       const totalFertilizerQuantity = normalizedFertilizerItems.reduce((sum, item) => sum + item.quantity, 0);
       const totalToolQuantity = normalizedToolItems.reduce((sum, item) => sum + item.quantity, 0);
+      const daysCount = activeTab === "Tools" && toolViewMode === "TOOL_RENT" ? Number(formDays) : (activeTab === "Advisory" ? 0 : null);
       
       await apiPost(
         ServicesAPI.createRequest,
@@ -784,6 +825,7 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
           itemDetails: activeTab === "Fertilizer" ? JSON.stringify(normalizedFertilizerItems) : (activeTab === "Tools" ? JSON.stringify(normalizedToolItems) : undefined),
           creatorName: user.fullName || "Agent",
           creatorId: user.employeeId || "No ID",
+          days: daysCount,
           notes: formNotes.trim(),
         },
         token
@@ -904,12 +946,12 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
           <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
             <Ionicons name="chevron-back" size={24} color={palette.muted} />
           </Pressable>
-          <Text style={styles.headerTitle}>Supplier Requests</Text>
+          <Text style={styles.headerTitle}>{role === 'supplier' ? _('Direct Requests') : _('Logistics & Requests')}</Text>
           <View style={{ width: 40 }} />
         </View>
       </SafeAreaView>
       <View style={{ padding: 20, flex: 1 }}>
-        <Text style={{ color: palette.muted, fontSize: 12, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, marginLeft: 4 }}>Request Category</Text>
+        <Text style={{ color: palette.muted, fontSize: 12, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12, marginLeft: 4 }}>{_("REQUEST CATEGORY")}</Text>
         <View style={{ backgroundColor: "#0b192c", borderRadius: 16, padding: 8, marginBottom: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", gap: 8 }}>
           {/* Row 1 */}
           <View style={{ flexDirection: "row", gap: 8 }}>
@@ -924,7 +966,9 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
               return (
                 <Pressable
                   key={tab.id}
-                  onPress={() => setActiveTab(tab.id)}
+                  onPress={() => {
+                    setActiveTab(tab.id);
+                  }}
                   style={{ flex: 1, flexDirection: "column", height: 80, justifyContent: "center", alignItems: "center", gap: 8, borderRadius: 14, backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent", borderWidth: 1, borderColor: isActive ? `${tab.color}33` : "transparent" }}
                 >
                   <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bgColor, borderWidth: 1, borderColor, alignItems: "center", justifyContent: "center" }}>
@@ -933,7 +977,7 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                       : <Ionicons name={tab.icon as any} size={20} color={tab.color} />}
                   </View>
                   <Text style={{ color: isActive ? tab.color : palette.muted, fontSize: 11, fontWeight: isActive ? "700" : "500", textAlign: "center" }}>
-                    {tab.id}
+                    {_(tab.id)}
                   </Text>
                 </Pressable>
               );
@@ -952,20 +996,46 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
               return (
                 <Pressable
                   key={tab.id}
-                  onPress={() => setActiveTab(tab.id)}
+                  onPress={() => {
+                    setActiveTab(tab.id);
+                  }}
                   style={{ flex: 1, flexDirection: "column", height: 80, justifyContent: "center", alignItems: "center", gap: 8, borderRadius: 14, backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent", borderWidth: 1, borderColor: isActive ? `${tab.color}33` : "transparent" }}
                 >
                   <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: bgColor, borderWidth: 1, borderColor, alignItems: "center", justifyContent: "center" }}>
                     <Ionicons name={tab.icon as any} size={20} color={tab.color} />
                   </View>
                   <Text style={{ color: isActive ? tab.color : palette.muted, fontSize: 11, fontWeight: isActive ? "700" : "500", textAlign: "center" }}>
-                    {tab.id}
+                    {_(tab.id)}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
         </View>
+
+        {role === "supplier" && (
+          <Pressable 
+            onPress={openForm} 
+            style={({ pressed }) => [
+              {
+                backgroundColor: palette.accentGreen,
+                paddingVertical: 14,
+                borderRadius: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                marginBottom: 20,
+                elevation: 4,
+                boxShadow: "0px 4px 8px rgba(31, 190, 87, 0.3)",
+              },
+              pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }
+            ]}
+          >
+            <Ionicons name="add-circle" size={22} color="white" />
+            <Text style={{ color: "white", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>{_("Add new request")}</Text>
+          </Pressable>
+        )}
 
         {activeTab === "Tools" && (
           <View style={{ flexDirection: "row", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 4, marginBottom: 15 }}>
@@ -1023,6 +1093,8 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
             const submittedDateStr = submittedDate ? submittedDate.toLocaleDateString() : "—";
             const toolTypeLabel = String(item.requestType || "").startsWith("TOOL_PURCHASE") ? "Purchase" : String(item.requestType || "").startsWith("TOOL_RENT") ? "Rent" : null;
 
+            const isDirectRequest = item.createdById === item.supplierId;
+
             return (
             <View key={item.requestId} style={styles.reqCard}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 15 }}>
@@ -1032,13 +1104,13 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
                   <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>
-                    {String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' ')}
+                    {_(String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' '))}
                   </Text>
                 </View>
               </View>
               {activeTab === "Advance" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                  <Text style={styles.reqCardLabel}>Amount</Text>
+                  <Text style={styles.reqCardLabel}>{_("Amount")}</Text>
                   <Text style={styles.reqCardValue}>Rs. {Number(item.requestedAmount || 0).toLocaleString()}</Text>
                 </View>
               )}
@@ -1074,6 +1146,12 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                       <Text style={styles.reqCardValue}>{toolTypeLabel}</Text>
                     </View>
                   )}
+                  {item.days > 0 && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                      <Text style={styles.reqCardLabel}>Rent Duration</Text>
+                      <Text style={styles.reqCardValue}>{item.days} days</Text>
+                    </View>
+                  )}
                   {!hasToolDetailItems && (
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                       <Text style={styles.reqCardLabel}>Units</Text>
@@ -1096,16 +1174,44 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                   <Text style={styles.reqCardValue}>{item.quantity || 0} bags</Text>
                 </View>
               )}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 15 }}>
-                <Text style={styles.reqCardLabel}>Submitted</Text>
+              {activeTab === "Advisory" && (
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                  <Text style={styles.reqCardLabel}>Topic</Text>
+                  <Text style={styles.reqCardValue}>{item.itemType || "General Advisory"}</Text>
+                </View>
+              )}
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={styles.reqCardLabel}>{_("Submitted")}</Text>
                 <Text style={styles.reqCardValue}>{submittedDateStr}{submittedDate ? ` · ${submittedTime}` : ""}</Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={styles.reqCardLabel}>Add notes</Text>
-                <Text style={[styles.reqCardValue, { color: palette.muted, flex: 1, textAlign: "right" }]} numberOfLines={1}>{getCleanCardNote(item)}</Text>
-              </View>
 
-              {item.status === "PENDING" && role !== "supplier" && (
+              {item.notes ? (
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+                  <Text style={styles.reqCardLabel}>{isDirectRequest ? _('Supplier Note') : 'Agent Note'}</Text>
+                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={3}>{item.notes}</Text>
+                </View>
+              ) : null}
+
+              {item.itemDetails && !String(item.itemDetails).trim().startsWith("[") && item.itemDetails !== item.notes ? (
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+                  <Text style={styles.reqCardLabel}>Add notes</Text>
+                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={2}>{item.itemDetails}</Text>
+                </View>
+              ) : null}
+
+              {(item.approverComment || item.remark) ? (
+                <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)" }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <Text style={[styles.reqCardLabel, { textTransform: "uppercase", fontSize: 10, color: palette.accentGreen }]}>Manager Remark</Text>
+                    {item.updatedAt && item.status !== "PENDING" && (
+                      <Text style={{ fontSize: 9, color: palette.muted }}>{new Date(item.updatedAt).toLocaleDateString()} {new Date(item.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.reqCardValue, { textAlign: "left", fontStyle: "italic", opacity: 0.9, lineHeight: 18 }]}>{item.approverComment || item.remark}</Text>
+                </View>
+              ) : null}
+
+              {item.status === "PENDING" && role !== "supplier" ? (
                 <View style={{ marginTop: 15, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 15 }}>
                   <Pressable 
                     onPress={() => handleCancelRequest(item.requestId)}
@@ -1115,7 +1221,7 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                     <Text style={{ color: "#e74c3c", fontSize: 13, fontWeight: "bold" }}>Remove Request</Text>
                   </Pressable>
                 </View>
-              )}
+              ) : null}
             </View>
           );})}
           <View style={{ height: 100 }} />
@@ -1181,9 +1287,11 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                       <Text style={{ color: "white", fontSize: 15, fontWeight: "600" }}>{formSupplier.fullName}</Text>
                       <Text style={{ color: palette.accentGreen, fontSize: 13, marginTop: 4 }}>{formSupplier.passbookNo}</Text>
                     </View>
-                    <Pressable onPress={() => setFormSupplier(null)} style={{ padding: 6, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 6 }}>
-                      <Text style={{ color: "white", fontSize: 11 }}>Change</Text>
-                    </Pressable>
+                    {role !== "supplier" && (
+                      <Pressable onPress={() => setFormSupplier(null)} style={{ padding: 6, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 6 }}>
+                        <Text style={{ color: "white", fontSize: 11 }}>Change</Text>
+                      </Pressable>
+                    )}
                   </View>
 
                   {activeTab === "Fertilizer" && (
@@ -1301,6 +1409,21 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                                  </View>
                                </View>
                              </View>
+                             {toolViewMode === "TOOL_RENT" && (
+                               <View style={{ marginBottom: 15, marginTop: 10 }}>
+                                 <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Rent Duration (Days)</Text>
+                                 <View style={[styles.inputContainer, { height: 48 }]}>
+                                   <TextInput
+                                     style={[styles.inputField, { paddingLeft: 12, fontSize: 14, fontWeight: "600" }]}
+                                     placeholder="e.g. 2"
+                                     placeholderTextColor="#7d93b4"
+                                     keyboardType="number-pad"
+                                     value={formDays}
+                                     onChangeText={setFormDays}
+                                   />
+                                 </View>
+                               </View>
+                             )}
 
                              {toolItems.length > 0 && (
                                <View style={{ gap: 8, marginTop: 8 }}>
@@ -1370,6 +1493,22 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
                     </>
                   )}
 
+                  {activeTab === "Advisory" && (
+                    <>
+                      <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Query Topic</Text>
+                      <View style={[styles.inputContainer, { marginBottom: 20 }]}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={20} color={palette.muted} style={{ marginLeft: 15 }} />
+                        <TextInput
+                          style={[styles.inputField, { fontSize: 16, fontWeight: "600", paddingLeft: 10 }]}
+                          placeholder="e.g. Soil query, Plant disease"
+                          placeholderTextColor="#7d93b4"
+                          value={formItemType}
+                          onChangeText={setFormItemType}
+                        />
+                      </View>
+                    </>
+                  )}
+
                   <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Additional Notes</Text>
                   <View style={[styles.inputContainer, { height: 100, alignItems: "flex-start", paddingTop: 10 }]}>
                     <TextInput
@@ -1400,6 +1539,12 @@ export function RequestsScreen({ navigation, user, token, role }: any) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {role !== 'supplier' && (
+        <Pressable style={styles.fab} onPress={openForm}>
+          <Ionicons name="add" size={30} color="white" />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -1672,3 +1817,145 @@ export function SupplierListScreen({ user, token, navigation }: any) {
     </View>
   );
 }
+
+
+export function CollectionDetailScreen({ route, navigation }: any) {
+  const { item } = route.params;
+
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+    return timeStr.toUpperCase();
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "?";
+    return name.substring(0, 1).toUpperCase();
+  };
+
+  // Extract bag id and deductions if any (mock for now since it's not in the base payload)
+  const bagId = "LB-009";
+  const deduction = "-2.5 kg";
+  const netWeight = (item.grossWeight - 2.5).toFixed(1);
+
+  return (
+    <View style={styles.dashboardWrap}>
+      <SafeAreaView style={{ backgroundColor: "#0b1a30" }}>
+        <View style={styles.headerBar}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={24} color={palette.muted} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Collection Detail</Text>
+          <View style={{width: 40}} />
+        </View>
+      </SafeAreaView>
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ padding: 20 }}>
+        
+        {/* Main Details Card */}
+        <View style={[styles.collectionItemCard, { flexDirection: "column", padding: 24, paddingBottom: 20, alignItems: "flex-start", marginBottom: 15 }]}>
+          <View style={{ flexDirection: "column", width: "100%", marginBottom: 15 }}>
+            <Text style={[styles.cardItemTitle, { fontSize: 22 }]}>{item.supplierName}</Text>
+            <Text style={[styles.cardItemSub, { fontSize: 13, marginTop: 4 }]}>{item.passbookNo || "Unknown"} • C001</Text>
+          </View>
+          
+          <View style={{ marginBottom: 15 }}>
+            <Text style={{ fontSize: 42, fontWeight: "900", color: palette.accentGreen, letterSpacing: -1 }}>{item.grossWeight.toFixed(1)} kg</Text>
+            <Text style={[styles.cardItemSub, { marginTop: 2 }]}>Gross green leaf weight</Text>
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {item.syncStatus === "SYNCED" ? (
+              <View style={[styles.badgeLine, { backgroundColor: "rgba(31,190,87,0.1)", borderColor: palette.accentGreen }]}>
+                <Ionicons name="checkmark" size={12} color={palette.accentGreen} />
+                <Text style={{ color: palette.accentGreen, fontSize: 12, fontWeight: "600", marginLeft: 4 }}>Synced</Text>
+              </View>
+            ) : (
+              <View style={[styles.badgeLine, { backgroundColor: "rgba(243,156,18,0.1)", borderColor: "#f39c12" }]}>
+                <Ionicons name="time-outline" size={12} color="#f39c12" />
+                <Text style={{ color: "#f39c12", fontSize: 12, fontWeight: "600", marginLeft: 4 }}>Queued</Text>
+              </View>
+            )}
+
+            {item.gpsStatus === "GPS" ? (
+              <View style={[styles.badgeLine, { backgroundColor: "transparent", borderColor: palette.accentGreen }]}>
+                <Ionicons name="location-outline" size={12} color={palette.accentGreen} />
+                <Text style={{ color: palette.accentGreen, fontSize: 12, fontWeight: "600", marginLeft: 4 }}>GPS</Text>
+              </View>
+            ) : (
+              <View style={[styles.badgeLine, { backgroundColor: "transparent", borderColor: "#e74c3c" }]}>
+                <Ionicons name="alert-circle-outline" size={12} color="#e74c3c" />
+                <Text style={{ color: "#e74c3c", fontSize: 12, fontWeight: "600", marginLeft: 4 }}>No GPS</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Info Grid */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 15 }}>
+          
+          <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
+            <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>TIME</Text>
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>{formatDate(item.collectedAt)}</Text>
+          </View>
+
+          <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
+             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>DEDUCTION</Text>
+             <Text style={{ color: "#ff6b6b", fontSize: 18, fontWeight: "800" }}>{deduction}</Text>
+          </View>
+
+          <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
+             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>NET WEIGHT</Text>
+             <Text style={{ color: palette.accentGreen, fontSize: 18, fontWeight: "800" }}>{netWeight} kg</Text>
+          </View>
+
+          <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
+             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>LEAF BAG</Text>
+             <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>{bagId}</Text>
+          </View>
+
+        </View>
+
+        {/* GPS Location explicitly shown */}
+        <View style={[styles.collectionItemCard, { padding: 20, alignItems: "center", marginBottom: 15, flexDirection: "column" }]}>
+          <Ionicons name="location-outline" size={32} color={palette.accentBlue} style={{ marginBottom: 10 }} />
+          {item.gpsStatus === "GPS" ? (
+            <>
+              <Text style={{ color: palette.accentGreen, fontSize: 16, fontWeight: "700", marginBottom: 4 }}>GPS: 7.3012, 80.6417</Text>
+              <Text style={styles.cardItemSub}>Accuracy: ±4m</Text>
+            </>
+          ) : (
+            <>
+               <Text style={{ color: "#e74c3c", fontSize: 16, fontWeight: "700", marginBottom: 4 }}>Location Unavailable</Text>
+               <Text style={styles.cardItemSub}>GPS was disabled during collection</Text>
+            </>
+          )}
+        </View>
+
+        {/* Notes Area */}
+        <View style={[styles.collectionItemCard, { padding: 20, marginBottom: 30, flexDirection: "column", alignItems: "flex-start" }]}>
+           <Text style={[styles.cardItemSub, { fontSize: 12, marginBottom: 15, letterSpacing: 1, fontWeight: "700" }]}>SUPERVISOR NOTES</Text>
+           <View style={{ backgroundColor: "#0b1a30", borderRadius: 8, padding: 15, minHeight: 100, width: "100%" }}>
+             <TextInput 
+               placeholder="Add notes (optional)..." 
+               placeholderTextColor={palette.muted}
+               style={{ color: "#fff", fontSize: 15, textAlignVertical: "top" }}
+               multiline
+             />
+           </View>
+
+           {/* Save Button */}
+           <Pressable style={[styles.mainBtn, { width: "100%", marginTop: 15, marginBottom: 0 }]}>
+             <Text style={styles.mainBtnText}>Save Notes</Text>
+           </Pressable>
+        </View>
+
+        <View style={{ height: 100 }} />
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+

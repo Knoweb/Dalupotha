@@ -56,6 +56,8 @@ export const styles = StyleSheet.create({
   primaryBtnCompact: { height: 48 },
   primaryBtnText: { color: "#111", fontSize: 16, fontWeight: "bold" },
   primaryBtnTextCompact: { fontSize: 14 },
+  mainBtn: { height: 50, backgroundColor: palette.accentGreen, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  mainBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   helpCenterWrap: { marginTop: 15, alignItems: "center" },
   helpCenterText: { color: palette.muted, fontSize: 12 },
   helpCenterLink: { color: "#fff", fontWeight: "bold" },

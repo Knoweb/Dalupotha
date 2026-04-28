@@ -47,8 +47,9 @@ public class AuthService {
     // ────────────────────────────────────────────
     public AuthResponse staffLogin(StaffLoginRequest request) {
         User user = userRepository.findByEmployeeId(request.getEmployeeId())
+                .or(() -> userRepository.findByContact(request.getEmployeeId()))
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid employee ID or PIN"));
+                        HttpStatus.UNAUTHORIZED, "Invalid ID/Email or PIN"));
 
         if (!isValidPin(user, request.getPin())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid employee ID or PIN");
@@ -134,9 +135,13 @@ public class AuthService {
         String estateName = (sh.getEstate() != null) ? sh.getEstate().getName() : null;
 
         log.info("Supplier login successful: {} ({})", user.getFullName(), request.getPassbookNo());
-        return new AuthResponse(token, "SH", user.getUserId().toString(),
+        AuthResponse response = new AuthResponse(token, "SH", user.getUserId().toString(),
                 null, user.getFullName(), user.getContact(),
                 routeName, estateId, estateName, sh.getArcs(), sh.getPassbookNo(), jwtExpirationMs / 1000);
+        if (sh.getInCharge() != null) {
+            response.setInChargeName(sh.getInCharge().getFullName());
+        }
+        return response;
     }
 
     private boolean isValidPin(User user, String rawPin) {
@@ -241,6 +246,7 @@ public class AuthService {
         UUID estateId = null;
         String estateName = null;
         BigDecimal arcs = null;
+        String inChargeName = null;
 
         if (user.getRole() == UserRole.SH) {
             SmallHolder sh = smallHolderRepository.findByUser(user).orElse(null);
@@ -250,6 +256,9 @@ public class AuthService {
                 if (sh.getEstate() != null) {
                     estateId = sh.getEstate().getEstateId();
                     estateName = sh.getEstate().getName();
+                }
+                if (sh.getInCharge() != null) {
+                    inChargeName = sh.getInCharge().getFullName();
                 }
             }
         } else if (user.getRole() == UserRole.TA) {
@@ -264,9 +273,11 @@ public class AuthService {
         }
 
         log.info("OTP login successful for: {} - Estate: {}", request.getContact(), estateName);
-        return new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
+        AuthResponse response = new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
                 user.getEmployeeId(), user.getFullName(), user.getContact(),
                 routeName, estateId, estateName, arcs, passbookNo, jwtExpirationMs / 1000);
+        response.setInChargeName(inChargeName);
+        return response;
     }
 
     // ────────────────────────────────────────────
@@ -310,6 +321,11 @@ public class AuthService {
                 .build();
         userRepository.save(user);
 
+        User inCharge = null;
+        if (request.getInChargeId() != null && !request.getInChargeId().isBlank()) {
+            inCharge = userRepository.findById(UUID.fromString(request.getInChargeId())).orElse(null);
+        }
+
         SmallHolder smallHolder = SmallHolder.builder()
                 .user(user)
                 .passbookNo(request.getPassbookNo())
@@ -319,6 +335,7 @@ public class AuthService {
                 .arcs(request.getArcs())
                 .gpsLat(request.getGpsLat() != null ? BigDecimal.valueOf(request.getGpsLat()) : null)
                 .gpsLong(request.getGpsLong() != null ? BigDecimal.valueOf(request.getGpsLong()) : null)
+                .inCharge(inCharge)
                 .build();
         smallHolderRepository.save(smallHolder);
 
@@ -332,11 +349,15 @@ public class AuthService {
                 user.getFullName(), request.getContact(), request.getPassbookNo(), 
                 estate != null ? estate.getName() : "None");
         
-        return new AuthResponse(token, "SH", user.getUserId().toString(),
+        AuthResponse response = new AuthResponse(token, "SH", user.getUserId().toString(),
                 null, user.getFullName(), user.getContact(),
                 null, estate != null ? estate.getEstateId() : null,
                 estate != null ? estate.getName() : null,
                 smallHolder.getArcs(), smallHolder.getPassbookNo(), jwtExpirationMs / 1000);
+        if (inCharge != null) {
+            response.setInChargeName(inCharge.getFullName());
+        }
+        return response;
     }
 
     // ────────────────────────────────────────────

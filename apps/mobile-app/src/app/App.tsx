@@ -10,7 +10,7 @@ import { palette, styles } from "../ui/theme";
 
 import { LoginScreen, OtpScreen } from "../features/auth/AuthScreens";
 import { RegisterScreen } from "../features/auth/RegisterScreen";
-import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen, SupplierListScreen } from "../features/ta-collection/AgentScreens";
+import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen, SupplierListScreen, CollectionDetailScreen } from "../features/ta-collection/AgentScreens";
 import { CollectionInputScreen } from "../features/ta-collection/CollectionInputScreen";
 import { SupplierHomeScreen, SupplierSupplyScreen, SupplierPaymentsScreen, SupplierDebtsScreen, SupplierProfileScreen } from "../features/smallholder/SupplierScreens";
 
@@ -28,6 +28,22 @@ const Tab = createBottomTabNavigator();
 
 function MainTabNavigator({ route, navigation }: any) {
   const { role, user, token } = route.params || { role: "agent" };
+  const [lang, setLang] = React.useState<'en'|'si'>('en');
+
+  const dict: any = {
+    si: {
+      "Home": "මුල් පිටුව",
+      "Supply": "සැපයුම",
+      "Requests": "ඉල්ලීම්",
+      "Payments": "ගෙවීම්",
+      "Debts": "ණය",
+      "Profile": "ගිණුම",
+      "Dashboard": "මුල් පිටුව",
+      "Collections": "එකතු කිරීම්"
+    }
+  };
+  const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
+
 
   return (
     <Tab.Navigator
@@ -48,6 +64,7 @@ function MainTabNavigator({ route, navigation }: any) {
         },
         tabBarActiveTintColor: palette.accentGreen,
         tabBarInactiveTintColor: palette.muted,
+        tabBarLabel: _(route.name),
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any = "help-circle-outline";
           if (route.name === "Dashboard") iconName = "grid-outline";
@@ -64,19 +81,19 @@ function MainTabNavigator({ route, navigation }: any) {
     >
       {role === "supplier" ? (
         <>
-          <Tab.Screen name="Home" children={() => <SupplierHomeScreen user={user} token={token} navigation={navigation} />} />
-          <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} />} />
-          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={token} role={role} />} />
-          <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} />} />
-          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} navigation={navigation} />} />
-          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} />} />
+          <Tab.Screen name="Home" children={() => <SupplierHomeScreen user={user} token={token} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={token} role={role} lang={lang} />} />
+          <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} lang={lang} setLang={setLang} />} />
         </>
       ) : (
         <>
-          <Tab.Screen name="Dashboard"   children={(props) => <DashboardScreen   {...props} user={user} role={role} token={route.params?.token} />} />
-          <Tab.Screen name="Collections" children={(props) => <CollectionsScreen  {...props} user={user} token={route.params?.token} />} />
-          <Tab.Screen name="Requests"    children={(props) => <RequestsScreen     {...props} user={user} token={route.params?.token} role={role} />} />
-          <Tab.Screen name="Profile"     children={(props) => <ProfileScreen      {...props} user={user} />} />
+          <Tab.Screen name="Dashboard"   children={(props) => <DashboardScreen   {...props} user={user} role={role} token={route.params?.token} lang={lang} />} />
+          <Tab.Screen name="Collections" children={(props) => <CollectionsScreen  {...props} user={user} token={route.params?.token} lang={lang} />} />
+          <Tab.Screen name="Requests"    children={(props) => <RequestsScreen     {...props} user={user} token={route.params?.token} role={role} lang={lang} />} />
+          <Tab.Screen name="Profile"     children={(props) => <ProfileScreen      {...props} user={user} lang={lang} setLang={setLang} />} />
         </>
       )}
     </Tab.Navigator>
@@ -150,6 +167,7 @@ export default function App() {
         <Stack.Screen name="Otp" component={OtpScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
+        <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
         <Stack.Screen name="SupplierList" children={(props) => <SupplierListScreen {...props} user={props.route.params?.user} token={props.route.params?.token} />} />
       </Stack.Navigator>
     </NavigationContainer>

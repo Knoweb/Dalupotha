@@ -45,6 +45,9 @@ public class ServiceRequestEntity {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "approver_comment")
+    private String approverComment;
+
     @Column(name = "request_date", nullable = false)
     private OffsetDateTime requestDate;
 
@@ -230,5 +233,13 @@ public class ServiceRequestEntity {
 
     public void setApproverId(UUID approverId) {
         this.approverId = approverId;
+    }
+
+    public String getApproverComment() {
+        return approverComment;
+    }
+
+    public void setApproverComment(String approverComment) {
+        this.approverComment = approverComment;
     }
 }

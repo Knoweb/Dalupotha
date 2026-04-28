@@ -1,4 +1,5 @@
-import { Package, AlertTriangle, Plus, History, RefreshCw } from 'lucide-react'
+import { Package, AlertTriangle, Plus, History, RefreshCw, Settings } from 'lucide-react'
+import { InventoryAPI } from '../../services/api'
 
 export default function InventoryPage() {
   const mockInventory = [

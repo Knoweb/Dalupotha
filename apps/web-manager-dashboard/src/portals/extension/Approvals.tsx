@@ -1,6 +1,6 @@
-﻿import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb } from "lucide-react"
-import { FinanceAPI, ServiceRequest, RequestStatus } from "../services/api"
+import { FinanceAPI, ServiceRequest, RequestStatus } from "../../services/api"
 
 const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Machine Rent", "Advisory", "Leaf Bags"]
 
@@ -27,8 +27,11 @@ function getAmountQty(req: ServiceRequest): string {
   if (req.requestType === "ADVANCE") return `Rs. ${Number(req.requestedAmount || 0).toLocaleString()}`
   if (req.requestType === "FERTILIZER") return `${Number(req.quantity || 0)} kg`
   if (req.requestType === "LEAF_BAG") return `${Number(req.quantity || 0)} bags`
-  if (req.requestType === "TOOL_RENT") return `${Number(req.quantity || 0)} days`
-  if (req.requestType === "ADVISORY") return req.notes || "Soil query"
+  if (req.requestType === "TOOL_RENT") {
+    const d = (req as any).days || req.quantity || 0;
+    return `${d} days`;
+  }
+  if (req.requestType === "ADVISORY") return req.itemType || req.notes || "Soil query"
   if (req.requestType === "TRANSPORT") return "Provision"
   return `${Number(req.quantity || 0)} units`
 }
@@ -52,17 +55,22 @@ function matchesFilter(req: ServiceRequest, filter: string) {
 }
 
 function ViewModal({ req, code, debt, onClose, onApprove, onReject, processing }: {
-  req: ServiceRequest; code: string; debt: number | null
-  onClose: () => void; onApprove: () => void; onReject: () => void; processing: boolean
+  req: ServiceRequest;
+  code: string;
+  debt: number | null;
+  onClose: () => void;
+  onApprove: (comment: string) => void;
+  onReject: (comment: string) => void;
+  processing: boolean;
 }) {
   const [comment, setComment] = useState("")
-  const [taInfo, setTaInfo] = useState<{ fullName: string; employeeId: string } | null>(null)
+  const [creatorInfo, setCreatorInfo] = useState<{ fullName: string; employeeId?: string; role?: string } | null>(null)
 
   useEffect(() => {
     if (!req.createdById) return
     fetch(`/api/auth/users/${req.createdById}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setTaInfo({ fullName: d.fullName, employeeId: d.employeeId }) })
+      .then(d => { if (d) setCreatorInfo({ fullName: d.fullName, employeeId: d.employeeId || d.passbookNo, role: d.role }) })
       .catch(() => {})
   }, [req.createdById])
 
@@ -72,6 +80,8 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, processing }
   const highRatio = Number(ratio) > 40
   const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
   const isPending = req.status === "PENDING" || req.status === "REVIEW"
+
+  const isDirect = creatorInfo?.role?.toLowerCase() === 'supplier' || req.createdById === req.supplierId;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]" onClick={onClose}>
@@ -118,26 +128,72 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, processing }
             )}
           </div>
         </div>
+
         <div className="px-7 pb-4">
           <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center gap-6">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest shrink-0">Transport Agent</p>
+            <div className="flex flex-col shrink-0">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Request Source</p>
+              <div className={`mt-1 text-[9px] px-3 py-1 rounded-full inline-block text-center font-bold uppercase ${isDirect ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                {isDirect ? 'Direct' : 'Agent'}
+              </div>
+            </div>
             <div className="flex items-center gap-8">
               <div>
-                <p className="text-[10px] text-slate-400">Name</p>
-                <p className="text-sm font-semibold text-slate-800">{taInfo?.fullName || "---"}</p>
+                <p className="text-[10px] text-slate-400">{isDirect ? 'Supplier Name' : 'Agent Name'}</p>
+                <p className="text-sm font-semibold text-slate-800">{creatorInfo?.fullName || (isDirect ? req.supplierName : "---")}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-400">Employee ID</p>
-                <p className="text-sm font-semibold text-slate-800">{taInfo?.employeeId || "---"}</p>
+                <p className="text-[10px] text-slate-400">{isDirect ? 'Passbook' : 'Employee ID'}</p>
+                <p className="text-sm font-semibold text-slate-800">{creatorInfo?.employeeId || (isDirect ? req.passbookNo : "---")}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-400">Submitted</p>
-                <p className="text-sm font-semibold text-slate-800">{formatDate(req.requestDate)}</p>
-                <p className="text-[10px] text-slate-400">{formatTime(req.requestDate)}</p>
+                <p className="text-[10px] text-slate-400">Timestamp</p>
+                <div className="flex items-center gap-2">
+                   <p className="text-sm font-semibold text-slate-800">{formatDate(req.requestDate)}</p>
+                   <p className="text-[10px] text-slate-400">{formatTime(req.requestDate)}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        {req.notes && (
+          <div className="px-7 pb-4">
+            <div className="bg-green-50/50 border border-green-100 rounded-xl px-4 py-3">
+              <p className="text-[10px] font-semibold text-green-600 uppercase tracking-widest mb-1">{isDirect ? 'Supplier Note' : 'Agent Note'}</p>
+              <p className="text-[15px] text-slate-900 leading-relaxed font-semibold whitespace-pre-wrap break-words">{req.notes}</p>
+            </div>
+          </div>
+        )}
+
+        {!isPending && (
+          <div className="px-7 pb-4">
+             <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Decision Status</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{req.status === 'REJECTED' ? 'Rejected At' : 'Approved At'}</p>
+                </div>
+                <div className="flex justify-between items-center">
+                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${req.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                     {req.status === 'REJECTED' ? 'REJECTED' : 'APPROVED'}
+                   </span>
+                   <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-800">{formatDate(req.updatedAt)}</p>
+                      <p className="text-[10px] text-slate-400">{formatTime(req.updatedAt)}</p>
+                   </div>
+                </div>
+                {(req.approverComment || (req as any).approver_comment) && (
+                  <div className="mt-2 pt-2 border-t border-slate-200">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Manager Remarks</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <p className="text-[15px] font-bold text-slate-900 leading-relaxed italic whitespace-pre-wrap break-words">"{req.approverComment || (req as any).approver_comment}"</p>
+                    </div>
+                  </div>
+                )}
+             </div>
+          </div>
+        )}
+
         {isPending && (
           <div className="px-7 pb-4">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Manager Comment</p>
@@ -145,13 +201,14 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, processing }
               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all resize-none" />
           </div>
         )}
+
         <div className="px-7 py-4 border-t border-slate-100 flex justify-end gap-3">
           {isPending ? (
             <>
-              <button disabled={processing} onClick={onReject} className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
+              <button disabled={processing} onClick={() => onReject(comment)} className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
                 <XCircle size={16} /> Reject Request
               </button>
-              <button disabled={processing} onClick={onApprove} className="inline-flex items-center gap-2 bg-[#2d6a4f] hover:bg-[#1b4332] text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
+              <button disabled={processing} onClick={() => onApprove(comment)} className="inline-flex items-center gap-2 bg-[#2d6a4f] hover:bg-[#1b4332] text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
                 <CheckCircle2 size={16} /> Approve Request
               </button>
             </>
@@ -204,7 +261,8 @@ export default function ApprovalsPage() {
       await Promise.allSettled(creatorIds.map(async id => {
         try {
           const u = await fetch(`/api/auth/users/${id}`).then(r => r.json())
-          cmap[id] = u.employeeId ? `${u.fullName} (${u.employeeId})` : u.fullName || "---"
+          const cid = u.employeeId || u.passbookNo || u.passbook_no;
+          cmap[id] = cid ? `${u.fullName} (${cid})` : u.fullName || "---"
         } catch { cmap[id] = "---" }
       }))
       setCreatorMap(cmap)
@@ -214,10 +272,10 @@ export default function ApprovalsPage() {
 
   useEffect(() => { loadRequests() }, [loadRequests])
 
-  const handleAction = async (requestId: string, status: RequestStatus) => {
+  const handleAction = async (requestId: string, status: RequestStatus, remark?: string) => {
     setProcessingId(requestId)
     try {
-      await FinanceAPI.updateStatus(requestId, status, localStorage.getItem("current_user_id") || "")
+      await FinanceAPI.updateStatus(requestId, status, localStorage.getItem("current_user_id") || "", remark)
       setViewReq(null)
       loadRequests()
     } catch (err: any) { alert(err?.message || "Action failed.") }
@@ -227,7 +285,9 @@ export default function ApprovalsPage() {
   const pending        = requests.filter(r => r.status === "PENDING")
   const underReview    = requests.filter(r => r.status === "REVIEW")
   const approvedToday  = requests.filter(r => r.status === "APPROVED_BY_EXT" && new Date(r.requestDate).toDateString() === new Date().toDateString())
-  const recentApproved = requests.filter(r => r.status === "APPROVED_BY_EXT" || r.status === "DISPATCHED")
+  const recentApproved = requests
+    .filter(r => r.status === "APPROVED_BY_EXT" || r.status === "DISPATCHED")
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
 
   const applyFilters = (list: ServiceRequest[]) => list.filter(r =>
     matchesFilter(r, typeFilter) &&
@@ -364,13 +424,14 @@ export default function ApprovalsPage() {
                 <th className={TH}>Type</th>
                 <th className={TH}>Amount</th>
                 <th className={TH}>Submitted By</th>
+                <th className={TH}>Manager Remarks</th>
                 <th className={TH}>Status</th>
                 <th className={`${TH} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recentApproved.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-xs">No approved requests yet</td></tr>
+                <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-xs">No approved requests yet</td></tr>
               ) : (
                 recentApproved.map((req, i) => {
                   const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
@@ -385,6 +446,7 @@ export default function ApprovalsPage() {
                       <td className={TD}><span className={`text-sm ${meta.color}`}>{meta.label}</span></td>
                       <td className={TD}><span className="text-sm font-semibold text-slate-800">{getAmountQty(req)}</span></td>
                       <td className={TD}><span className="text-xs text-slate-500">{creatorMap[req.createdById] || "---"}</span></td>
+                      <td className={TD}><div className="text-[11px] font-medium text-slate-700 leading-tight max-w-[150px] break-words italic line-clamp-2">{(req as any).approverComment || (req as any).approver_comment || (req as any).remark || "---"}</div></td>
                       <td className={TD}><span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">Approved</span></td>
                       <td className={`${TD} text-right`}>
                         <button onClick={() => setViewReq({ req, code: c })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
@@ -406,8 +468,8 @@ export default function ApprovalsPage() {
           code={viewReq.code}
           debt={debtMap[viewReq.req.supplierId] ?? null}
           onClose={() => setViewReq(null)}
-          onApprove={() => handleAction(viewReq.req.requestId!, "APPROVED_BY_EXT")}
-          onReject={() => handleAction(viewReq.req.requestId!, "REJECTED")}
+          onApprove={(remark) => handleAction(viewReq.req.requestId!, "APPROVED_BY_EXT", remark)}
+          onReject={(remark) => handleAction(viewReq.req.requestId!, "REJECTED", remark)}
           processing={processingId === viewReq.req.requestId}
         />
       )}

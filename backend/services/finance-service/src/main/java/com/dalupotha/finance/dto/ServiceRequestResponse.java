@@ -2,6 +2,7 @@ package com.dalupotha.finance.dto;
 
 import com.dalupotha.finance.model.RequestStatus;
 import com.dalupotha.finance.model.RequestType;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -22,6 +23,7 @@ public record ServiceRequestResponse(
         String creatorName,
         String creatorId,
         String notes,
+        @JsonProperty("approverComment") String approverComment,
         OffsetDateTime requestDate,
         OffsetDateTime updatedAt
 ) {

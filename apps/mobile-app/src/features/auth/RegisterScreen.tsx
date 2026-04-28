@@ -166,7 +166,7 @@ export function RegisterScreen({ route, navigation }: any) {
           gpsLat,
           gpsLong,
           pin: pin.trim(),
-          assignedAgentId: selectedAgent?.userId || undefined,
+          inChargeId: selectedAgent?.userId || undefined,
         });
       } else {
         Object.assign(registerData, {

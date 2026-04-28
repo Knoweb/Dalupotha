@@ -88,6 +88,8 @@ export const FinanceAPI = {
   advanceRequest: `${API_BASE}/finance/advance-request`,        // POST — request advance payment
   ledger:         (supplierId: string) =>
                   `${API_BASE}/finance/ledger/${supplierId}`,   // GET — financial standing
+  ledgerTransactions: (supplierId: string) =>
+                  `${API_BASE}/finance/ledger/${supplierId}/transactions`, // GET — payment history
 };
 
 // ── 5. Service & Inventory ────────────────────────────────────────────────────
