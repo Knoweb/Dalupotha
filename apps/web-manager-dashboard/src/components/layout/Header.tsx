@@ -1,14 +1,29 @@
 import { useState } from 'react'
-import { ChevronRight, Bell, Settings, LogOut, User as UserIcon } from 'lucide-react'
+import { ChevronRight, Bell, Settings, LogOut, User as UserIcon, CheckCheck, Trash2, Package } from 'lucide-react'
+import { useNotifications, AppNotification } from '../../hooks/useNotifications'
 
 interface HeaderProps {
   activeTab: string;
-  userInfo: { fullName: string, estateName: string, employeeId?: string };
+  userInfo: { fullName: string, estateName: string, employeeId?: string, role?: string };
   onLogout: () => void;
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  'manager':           'Manager',
+  'extension-officer': 'Extension Officer',
+  'office-staff':      'Office Staff',
+  'store-keeper':      'Store Keeper',
+  'factory-staff':     'Factory Staff',
+  'super-admin':       'Super Admin',
+};
+
 export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { notifications, unreadCount, markRead, markAllRead, clearAll } = useNotifications();
+
+  const role = userInfo.role || '';
+  const showNotifBell = ['manager', 'factory-staff'].includes(role);
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-30 shadow-sm relative">
@@ -27,20 +42,71 @@ export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
         </div>
         
         <div className="flex items-center gap-4 border-l border-slate-200 pl-6 relative">
-          <button className="relative text-slate-500 hover:text-slate-800 transition-colors">
-            <Bell size={20} />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">3</span>
-          </button>
-          
+
+          {/* Notification Bell */}
+          {showNotifBell && (
+            <div className="relative">
+              <button
+                onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false); }}
+                className="relative text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                  <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    {/* Header */}
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                      <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Notifications</p>
+                      <div className="flex items-center gap-2">
+                        {unreadCount > 0 && (
+                          <button onClick={markAllRead} className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-1">
+                            <CheckCheck size={11} /> Mark all read
+                          </button>
+                        )}
+                        {notifications.length > 0 && (
+                          <button onClick={clearAll} className="text-[10px] font-bold text-slate-400 hover:text-red-500 flex items-center gap-1">
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
+                      {notifications.length === 0 ? (
+                        <div className="py-10 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">
+                          No notifications yet
+                        </div>
+                      ) : (
+                        notifications.map(n => (
+                          <NotifItem key={n.id} notification={n} onRead={markRead} />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Profile Dropdown */}
           <div className="relative">
             <button 
-              onClick={() => setShowDropdown(!showDropdown)}
+              onClick={() => { setShowDropdown(!showDropdown); setShowNotifications(false); }}
               className="flex items-center gap-3 hover:bg-slate-50 p-1 rounded-xl transition-all"
             >
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-bold text-slate-900 leading-tight">{userInfo.fullName}</p>
                 <p className="text-[10px] text-slate-400">
-                  Manager{userInfo.employeeId ? ` • ${userInfo.employeeId}` : ''}
+                  {ROLE_LABELS[role] || 'Staff'}{userInfo.employeeId ? ` • ${userInfo.employeeId}` : ''}
                 </p>
               </div>
               <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm border-2 border-white shadow-md uppercase">
@@ -73,6 +139,35 @@ export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
         </div>
       </div>
     </header>
+  );
+}
+
+function NotifItem({ notification, onRead }: { notification: AppNotification; onRead: (id: string) => void }) {
+  const timeAgo = (ts: string) => {
+    const diff = Date.now() - new Date(ts).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
+  return (
+    <button
+      onClick={() => onRead(notification.id)}
+      className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors ${!notification.read ? 'bg-green-50/40' : ''}`}
+    >
+      <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${!notification.read ? 'bg-green-100' : 'bg-slate-100'}`}>
+        <Package size={13} className={!notification.read ? 'text-green-600' : 'text-slate-400'} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-bold truncate ${!notification.read ? 'text-slate-900' : 'text-slate-500'}`}>{notification.title}</p>
+        <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">{notification.message}</p>
+        <p className="text-[9px] text-slate-300 mt-1">{timeAgo(notification.timestamp)}</p>
+      </div>
+      {!notification.read && <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />}
+    </button>
   );
 }
 

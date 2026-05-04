@@ -594,7 +594,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
           )}
 
           {!isLoading && filtered.map((item, idx) => (
-            <Pressable key={idx} style={styles.collectionItemCard} onPress={() => navigation.navigate("CollectionDetail", { item })}>
+            <Pressable key={idx} style={styles.collectionItemCard} onPress={() => navigation.navigate("CollectionDetail", { item, token })}>
               <View style={[styles.collectionAvatarCompact, { backgroundColor: "#2ea8ff" }]}>
                 <Text style={styles.collectionAvatarText}>{(item.supplierName || "?").substring(0, 1).toUpperCase()}</Text>
               </View>
@@ -1820,7 +1820,39 @@ export function SupplierListScreen({ user, token, navigation }: any) {
 
 
 export function CollectionDetailScreen({ route, navigation }: any) {
-  const { item } = route.params;
+  const { item, token } = route.params;
+  const [notes, setNotes] = useState(item.supervisorNotes || "");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fallback: If it's a locally queued item (no collectionId) or just load local override
+  useEffect(() => {
+    import("@react-native-async-storage/async-storage").then(m => {
+      const AsyncStorage = m.default;
+      AsyncStorage.getItem(`notes_${item.key || item.collectionId}`).then(val => {
+        if (val) setNotes(val);
+      });
+    });
+  }, [item]);
+
+  const handleSaveNotes = async () => {
+    setIsSaving(true);
+    try {
+      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+      await AsyncStorage.setItem(`notes_${item.key || item.collectionId}`, notes);
+      
+      // Attempt API sync if it's already a server-synced item
+      if (item.collectionId && item.syncStatus !== "QUEUED") {
+         await apiPatch(CollectionAPI.updateNotes(item.collectionId), { notes }, token);
+      }
+      
+      Alert.alert("Success", "Supervisor notes saved.");
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert("Error", "Saved locally, but failed to sync to server.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const formatDate = (value: string) => {
     const date = new Date(value);
@@ -1942,12 +1974,22 @@ export function CollectionDetailScreen({ route, navigation }: any) {
                placeholderTextColor={palette.muted}
                style={{ color: "#fff", fontSize: 15, textAlignVertical: "top" }}
                multiline
+               value={notes}
+               onChangeText={setNotes}
              />
            </View>
 
            {/* Save Button */}
-           <Pressable style={[styles.mainBtn, { width: "100%", marginTop: 15, marginBottom: 0 }]}>
-             <Text style={styles.mainBtnText}>Save Notes</Text>
+           <Pressable 
+             style={[styles.mainBtn, { width: "100%", marginTop: 15, marginBottom: 0 }]}
+             onPress={handleSaveNotes}
+             disabled={isSaving}
+           >
+             {isSaving ? (
+               <ActivityIndicator color="#fff" />
+             ) : (
+               <Text style={styles.mainBtnText}>Save Notes</Text>
+             )}
            </Pressable>
         </View>
 

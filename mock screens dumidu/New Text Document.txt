@@ -1,5 +1,20 @@
-Manager Dashboard: https://mg-dashboard-react.vercel.app
+Super admin(email=super5@wevili.com  password=SuperPassword123!
+
+estate Admin (email=Kurupanawa@gmail.com pass=Kurupanawa@123)
 
 
- transport agent and small holder dashboard
-https://ta-sh-dashboard-react.vercel.app/
+Manager(email=shehan@gmail.com    Password=Shehan@123)
+
+
+Cheif cleark(email-ranjan@gmail.com   password-Ranjan@123)
+
+Field officer(email=pasindu@gmail.com    Password=Pasindu@123)
+
+
+Store keeper(email=dinuka@gmail.com    Password=Dinuka@123)
+
+
+
+ https://ta-sh-dashboard-react.vercel.app/
+
+ Manager Dashboard: https://mg-dashboard-react.vercel.app

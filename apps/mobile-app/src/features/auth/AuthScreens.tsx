@@ -142,7 +142,7 @@ export function LoginScreen({ navigation }: any) {
     try {
       const res: any = await apiPost(AuthAPI.login, {
         employeeId: normalizedId,
-        pin:        normalizedPin,
+        password:   normalizedPin,
       });
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {

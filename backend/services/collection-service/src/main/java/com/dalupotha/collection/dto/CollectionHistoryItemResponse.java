@@ -15,6 +15,7 @@ public record CollectionHistoryItemResponse(
         String syncStatus,
         String gpsStatus,
         boolean manualOverride,
+        String supervisorNotes,
         UUID transportAgentId,
         String transportAgentName
 ) {

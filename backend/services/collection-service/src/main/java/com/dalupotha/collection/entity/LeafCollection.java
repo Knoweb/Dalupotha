@@ -62,6 +62,9 @@ public class LeafCollection {
     @Column(name = "sync_status", nullable = false)
     private SyncStatus syncStatus;
 
+    @Column(name = "supervisor_notes", columnDefinition = "TEXT")
+    private String supervisorNotes;
+
     @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     @Column(name = "collected_at", nullable = false)
     private OffsetDateTime collectedAt;
@@ -174,6 +177,14 @@ public class LeafCollection {
 
     public void setCollectedAt(OffsetDateTime collectedAt) {
         this.collectedAt = collectedAt;
+    }
+
+    public String getSupervisorNotes() {
+        return supervisorNotes;
+    }
+
+    public void setSupervisorNotes(String supervisorNotes) {
+        this.supervisorNotes = supervisorNotes;
     }
 
     public OffsetDateTime getSyncedAt() {

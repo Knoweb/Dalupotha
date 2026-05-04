@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -37,8 +38,14 @@ public class User {
     @Column(name = "contact", nullable = false, unique = true)
     private String contact;
 
+    @Column(name = "email", unique = true)
+    private String email;
+
     @Column(name = "employee_id", unique = true)
     private String employeeId;
+
+    @Column(name = "username", unique = true)
+    private String username;
 
     @Column(name = "hashed_password")
     private String hashedPassword;
@@ -48,6 +55,15 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "last_active")
+    private LocalDateTime lastActive;
+
+    @Column(name = "nic", unique = true)
+    private String nic;
+
+    @Column(name = "birthdate")
+    private LocalDate birthdate;
 
     @PrePersist
     protected void onCreate() {

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 import java.util.List;
 import java.util.UUID;
@@ -63,5 +64,11 @@ public class CollectionController {
             @RequestParam(required = false) Integer limit
     ) {
         return collectionService.getSupplierHistory(supplierId, limit);
+    }
+
+    @PatchMapping("/{collectionId}/notes")
+    public void updateNotes(@PathVariable UUID collectionId, @RequestBody java.util.Map<String, String> payload) {
+        String notes = payload.get("notes");
+        collectionService.updateNotes(collectionId, notes);
     }
 }

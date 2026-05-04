@@ -3,6 +3,7 @@ package com.dalupotha.auth.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
@@ -12,6 +13,8 @@ import java.util.UUID;
 // Request DTOs
 // ──────────────────────────────────────────────
 
+import java.time.LocalDateTime;
+
 public class AuthDtos {
 
     /** Staff / TA login with employeeId + PIN */
@@ -20,8 +23,34 @@ public class AuthDtos {
         @NotBlank(message = "Employee ID is required")
         private String employeeId;
 
-        @NotBlank(message = "PIN is required")
-        private String pin;
+        @NotBlank(message = "Password is required")
+        private String password;
+    }
+
+    @Data
+    public static class CreateUserRequest {
+        private UUID estateId;
+
+        @NotBlank(message = "Role is required")
+        private String role;
+
+        @NotBlank(message = "Full Name is required")
+        private String fullName;
+
+        @NotBlank(message = "Email is required")
+        private String email;
+
+        private String employeeId;
+
+        @NotBlank(message = "Password is required")
+        private String password;
+
+        private String contact;
+        private String nic;
+        private java.time.LocalDate birthdate;
+
+        @NotBlank(message = "Username is required")
+        private String username;
     }
 
     /** Small Holder (Supplier) login with Passbook ID + PIN */
@@ -59,7 +88,7 @@ public class AuthDtos {
     @Data
     public static class SmallHolderRegisterRequest {
         @NotBlank private String contact;
-        @NotBlank private String otpCode;
+        private String otpCode;
         @NotBlank private String fullName;
         @NotBlank private String pin;       // 4-digit PIN used for future logins
         @NotBlank private String passbookNo;
@@ -76,7 +105,7 @@ public class AuthDtos {
     @Data
     public static class AgentRegisterRequest {
         @NotBlank private String contact;
-        @NotBlank private String otpCode;
+        private String otpCode;
         @NotBlank private String fullName;
         @NotBlank private String employeeId; // To be verified against HR
         @NotBlank private String pin;        // 4-digit PIN used for future logins
@@ -128,7 +157,46 @@ public class AuthDtos {
         private java.util.UUID userId;
         private String fullName;
         private String employeeId;
+        private String email;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class DetailedUserResponse {
+        private UUID userId;
+        private String id; // employeeId or formatted PB-xxxx
+        private String name;
+        private String role;
+        private String status;
         private String contact;
+        private String email;
+        private String active;
+        private UUID estateId;
+        private String estateName;
+        private String nic;
+        private java.time.LocalDate birthdate;
+        
+        // Supplier specific
+        private String passbookNo;
+        private String landName;
+        private String address;
+        private BigDecimal arcs;
+        private String inChargeName;
+        private UUID inChargeId;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserSummaryListResponse {
+        private String id; // employeeId
+        private String userId; // UUID string
+        private String name;
+        private String role;
+        private String status;
+        private String active;
     }
 
     @Data

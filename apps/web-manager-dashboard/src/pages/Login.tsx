@@ -4,7 +4,7 @@ import { Plus, ShieldCheck, ArrowLeft, ArrowRight, RefreshCw, Lock, User, Eye, E
 import { UserRole } from '../App'
 
 interface LoginProps {
-  onLogin: (data: { role: UserRole, fullName: string, estateName: string, employeeId?: string }) => void;
+  onLogin: (data: { role: UserRole, fullName: string, estateName: string, estateId?: string, employeeId?: string }) => void;
 }
 
 export default function LoginPage({ onLogin }: LoginProps) {
@@ -35,28 +35,40 @@ export default function LoginPage({ onLogin }: LoginProps) {
     setIsSubmitting(true);
 
     try {
-      // Emergency Super Admin shortcut
       if (username === 'admin' && password === 'admin') {
          onLogin({ role: 'super-admin', fullName: 'System Admin', estateName: 'Dalupotha Central' });
          return;
       }
       // Demo role shortcuts (for testing)
-      if (username === 'mg' && password === '1234') { onLogin({ role: 'manager', fullName: 'A. Wickramasinghe', estateName: 'Weliwita Estate', employeeId: 'MG-001' }); return; }
-      if (username === 'ext' && password === '1234') { onLogin({ role: 'extension-officer', fullName: 'S. Rathnayake', estateName: 'Weliwita Estate', employeeId: 'EXT-001' }); return; }
-      if (username === 'st' && password === '1234') { onLogin({ role: 'office-staff', fullName: 'P. Kumari', estateName: 'Weliwita Estate', employeeId: 'ST-001' }); return; }
-      if (username === 'sk' && password === '1234') { onLogin({ role: 'store-keeper', fullName: 'R. Jayasinghe', estateName: 'Weliwita Estate', employeeId: 'SK-001' }); return; }
-      if (username === 'ft' && password === '1234') { onLogin({ role: 'factory-staff', fullName: 'N. Perera', estateName: 'Weliwita Estate', employeeId: 'FT-001' }); return; }
+      if (username === 'mg' && password === '1234') { onLogin({ role: 'manager', fullName: 'A. Wickramasinghe', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'MG-001' }); return; }
+      if (username === 'ext' && password === '1234') { onLogin({ role: 'extension-officer', fullName: 'S. Rathnayake', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'EXT-001' }); return; }
+      if (username === 'st' && password === '1234') { onLogin({ role: 'office-staff', fullName: 'P. Kumari', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'ST-001' }); return; }
+      if (username === 'sk' && password === '1234') { onLogin({ role: 'store-keeper', fullName: 'R. Jayasinghe', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'SK-001' }); return; }
+      if (username === 'ft' && password === '1234') { onLogin({ role: 'factory-staff', fullName: 'N. Perera', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'FT-001' }); return; }
 
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId: username, pin: password })
+        body: JSON.stringify({ employeeId: username, password: password })
       });
+
+      const roleMap: Record<string, string> = {
+        'mg': 'manager',
+        'ext': 'extension-officer',
+        'st': 'office-staff',
+        'sk': 'store-keeper',
+        'ft': 'factory-staff',
+        'ta': 'manager', // TA logs in via mobile app, fallback
+        'sh': 'manager', // SH logs in via mobile app, fallback
+      };
 
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem("current_user_id", data.userId || "");
-        onLogin({ role: data.role.toLowerCase() as UserRole, fullName: data.fullName, estateName: data.estateName, employeeId: data.employeeId });
+        sessionStorage.setItem("current_user_id", data.userId || "");
+        sessionStorage.setItem("current_estate_id", data.estateId || "");
+        if (data.token) sessionStorage.setItem("auth_token", data.token);
+        const mappedRole = roleMap[data.role?.toLowerCase()] || data.role?.toLowerCase();
+        onLogin({ role: mappedRole as UserRole, fullName: data.fullName, estateName: data.estateName || '', estateId: data.estateId, employeeId: data.employeeId });
       } else {
         const err = await res.json();
         alert(err.message || 'Login failed. Please check your credentials.');

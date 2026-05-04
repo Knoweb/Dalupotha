@@ -1,5 +1,13 @@
 const API_BASE = '/api';
 
+const getHeaders = () => {
+    const token = sessionStorage.getItem('auth_token');
+    return {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+};
+
 export type RequestStatus = 'PENDING' | 'APPROVED_BY_EXT' | 'REJECTED' | 'DISPATCHED' | 'CANCELLED';
 
 export interface ServiceRequest {
@@ -82,5 +90,94 @@ export const CollectionAPI = {
        return [] as CollectionItem[];
     }
     return res.json() as Promise<CollectionItem[]>;
+  }
+};
+
+export interface UserSummary {
+  id: string;
+  userId: string;
+  name: string;
+  role: string;
+  status: string;
+  active: string;
+}
+
+export interface DetailedUser extends UserSummary {
+  contact: string;
+  email?: string;
+  estateId?: string;
+  estateName?: string;
+  passbookNo?: string;
+  landName?: string;
+  address?: string;
+  arcs?: number;
+  inChargeName?: string;
+  inChargeId?: string;
+}
+
+export const AuthAPI = {
+  getUsers: async (estateId?: string) => {
+    const query = estateId ? `?estateId=${estateId}` : '';
+    const res = await fetch(`${API_BASE}/auth/users${query}`, {
+       headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json() as Promise<UserSummary[]>;
+  },
+  createUser: async (data: any) => {
+    const res = await fetch(`${API_BASE}/auth/users`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to create user');
+    return res.json();
+  },
+  registerAgent: async (data: any) => {
+    const res = await fetch(`${API_BASE}/auth/agent/register`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to register agent');
+    return res.json();
+  },
+  registerSmallHolder: async (data: any) => {
+    const res = await fetch(`${API_BASE}/auth/small-holder/register`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to register small holder');
+    return res.json();
+  },
+  deleteUser: async (userId: string) => {
+    const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to delete user');
+  },
+  updateStatus: async (userId: string, status: string) => {
+    const res = await fetch(`${API_BASE}/auth/users/${userId}/status?status=${status}`, {
+      method: 'PATCH',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to update status');
+  },
+  getDetailedUser: async (userId: string) => {
+    const res = await fetch(`${API_BASE}/auth/users/${userId}/detailed`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch detailed user');
+    return res.json() as Promise<DetailedUser>;
+  },
+  updateUser: async (userId: string, data: Partial<DetailedUser>) => {
+    const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update user');
   }
 };

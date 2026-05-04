@@ -30,7 +30,7 @@ export type UserRole = 'manager' | 'super-admin' | 'extension-officer' | 'store-
 
 // Which nav tabs each role can access
 export const ROLE_TABS: Record<UserRole, string[]> = {
-  'manager':           ['dashboard', 'collections', 'financials', 'inventory', 'approvals', 'tracking', 'circulars', 'reports', 'users', 'settings'],
+  'manager':           ['dashboard', 'collections', 'quality', 'financials', 'inventory', 'approvals', 'tracking', 'circulars', 'reports', 'users', 'settings'],
   'extension-officer': ['dashboard', 'approvals', 'financials', 'collections', 'circulars', 'reports'],
   'office-staff':      ['dashboard', 'collections', 'financials', 'reports'],
   'store-keeper':      ['dashboard', 'inventory', 'approvals'],
@@ -39,41 +39,43 @@ export const ROLE_TABS: Record<UserRole, string[]> = {
 };
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('is_auth') === 'true');
-  const [userRole, setUserRole] = useState<UserRole | null>(() => localStorage.getItem('user_role') as UserRole | null);
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('active_tab') || 'dashboard');
-  const [userInfo, setUserInfo] = useState<{ fullName: string; estateName: string; employeeId?: string; role?: string }>(() => ({
-    fullName: localStorage.getItem('user_name') || 'Estate Manager',
-    estateName: localStorage.getItem('estate_name') || 'Weliwita Estate',
-    employeeId: localStorage.getItem('employee_id') || undefined,
-    role: localStorage.getItem('user_role') || undefined,
+  const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('is_auth') === 'true');
+  const [userRole, setUserRole] = useState<UserRole | null>(() => sessionStorage.getItem('user_role') as UserRole | null);
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('active_tab') || 'dashboard');
+  const [userInfo, setUserInfo] = useState<{ fullName: string; estateName: string; estateId?: string; employeeId?: string; role?: string }>(() => ({
+    fullName: sessionStorage.getItem('user_name') || 'Estate Manager',
+    estateName: sessionStorage.getItem('estate_name') || 'Weliwita Estate',
+    estateId: sessionStorage.getItem('current_estate_id') || undefined,
+    employeeId: sessionStorage.getItem('employee_id') || undefined,
+    role: sessionStorage.getItem('user_role') || undefined,
   }));
 
-  const handleLogin = (data: { role: UserRole; fullName: string; estateName: string; employeeId?: string }) => {
+  const handleLogin = (data: { role: UserRole; fullName: string; estateName: string; estateId?: string; employeeId?: string }) => {
     setUserRole(data.role);
     setIsAuthenticated(true);
-    setUserInfo({ fullName: data.fullName, estateName: data.estateName, employeeId: data.employeeId, role: data.role });
-    localStorage.setItem('is_auth', 'true');
-    localStorage.setItem('user_role', data.role);
-    localStorage.setItem('user_name', data.fullName);
-    localStorage.setItem('estate_name', data.estateName);
-    if (data.employeeId) localStorage.setItem('employee_id', data.employeeId);
-    else localStorage.removeItem('employee_id');
+    setUserInfo({ fullName: data.fullName, estateName: data.estateName, estateId: data.estateId, employeeId: data.employeeId, role: data.role });
+    sessionStorage.setItem('is_auth', 'true');
+    sessionStorage.setItem('user_role', data.role);
+    sessionStorage.setItem('user_name', data.fullName);
+    sessionStorage.setItem('estate_name', data.estateName);
+    if (data.estateId) sessionStorage.setItem('current_estate_id', data.estateId);
+    if (data.employeeId) sessionStorage.setItem('employee_id', data.employeeId);
+    else sessionStorage.removeItem('employee_id');
     // Land on the first allowed tab for this role
     const firstTab = ROLE_TABS[data.role]?.[0] || 'dashboard';
     setActiveTab(firstTab);
-    localStorage.setItem('active_tab', firstTab);
+    sessionStorage.setItem('active_tab', firstTab);
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole(null);
-    localStorage.clear();
+    sessionStorage.clear();
   };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    localStorage.setItem('active_tab', tab);
+    sessionStorage.setItem('active_tab', tab);
   };
 
   if (!isAuthenticated) return <LoginPage onLogin={handleLogin} />;

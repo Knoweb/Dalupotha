@@ -40,17 +40,20 @@ public class CollectionService {
     private final LeafCollectionRepository leafCollectionRepository;
     private final AppUserRepository appUserRepository;
     private final SupabaseRealtimePublisher supabaseRealtimePublisher;
+    private final NotificationPublisher notificationPublisher;
 
     public CollectionService(
             SmallHolderRepository smallHolderRepository,
             LeafCollectionRepository leafCollectionRepository,
             AppUserRepository appUserRepository,
-            SupabaseRealtimePublisher supabaseRealtimePublisher
+            SupabaseRealtimePublisher supabaseRealtimePublisher,
+            NotificationPublisher notificationPublisher
     ) {
         this.smallHolderRepository = smallHolderRepository;
         this.leafCollectionRepository = leafCollectionRepository;
         this.appUserRepository = appUserRepository;
         this.supabaseRealtimePublisher = supabaseRealtimePublisher;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public List<SupplierSummaryResponse> getSuppliers(UUID estateId, String search, Integer limit) {
@@ -175,6 +178,13 @@ public class CollectionService {
                 payload.put("syncStatus", saved.getSyncStatus().name());
                 supabaseRealtimePublisher.broadcastCollectionSync(payload);
 
+                // Async fire-and-forget: push notification to notification-service
+                notificationPublisher.publishCollectionSynced(
+                        supplier.getUser().getFullName(),
+                        saved.getGrossWeight(),
+                        transportAgent.getFullName()
+                );
+
                 results.add(new CollectionSyncItemResult(
                         item.getClientRef(),
                         saved.getCollectionId(),
@@ -207,6 +217,7 @@ public class CollectionService {
                 lc.getSyncStatus() != null ? lc.getSyncStatus().name() : SyncStatus.SYNCED.name(),
                 lc.getGpsStatus() != null ? lc.getGpsStatus().name() : GpsStatus.NO_GPS.name(),
                 lc.isManualOverride(),
+                lc.getSupervisorNotes(),
                 lc.getTransportAgentId(),
                 "---" // Name will be resolved by the dashboard
         );
@@ -247,6 +258,13 @@ public class CollectionService {
                 .stream()
                 .map(this::toHistoryResponse)
                 .toList();
+    }
+
+    public void updateNotes(UUID collectionId, String notes) {
+        LeafCollection leafCollection = leafCollectionRepository.findById(collectionId)
+                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Collection not found: " + collectionId));
+        leafCollection.setSupervisorNotes(notes);
+        leafCollectionRepository.save(leafCollection);
     }
 
     private int normalizeLimit(Integer requested, int fallback, int max) {

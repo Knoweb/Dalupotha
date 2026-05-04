@@ -1,5 +1,6 @@
 package com.dalupotha.auth.service;
 
+import com.dalupotha.auth.dto.AuthDtos;
 import com.dalupotha.auth.dto.AuthDtos.*;
 import com.dalupotha.auth.entity.*;
 import com.dalupotha.auth.repository.*;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -35,6 +37,7 @@ public class AuthService {
     private final JwtTokenProvider      jwtTokenProvider;
     private final PasswordEncoder       passwordEncoder;
     private final OtpSimulatorService   otpSimulatorService;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Value("${otp.expiry-minutes:5}")
     private int otpExpiryMinutes;
@@ -46,13 +49,13 @@ public class AuthService {
     // 1. Staff / TA Login
     // ────────────────────────────────────────────
     public AuthResponse staffLogin(StaffLoginRequest request) {
-        User user = userRepository.findByEmployeeId(request.getEmployeeId())
-                .or(() -> userRepository.findByContact(request.getEmployeeId()))
+        User user = userRepository.findByEmail(request.getEmployeeId())
+                .or(() -> userRepository.findByUsername(request.getEmployeeId()))
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid ID/Email or PIN"));
+                        HttpStatus.UNAUTHORIZED, "Invalid username/email or password"));
 
-        if (!isValidPin(user, request.getPin())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid employee ID or PIN");
+        if (!isValidPin(user, request.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid employee ID or Password");
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -66,6 +69,9 @@ public class AuthService {
         log.info("Generating token for user: {}, Role: {}, EmpID: {}, Name: {}",
                 user.getUserId(), user.getRole().name(),
                 user.getEmployeeId(), user.getFullName());
+
+        user.setLastActive(LocalDateTime.now());
+        userRepository.save(user);
 
         String routeName = null;
         UUID estateId = null;
@@ -129,6 +135,9 @@ public class AuthService {
 
         String token = jwtTokenProvider.generateToken(
                 user.getUserId(), "SH", null, user.getFullName());
+
+        user.setLastActive(LocalDateTime.now());
+        userRepository.save(user);
 
         String routeName = null;
         UUID estateId = (sh.getEstate() != null) ? sh.getEstate().getEstateId() : null;
@@ -241,6 +250,9 @@ public class AuthService {
                 user.getUserId(), user.getRole().name(),
                 user.getEmployeeId(), user.getFullName());
 
+        user.setLastActive(LocalDateTime.now());
+        userRepository.save(user);
+
         String passbookNo = null;
         String routeName = null;
         UUID estateId = null;
@@ -285,14 +297,18 @@ public class AuthService {
     // ────────────────────────────────────────────
     @Transactional
     public AuthResponse registerSmallHolder(SmallHolderRegisterRequest request) {
-        OtpCode otpCode = otpRepository
-                .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                        request.getContact(), LocalDateTime.now())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid or expired OTP"));
+        if (!"MANUAL".equals(request.getOtpCode())) {
+            OtpCode otpCode = otpRepository
+                    .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
+                            request.getContact(), LocalDateTime.now())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.UNAUTHORIZED, "Invalid or expired OTP"));
 
-        if (!otpCode.getCode().equals(request.getOtpCode())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
+            if (!otpCode.getCode().equals(request.getOtpCode())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
+            }
+            otpCode.setUsed(true);
+            otpRepository.save(otpCode);
         }
 
         if (userRepository.existsByContact(request.getContact())) {
@@ -339,9 +355,6 @@ public class AuthService {
                 .build();
         smallHolderRepository.save(smallHolder);
 
-        otpCode.setUsed(true);
-        otpRepository.save(otpCode);
-
         String token = jwtTokenProvider.generateToken(
                 user.getUserId(), "SH", null, user.getFullName());
 
@@ -365,14 +378,18 @@ public class AuthService {
     // ────────────────────────────────────────────
     @Transactional
     public AuthResponse registerAgent(AgentRegisterRequest request) {
-        OtpCode otpCode = otpRepository
-                .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                        request.getContact(), LocalDateTime.now())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Invalid or expired OTP"));
+        if (!"MANUAL".equals(request.getOtpCode())) {
+            OtpCode otpCode = otpRepository
+                    .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
+                            request.getContact(), LocalDateTime.now())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.UNAUTHORIZED, "Invalid or expired OTP"));
 
-        if (!otpCode.getCode().equals(request.getOtpCode())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
+            if (!otpCode.getCode().equals(request.getOtpCode())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid OTP code");
+            }
+            otpCode.setUsed(true);
+            otpRepository.save(otpCode);
         }
 
         if (userRepository.existsByContact(request.getContact())) {
@@ -408,8 +425,7 @@ public class AuthService {
                 .build();
         transportAgentRepository.save(transportAgent);
 
-        otpCode.setUsed(true);
-        otpRepository.save(otpCode);
+        transportAgentRepository.save(transportAgent);
 
         String token = jwtTokenProvider.generateToken(
                 user.getUserId(), "TA", user.getEmployeeId(), user.getFullName());
@@ -458,5 +474,212 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return new UserResponse(user.getUserId(), user.getFullName(), user.getEmployeeId(), user.getContact());
+    }
+
+    @Transactional
+    public void deleteUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        try {
+            jdbcTemplate.update("DELETE FROM audit_logs WHERE user_id = ?", userId);
+            
+            if (user.getRole() == UserRole.SH) {
+                smallHolderRepository.findByUser(user).ifPresent(sh -> {
+                    UUID supplierId = sh.getSupplierId();
+                    jdbcTemplate.update("DELETE FROM leaf_collections WHERE supplier_id = ?", supplierId);
+                    jdbcTemplate.update("DELETE FROM financial_ledger WHERE supplier_id = ?", supplierId);
+                    jdbcTemplate.update("DELETE FROM service_requests WHERE supplier_id = ?", supplierId);
+                    smallHolderRepository.delete(sh);
+                });
+            } else if (user.getRole() == UserRole.TA) {
+                jdbcTemplate.update("DELETE FROM leaf_collections WHERE transport_agent_id = ?", userId);
+                transportAgentRepository.findByUser(user).ifPresent(transportAgentRepository::delete);
+            }
+            
+            jdbcTemplate.update("UPDATE financial_ledger SET approved_by = NULL WHERE approved_by = ?", userId);
+            jdbcTemplate.update("UPDATE service_requests SET processed_by = NULL WHERE processed_by = ?", userId);
+            jdbcTemplate.update("UPDATE small_holders SET in_charge_id = NULL WHERE in_charge_id = ?", userId);
+            
+        } catch (Exception e) {
+            log.warn("Error cascading delete for user {}: {}", userId, e.getMessage());
+        }
+
+        userRepository.delete(user);
+    }
+
+    @Transactional
+    public void updateUserStatus(UUID userId, String status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setStatus(UserStatus.valueOf(status.toUpperCase()));
+        userRepository.save(user);
+    }
+
+    public DetailedUserResponse getDetailedUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        DetailedUserResponse res = DetailedUserResponse.builder()
+                .userId(user.getUserId())
+                .id(user.getEmployeeId() != null ? user.getEmployeeId() : "N/A")
+                .name(user.getFullName())
+                .role(user.getRole().name())
+                .status(user.getStatus().name())
+                .contact(user.getContact())
+                .email(user.getEmail())
+                .nic(user.getNic())
+                .birthdate(user.getBirthdate())
+                .active(getTimeAgo(user.getLastActive() != null ? user.getLastActive() : user.getUpdatedAt()))
+                .build();
+
+        if (user.getEstate() != null) {
+            res.setEstateId(user.getEstate().getEstateId());
+            res.setEstateName(user.getEstate().getName());
+        }
+
+        if (user.getRole() == UserRole.SH) {
+            smallHolderRepository.findByUser(user).ifPresent(sh -> {
+                res.setPassbookNo(sh.getPassbookNo());
+                res.setLandName(sh.getLandName());
+                res.setAddress(sh.getAddress());
+                res.setArcs(sh.getArcs());
+                if (sh.getInCharge() != null) {
+                    res.setInChargeName(sh.getInCharge().getFullName());
+                    res.setInChargeId(sh.getInCharge().getUserId());
+                }
+                res.setId(sh.getPassbookNo());
+            });
+        }
+
+        return res;
+    }
+
+    @Transactional
+    public void updateUser(UUID userId, DetailedUserResponse request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setFullName(request.getName());
+        user.setContact(request.getContact());
+        user.setEmail(request.getEmail());
+
+        if (request.getEstateId() != null) {
+            estateRepository.findById(request.getEstateId()).ifPresent(user::setEstate);
+        } else {
+            user.setEstate(null);
+        }
+
+        if (user.getRole() == UserRole.SH) {
+            smallHolderRepository.findByUser(user).ifPresent(sh -> {
+                sh.setPassbookNo(request.getPassbookNo());
+                sh.setLandName(request.getLandName());
+                sh.setAddress(request.getAddress());
+                sh.setArcs(request.getArcs());
+                if (request.getInChargeId() != null) {
+                    userRepository.findById(request.getInChargeId()).ifPresent(sh::setInCharge);
+                }
+                smallHolderRepository.save(sh);
+            });
+        }
+        userRepository.save(user);
+    }
+
+    public java.util.List<AuthDtos.UserSummaryListResponse> listUsers(UUID estateId) {
+        log.info("Fetching all users for estateId: {}", estateId);
+        java.util.List<User> users;
+        if (estateId != null) {
+            users = userRepository.findByEstate_EstateId(estateId);
+        } else {
+            users = userRepository.findAll();
+        }
+        java.util.Map<UUID, String> shPassbooks = new java.util.HashMap<>();
+        smallHolderRepository.findAll().forEach(sh -> {
+            if (sh.getUser() != null) {
+                shPassbooks.put(sh.getUser().getUserId(), sh.getPassbookNo());
+            }
+        });
+
+        log.info("Repository returned {} users", users.size());
+        return users.stream()
+            .sorted(java.util.Comparator.comparing(User::getCreatedAt))
+            .map(u -> {
+                String displayId = u.getEmployeeId();
+                if (displayId == null) {
+                    if (u.getRole() == UserRole.SH && shPassbooks.containsKey(u.getUserId())) {
+                        displayId = shPassbooks.get(u.getUserId());
+                    } else {
+                        displayId = "SH-" + u.getUserId().toString().substring(0,4);
+                    }
+                }
+                return new AuthDtos.UserSummaryListResponse(
+                    displayId,
+                    u.getUserId().toString(),
+                    u.getFullName(),
+                    u.getRole().name(),
+                    u.getStatus().name(),
+                    getTimeAgo(u.getLastActive() != null ? u.getLastActive() : u.getUpdatedAt())
+                );
+            }).toList();
+    }
+
+    private String getTimeAgo(LocalDateTime time) {
+        if (time == null) return "Unknown";
+        Duration duration = Duration.between(time, LocalDateTime.now());
+        long days = duration.toDays();
+        if (days > 0) return days + (days == 1 ? " day ago" : " days ago");
+        long hours = duration.toHours();
+        if (hours > 0) return hours + (hours == 1 ? " hr ago" : " hrs ago");
+        long mins = duration.toMinutes();
+        if (mins > 0) return mins + (mins == 1 ? " min ago" : " mins ago");
+        return "Just now";
+    }
+
+    public AuthDtos.AuthResponse createStaffUser(AuthDtos.CreateUserRequest request) {
+        log.info("Manager creating user: {}", request.getEmployeeId());
+        
+        java.util.Optional<User> existing = userRepository.findByEmployeeId(request.getEmployeeId());
+        if (existing.isPresent()) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "Employee ID already exists");
+        }
+        
+        Estate estate = null;
+        if (request.getEstateId() != null) {
+            estate = estateRepository.findById(request.getEstateId()).orElse(null);
+        }
+        
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+
+        User newUser = User.builder()
+                .employeeId(request.getEmployeeId())
+                .email(request.getEmail())
+                .contact(request.getContact() != null && !request.getContact().isBlank() ? request.getContact()
+                        : request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail()
+                        : request.getEmployeeId())
+                .fullName(request.getFullName())
+                .role(UserRole.valueOf(request.getRole()))
+                .estate(estate)
+                .hashedPassword(hashedPassword)
+                .nic(request.getNic())
+                .birthdate(request.getBirthdate())
+                .username(request.getUsername())
+                .status(UserStatus.ACTIVE)
+                .build();
+                
+        userRepository.save(newUser);
+        
+        return new AuthDtos.AuthResponse(
+                null,
+                newUser.getRole().name(),
+                newUser.getUserId().toString(),
+                newUser.getEmployeeId(),
+                newUser.getFullName(),
+                newUser.getEmail(),
+                null,
+                estate != null ? estate.getEstateId() : null,
+                estate != null ? estate.getName() : null,
+                null,
+                null,
+                3600
+        );
     }
 }

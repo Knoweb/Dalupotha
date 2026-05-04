@@ -81,6 +81,8 @@ export const CollectionAPI = {
                `${API_BASE}/collection/history/agent/${transportAgentId}`,
   history:     (supplierId: string) =>
                `${API_BASE}/collection/history/${supplierId}`, // GET — supply history
+  updateNotes: (collectionId: string) =>
+               `${API_BASE}/collection/${collectionId}/notes`, // PATCH - update notes
 };
 
 // ── 4. Financial Ledger ───────────────────────────────────────────────────────

@@ -275,7 +275,7 @@ export default function ApprovalsPage() {
   const handleAction = async (requestId: string, status: RequestStatus, remark?: string) => {
     setProcessingId(requestId)
     try {
-      await FinanceAPI.updateStatus(requestId, status, localStorage.getItem("current_user_id") || "", remark)
+      await FinanceAPI.updateStatus(requestId, status, sessionStorage.getItem("current_user_id") || "", remark)
       setViewReq(null)
       loadRequests()
     } catch (err: any) { alert(err?.message || "Action failed.") }
