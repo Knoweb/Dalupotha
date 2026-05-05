@@ -65,6 +65,12 @@ public class LeafCollection {
     @Column(name = "supervisor_notes", columnDefinition = "TEXT")
     private String supervisorNotes;
 
+    @Column(name = "processed_by_name")
+    private String processedByName;
+
+    @Column(name = "processed_at")
+    private OffsetDateTime processedAt;
+
     @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     @Column(name = "collected_at", nullable = false)
     private OffsetDateTime collectedAt;
@@ -185,6 +191,22 @@ public class LeafCollection {
 
     public void setSupervisorNotes(String supervisorNotes) {
         this.supervisorNotes = supervisorNotes;
+    }
+
+    public String getProcessedByName() {
+        return processedByName;
+    }
+
+    public void setProcessedByName(String processedByName) {
+        this.processedByName = processedByName;
+    }
+
+    public OffsetDateTime getProcessedAt() {
+        return processedAt;
+    }
+
+    public void setProcessedAt(OffsetDateTime processedAt) {
+        this.processedAt = processedAt;
     }
 
     public OffsetDateTime getSyncedAt() {

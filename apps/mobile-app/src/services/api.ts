@@ -94,11 +94,11 @@ export const FinanceAPI = {
                   `${API_BASE}/finance/ledger/${supplierId}/transactions`, // GET — payment history
 };
 
-// ── 5. Service & Inventory ────────────────────────────────────────────────────
 export const ServicesAPI = {
   createRequest:  `${API_BASE}/services/request`,               // POST — fertilizer/machine/transport
   updateStatus:   (requestId: string) =>
                   `${API_BASE}/services/request/${requestId}/status`, // PATCH — approve/dispatch
+  inventory:      `${API_BASE}/inventory`,                      // GET — fetch available items
 };
 
 // ── Generic API helpers ───────────────────────────────────────────────────────

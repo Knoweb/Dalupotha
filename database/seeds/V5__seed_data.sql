@@ -33,12 +33,14 @@ VALUES
   ('aaaaaaaa-0000-0000-0000-000000000005', '22222222-0000-0000-0000-000000000005', 'PB-0077', 'Fernando Estate',             'Bandarawela',     6.8300, 80.9900, '11111111-0000-0000-0000-000000000002');
 
 -- Seed inventory
-INSERT INTO inventory (item_type, item_name, quantity, unit, unit_cost)
+INSERT INTO inventory (item_category, item_name, quantity_in_stock, reserved_quantity, reorder_level, unit, unit_cost)
 VALUES
-  ('FERTILIZER', 'Urea Fertilizer 46%',         2500.00, 'kg',   115.00),
-  ('FERTILIZER', 'TSP Fertilizer',              1800.00, 'kg',   145.00),
-  ('LEAF_BAG',   'Standard Leaf Bag (Large)',   5000.00, 'bags',  12.50),
-  ('LEAF_BAG',   'Standard Leaf Bag (Medium)', 3000.00, 'bags',   8.00);
+  ('FERTILIZER', 'Urea Fertilizer',    1420.00, 280.00, 1000.00, 'kg',    85.00),
+  ('FERTILIZER', 'TSP Fertilizer',     980.00,  120.00, 500.00,  'kg',   120.00),
+  ('FERTILIZER', 'MOP Fertilizer',     400.00,  50.00,  300.00,  'kg',   110.00),
+  ('LEAF_BAG',   'Standard 5kg Bags',  840.00,  200.00, 500.00,  'bags',  18.00),
+  ('LEAF_BAG',   'Large 10kg Bags',    400.00,  0.00,   200.00,  'bags',  32.00),
+  ('TOOLS',      'Pruning Machine',    3.00,    1.00,   1.00,    'units', 45000.00);
 
 -- Seed sample leaf collections
 INSERT INTO leaf_collections (supplier_id, transport_agent_id, gross_weight, net_weight, gps_lat, gps_long, gps_status, sync_status, collected_at, synced_at)

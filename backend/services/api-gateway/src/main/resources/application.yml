@@ -24,42 +24,49 @@ spring:
         - id: auth-service-routes
           uri: http://auth-service:8081
           predicates:
-            - Path=/auth/**
+            - Path=/auth, /auth/**
           filters:
-            - RewritePath=/auth/(?<segment>.*), /api/auth/$\{segment}
+            - RewritePath=/auth(?<segment>.*), /api/auth$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
         - id: collection-service-routes
           uri: http://collection-service:8082
           predicates:
-            - Path=/collection/**
+            - Path=/collection, /collection/**
           filters:
-            - RewritePath=/collection/(?<segment>.*), /api/collection/$\{segment}
+            - RewritePath=/collection(?<segment>.*), /api/collection$\{segment}
         - id: finance-service-routes
           uri: http://finance-service:8083
           predicates:
-            - Path=/finance/**
+            - Path=/finance, /finance/**
           filters:
-            - RewritePath=/finance/(?<segment>.*), /api/finance/$\{segment}
+            - RewritePath=/finance(?<segment>.*), /api/finance$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
         - id: services-routes
           uri: http://finance-service:8083
           predicates:
-            - Path=/services/**
+            - Path=/services, /services/**
           filters:
-            - RewritePath=/services/(?<segment>.*), /api/services/$\{segment}
+            - RewritePath=/services(?<segment>.*), /api/services$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
         - id: notification-ws-routes
-          uri: ws://notification-service:8085
+          uri: http://notification-service:8085
           predicates:
             - Path=/notifications/ws/**
           filters:
-            - RewritePath=/notifications/(?<segment>.*), /$\{segment}
+            - RewritePath=/notifications/(?<segment>.*), /${segment}
         - id: notification-routes
           uri: http://notification-service:8085
           predicates:
-            - Path=/notifications/**
+            - Path=/notifications, /notifications/**
           filters:
-            - RewritePath=/notifications/(?<segment>.*), /api/notifications/$\{segment}
+            - RewritePath=/notifications(?<segment>.*), /api/notifications$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - id: inventory-service-routes
+          uri: http://inventory-service:8084
+          predicates:
+            - Path=/inventory, /inventory/**
+          filters:
+            - RewritePath=/inventory(?<segment>.*), /api/inventory$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
 
 server:

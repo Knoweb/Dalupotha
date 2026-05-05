@@ -12,6 +12,7 @@ import com.dalupotha.finance.model.LedgerTransactionType;
 import com.dalupotha.finance.model.RequestStatus;
 import com.dalupotha.finance.model.RequestType;
 import com.dalupotha.finance.repository.FinancialLedgerRepository;
+import com.dalupotha.finance.repository.LeafPriceRepository;
 import com.dalupotha.finance.repository.ServiceRequestRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -40,10 +41,23 @@ public class FinanceService {
     @Value("${dalupotha.services.auth-url}")
     private String authServiceUrl;
 
+    @Value("${dalupotha.services.collection-url}")
+    private String collectionServiceUrl;
+
+    @Value("${dalupotha.services.inventory-url}")
+    private String inventoryServiceUrl;
+
+    private final LeafPriceRepository leafPriceRepository;
+    private final NotificationPublisher notificationPublisher;
+
     public FinanceService(ServiceRequestRepository serviceRequestRepository,
-                          FinancialLedgerRepository financialLedgerRepository) {
+                          FinancialLedgerRepository financialLedgerRepository,
+                          LeafPriceRepository leafPriceRepository,
+                          NotificationPublisher notificationPublisher) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.financialLedgerRepository = financialLedgerRepository;
+        this.leafPriceRepository = leafPriceRepository;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public ServiceRequestResponse createRequest(CreateServiceRequestRequest request) {
@@ -81,14 +95,40 @@ public class FinanceService {
 
         ServiceRequestEntity saved = serviceRequestRepository.save(entity);
 
-        if (request.getRequestType() == RequestType.ADVANCE && request.getRequestedAmount() != null) {
+        // Automatically generate ledger entries for financial impact
+        if (request.getRequestedAmount() != null) {
+            LedgerTransactionType transactionType = LedgerTransactionType.DEBT;
+            
+            if (request.getRequestType() == RequestType.ADVANCE) {
+                transactionType = LedgerTransactionType.ADVANCE;
+            }
+
             FinancialLedgerEntity ledger = new FinancialLedgerEntity();
             ledger.setSupplierId(request.getSupplierId());
-            ledger.setTransactionType(LedgerTransactionType.ADVANCE);
+            ledger.setTransactionType(transactionType);
             ledger.setAmount(request.getRequestedAmount());
-            ledger.setDescription(request.getNotes());
+            ledger.setRequestId(saved.getRequestId());
+            ledger.setDescription(request.getRequestType().name() + ": " + (request.getNotes() != null ? request.getNotes() : "Standard service charge"));
             ledger.setStatus(LedgerStatus.PENDING);
             financialLedgerRepository.save(ledger);
+        }
+
+        // Send Notification
+        try {
+            String amountOrQty = "";
+            if (saved.getRequestedAmount() != null && saved.getRequestedAmount().compareTo(BigDecimal.ZERO) > 0) {
+                amountOrQty = "Rs. " + saved.getRequestedAmount();
+            } else if (saved.getQuantity() != null) {
+                amountOrQty = saved.getQuantity() + (saved.getRequestType() == RequestType.FERTILIZER ? " kg" : " units");
+            }
+            notificationPublisher.publishRequestCreated(
+                saved.getSupplierName(),
+                saved.getRequestType().name(),
+                amountOrQty,
+                saved.getRequestId().toString()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to trigger notification: {}", e.getMessage());
         }
 
         return toResponse(saved);
@@ -96,6 +136,7 @@ public class FinanceService {
 
     public List<ServiceRequestResponse> getRequests(UUID createdById,
                                                     UUID supplierId,
+                                                    String passbookNo,
                                                     RequestType requestType,
                                                     RequestStatus status,
                                                     Integer limit) {
@@ -103,6 +144,7 @@ public class FinanceService {
         return serviceRequestRepository.search(
                         createdById,
                         supplierId,
+                        passbookNo,
                         requestType,
                         status,
                         PageRequest.of(0, pageSize)
@@ -118,11 +160,58 @@ public class FinanceService {
 
         entity.setStatus(request.getStatus());
         entity.setApproverId(request.getApproverId());
+        if (request.getAmount() != null) {
+            entity.setRequestedAmount(request.getAmount());
+        }
         if (request.getApproverComment() != null && !request.getApproverComment().isBlank()) {
             entity.setApproverComment(request.getApproverComment());
         }
 
         ServiceRequestEntity saved = serviceRequestRepository.save(entity);
+
+        // Update corresponding ledger entry if exists
+        financialLedgerRepository.findOptionalByRequestId(requestId).ifPresent(ledger -> {
+            if (request.getAmount() != null) {
+                ledger.setAmount(request.getAmount());
+            }
+            if (request.getStatus() == RequestStatus.APPROVED_BY_EXT || request.getStatus() == RequestStatus.DISPATCHED) {
+                ledger.setStatus(LedgerStatus.APPROVED);
+                ledger.setApproverId(request.getApproverId());
+            } else if (request.getStatus() == RequestStatus.REJECTED) {
+                ledger.setStatus(LedgerStatus.REJECTED);
+            }
+            financialLedgerRepository.save(ledger);
+        });
+
+        // If dispatched, update inventory stock
+        if (request.getStatus() == RequestStatus.DISPATCHED && entity.getItemId() != null && entity.getQuantity() != null) {
+            try {
+                String url = inventoryServiceUrl + "/api/inventory/" + entity.getItemId();
+                Map<String, Object> itemResponse = restTemplate.getForObject(url, Map.class);
+                if (itemResponse != null && itemResponse.get("quantityInStock") != null) {
+                    Number currentStock = (Number) itemResponse.get("quantityInStock");
+                    double newStock = Math.max(0, currentStock.doubleValue() - entity.getQuantity().doubleValue());
+                    itemResponse.put("quantityInStock", newStock);
+                    restTemplate.put(url, itemResponse);
+                    log.info("Successfully deducted {} units from item {} upon dispatch", entity.getQuantity(), entity.getItemId());
+                }
+            } catch (Exception e) {
+                log.error("Failed to update inventory for item {}: {}", entity.getItemId(), e.getMessage());
+            }
+        }
+
+        // Send Notification for status update
+        try {
+            notificationPublisher.publishRequestStatusUpdate(
+                saved.getSupplierName(),
+                saved.getRequestType().name(),
+                saved.getStatus().name(),
+                saved.getRequestId().toString()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to trigger status update notification: {}", e.getMessage());
+        }
+
         return toResponse(saved);
     }
 
@@ -170,15 +259,40 @@ public class FinanceService {
                 .map(FinancialLedgerEntity::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal estimatedBalance = payoutTotal.subtract(currentDebt).subtract(advanceTaken);
+        // Calculate LIVE ESTIMATE based on supplied weights
+        BigDecimal totalNetWeight = fetchTotalNetWeight(supplierId);
+        BigDecimal currentPrice = leafPriceRepository.findFirstByIsActiveTrueOrderByEffectiveDateDesc()
+                .map(com.dalupotha.finance.entity.LeafPriceEntity::getPricePerKg)
+                .orElse(new BigDecimal("240.00")); // Fallback
+
+        BigDecimal totalGrossEarnings = totalNetWeight.multiply(currentPrice);
+        
+        // Estimated Balance = (Gross Earnings from Leaf) - (Past Payouts) - (Outstanding Advances) - (Outstanding Debts)
+        // Wait, payoutTotal is already money RECEIVED. 
+        // Real Estimated Balance = GrossEarnings - PayoutTotal - CurrentDebt - AdvanceTaken
+        // If PayoutTotal covers some earnings, it reduces the remaining estimate.
+        BigDecimal estimatedBalance = totalGrossEarnings.subtract(payoutTotal).subtract(currentDebt).subtract(advanceTaken);
 
         return new SupplierLedgerResponse(
                 supplierId,
                 currentDebt,
                 advanceTaken,
                 payoutTotal,
-                estimatedBalance
+                estimatedBalance.max(BigDecimal.ZERO)
         );
+    }
+
+    private BigDecimal fetchTotalNetWeight(UUID supplierId) {
+        String url = collectionServiceUrl + "/api/collection/summary/" + supplierId;
+        try {
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && response.get("totalNetWeight") != null) {
+                return new BigDecimal(response.get("totalNetWeight").toString());
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch weight summary from collection-service: {}", e.getMessage());
+        }
+        return BigDecimal.ZERO;
     }
 
     private UserIdentity fetchUserIdentity(UUID userId) {
@@ -237,6 +351,7 @@ public class FinanceService {
                 id,
                 entity.getNotes(),
                 entity.getApproverComment(),
+                entity.getItemId(),
                 entity.getRequestDate(),
                 entity.getUpdatedAt()
         );

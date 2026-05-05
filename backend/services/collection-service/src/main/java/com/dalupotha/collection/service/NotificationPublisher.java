@@ -1,6 +1,7 @@
 package com.dalupotha.collection.service;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,9 +14,10 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-@Slf4j
 @Service
 public class NotificationPublisher {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationPublisher.class);
 
     private final RestTemplate restTemplate;
     private final String notificationServiceUrl;
@@ -33,16 +35,17 @@ public class NotificationPublisher {
      * Runs asynchronously so it never blocks the sync response.
      */
     @Async
-    public void publishCollectionSynced(String supplierName, Object grossWeight, String agentName) {
+    public void publishCollectionSynced(String supplierName, Object grossWeight, String agentName, String collectionId) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "new_collection");
             payload.put("title", "New Collection Synced");
             payload.put("message", supplierName + " — " + grossWeight + " kg (Agent: " + agentName + ")");
             payload.put("timestamp", Instant.now().toString());
-            payload.put("targetRole", "*");  // Both manager and factory-staff
+            payload.put("targetRole", "*");
 
             Map<String, Object> meta = new HashMap<>();
+            meta.put("collectionId", collectionId);
             meta.put("supplierName", supplierName);
             meta.put("grossWeight", grossWeight);
             meta.put("agentName", agentName);
@@ -59,7 +62,6 @@ public class NotificationPublisher {
             );
             log.debug("Notification published for collection sync: supplier={}", supplierName);
         } catch (Exception e) {
-            // Don't let notification failure break collection sync
             log.warn("Failed to publish notification to notification-service: {}", e.getMessage());
         }
     }

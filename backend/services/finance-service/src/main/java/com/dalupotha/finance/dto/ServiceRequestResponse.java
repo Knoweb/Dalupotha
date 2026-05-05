@@ -24,6 +24,7 @@ public record ServiceRequestResponse(
         String creatorId,
         String notes,
         @JsonProperty("approverComment") String approverComment,
+        UUID itemId,
         OffsetDateTime requestDate,
         OffsetDateTime updatedAt
 ) {

@@ -15,7 +15,11 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequestEn
     @Query("""
         select r from ServiceRequestEntity r
         where (:createdById is null or r.createdById = :createdById)
-          and (:supplierId is null or r.supplierId = :supplierId)
+          and (
+            (:supplierId is null and :passbookNo is null)
+            or (:supplierId is not null and r.supplierId = :supplierId)
+            or (:passbookNo is not null and r.passbookNo = :passbookNo)
+          )
           and (:requestType is null or r.requestType = :requestType)
           and (:status is null or r.status = :status)
         order by r.requestDate desc
@@ -23,6 +27,7 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequestEn
     List<ServiceRequestEntity> search(
             @Param("createdById") UUID createdById,
             @Param("supplierId") UUID supplierId,
+            @Param("passbookNo") String passbookNo,
             @Param("requestType") RequestType requestType,
             @Param("status") RequestStatus status,
             Pageable pageable

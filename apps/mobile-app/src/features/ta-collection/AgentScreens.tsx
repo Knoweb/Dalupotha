@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Animated,
   ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView,
-  Text, TextInput, View
+  Text, TextInput, TouchableOpacity, View
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -30,6 +30,7 @@ type CollectionCardItem = {
   supplierName: string;
   passbookNo?: string;
   grossWeight: number;
+  netWeight?: number;
   collectedAt: string;
   syncStatus: "QUEUED" | "SYNCING" | "SYNCED" | "FAILED";
   gpsStatus: "GPS" | "NO_GPS" | "MANUAL";
@@ -123,6 +124,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         supplierName: item.supplierName,
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
+        netWeight: item.netWeight !== undefined ? Number(item.netWeight) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -165,31 +167,33 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
 
   const todayKg = useMemo(() => {
     const now = new Date();
-    return historyItems
+    const val = historyItems
       .filter((item) => {
         const d = new Date(item.collectedAt);
         return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
       })
       .reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
+    return Math.round(val * 1000) / 1000;
   }, [historyItems]);
 
   const monthKg = useMemo(() => {
     const now = new Date();
-    return historyItems
+    const val = historyItems
       .filter((item) => {
         const d = new Date(item.collectedAt);
         return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
       })
       .reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
+    return Math.round(val * 1000) / 1000;
   }, [historyItems]);
 
   const supplierCount = useMemo(() => new Set(historyItems.map((item) => item.supplierId)).size, [historyItems]);
 
   const kpis = [
-    { label: "KG Today", value: `${todayKg.toFixed(1)} kg`, icon: "leaf-outline" as const, color: palette.accentGreen },
+    { label: "KG Today", value: `${todayKg} kg`, icon: "leaf-outline" as const, color: palette.accentGreen },
     { label: "Suppliers", value: `${supplierCount}`, icon: "people-outline" as const, color: palette.accentBlue },
     { label: "Pending Sync", value: `${pendingSync}`, icon: "cloud-upload-outline" as const, color: "#f39c12" },
-    { label: "This Month", value: `${monthKg.toFixed(1)} kg`, icon: "stats-chart-outline" as const, color: "#9b59b6" },
+    { label: "This Month", value: `${monthKg} kg`, icon: "stats-chart-outline" as const, color: "#9b59b6" },
   ];
 
   const recent = historyItems.slice(0, 3);
@@ -281,7 +285,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(31,190,87,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <MaterialCommunityIcons name="leaf" size={18} color="#1fbe57" />
             </View>
-            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayKgToday.toFixed(1)} kg</Text>
+            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayKgToday} kg</Text>
             <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>TODAY'S LEAF</Text>
             <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupToday} suppliers</Text>
           </Pressable>
@@ -390,7 +394,9 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             ? `${nameParts[nameParts.length - 1]}, ${nameParts[0].charAt(0)}.`
             : item.supplierName;
           return (
-            <View key={item.key || idx} style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+            <Pressable key={item.key || idx}
+              onPress={() => navigation.navigate("CollectionDetail", { item, token })}
+              style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", opacity: pressed ? 0.75 : 1 }]}>
               <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                 <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>{initial}</Text>
               </View>
@@ -409,10 +415,10 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
                 </View>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{Number(item.grossWeight).toFixed(1)} kg</Text>
+                <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{Number(item.grossWeight)} kg</Text>
                 <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{formatDateTime(item.collectedAt)}</Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
 
@@ -457,6 +463,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         supplierName: item.supplierName,
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
+        netWeight: item.netWeight !== undefined ? Number(item.netWeight) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -608,7 +615,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
                 </View>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.cardWeight}>{item.grossWeight.toFixed(1)} kg</Text>
+                <Text style={styles.cardWeight}>{item.grossWeight} kg</Text>
                 <Text style={styles.cardTime}>{formatDateTime(item.collectedAt)}</Text>
               </View>
             </Pressable>
@@ -639,13 +646,17 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
   const [formAmount, setFormAmount] = useState("");
   const [formQuantity, setFormQuantity] = useState("");
   const [formItemType, setFormItemType] = useState("");
-  const [fertilizerItems, setFertilizerItems] = useState<Array<{ type: string; quantity: string }>>([]);
-  const [toolItems, setToolItems] = useState<Array<{ type: string; quantity: string }>>([]);
+  const [formItemId, setFormItemId] = useState("");
+  const [fertilizerItems, setFertilizerItems] = useState<Array<{ type: string; quantity: string; itemId?: string }>>([]);
+  const [toolItems, setToolItems] = useState<Array<{ type: string; quantity: string; itemId?: string }>>([]);
   const [formNotes, setFormNotes] = useState("");
   const [formDays, setFormDays] = useState("");
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
   const [suppliersLoading, setSuppliersLoading] = useState(false);
-  const [supplierProfile, setSupplierProfile] = useState<any>(null);
+  const [showItemPicker, setShowItemPicker] = useState(false);
   const addItemBlink = useRef(new Animated.Value(1)).current;
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
   const [toolViewMode, setToolViewMode] = useState<"TOOL_PURCHASE" | "TOOL_RENT">("TOOL_PURCHASE");
 
@@ -691,10 +702,12 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (user?.supplierId) {
-        params.set("supplierId", String(user.supplierId));
+      if (role === 'supplier') {
+        const sid = user.supplierId || user.userId || user.id;
+        params.set("supplierId", String(sid));
+        if (user.passbookNo) params.set("passbookNo", user.passbookNo);
       } else {
-        params.set("createdById", String(user.userId));
+        params.set("createdById", String(user.userId || user.id));
       }
       params.set("requestType", requestType);
       params.set("limit", "120");
@@ -714,6 +727,10 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
     }, [loadRequests])
   );
 
+  useEffect(() => {
+    loadRequests();
+  }, [requestType]);
+
   const fetchSuppliers = async (query: string) => {
     setSuppliersLoading(true);
     try {
@@ -732,10 +749,22 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
     }
   };
 
+  const fetchInventory = async () => {
+    setInventoryLoading(true);
+    try {
+      const data = await apiGet<any[]>(ServicesAPI.inventory, token);
+      setInventoryItems(Array.isArray(data) ? data : []);
+    } catch {
+      setInventoryItems([]);
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
   const openForm = () => {
     if (role === "supplier") {
       setFormSupplier({
-        supplierId: user?.supplierId || user?.userId,
+        supplierId: user?.supplierId || user?.userId || user?.id,
         fullName: user?.fullName || "Supplier",
         passbookNo: user?.passbookNo || user?.passbook_no || "N/A",
         estateId: user?.estateId
@@ -746,6 +775,7 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
     setFormAmount("");
     setFormQuantity("");
     setFormItemType("");
+    setFormItemId("");
     setFertilizerItems([]);
     setToolItems([]);
     setFormNotes("");
@@ -753,6 +783,7 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
     setSearchQuery("");
     setShowForm(true);
     if (role !== "supplier") fetchSuppliers("");
+    fetchInventory();
   };
 
   const submitRequest = async () => {
@@ -769,6 +800,7 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
       .map((item) => ({
         type: item.type.trim(),
         quantity: Number(item.quantity),
+        itemId: item.itemId,
       }))
       .filter((item) => item.type && !Number.isNaN(item.quantity) && item.quantity > 0);
 
@@ -776,6 +808,7 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
       .map((item) => ({
         type: item.type.trim(),
         quantity: Number(item.quantity),
+        itemId: item.itemId,
       }))
       .filter((item) => item.type && !Number.isNaN(item.quantity) && item.quantity > 0);
 
@@ -784,8 +817,8 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
       return;
     }
 
-    if (activeTab === "Fertilizer" && (formItemType.trim() || formQuantity.trim())) {
-      Alert.alert("Save Current Item", "You have an unsaved fertilizer item. Save it before submitting.");
+    if (activeTab === "Fertilizer" && formItemType.trim() && formQuantity.trim()) {
+      Alert.alert("Save Current Item", "You have an unsaved fertilizer item. Click 'Add Item' or clear the inputs before submitting.");
       return;
     }
 
@@ -794,8 +827,8 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
       return;
     }
 
-    if (activeTab === "Tools" && (formItemType.trim() || formQuantity.trim())) {
-      Alert.alert("Save Current Item", "You have an unsaved tool item. Save it before submitting.");
+    if (activeTab === "Tools" && formItemType.trim() && formQuantity.trim()) {
+      Alert.alert("Save Current Item", "You have an unsaved tool item. Click 'Add Item' or clear the inputs before submitting.");
       return;
     }
 
@@ -821,7 +854,8 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
           requestType: requestType,
           requestedAmount: activeTab === "Advance" ? amount : 0,
           quantity: activeTab === "Fertilizer" ? totalFertilizerQuantity : (activeTab === "Tools" ? totalToolQuantity : (activeTab === "Leaf Bags" ? leafBagQty : null)),
-          itemType: activeTab === "Fertilizer" ? (normalizedFertilizerItems[0]?.type || formItemType) : (activeTab === "Tools" ? (normalizedToolItems[0]?.type || formItemType) : (activeTab === "Leaf Bags" ? "Leaf Bag" : formItemType)),
+          itemType: activeTab === "Fertilizer" ? (normalizedFertilizerItems[0]?.type || formItemType) : (activeTab === "Tools" ? (normalizedToolItems[0]?.type || formItemType) : (activeTab === "Leaf Bags" ? formItemType : formItemType)),
+          itemId: activeTab === "Fertilizer" ? (normalizedFertilizerItems[0]?.itemId || formItemId || undefined) : (activeTab === "Tools" ? (normalizedToolItems[0]?.itemId || formItemId || undefined) : (activeTab === "Leaf Bags" ? formItemId || undefined : undefined)),
           itemDetails: activeTab === "Fertilizer" ? JSON.stringify(normalizedFertilizerItems) : (activeTab === "Tools" ? JSON.stringify(normalizedToolItems) : undefined),
           creatorName: user.fullName || "Agent",
           creatorId: user.employeeId || "No ID",
@@ -846,9 +880,10 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
       Alert.alert("Invalid Item", "Enter a valid fertilizer type and quantity, then save.");
       return;
     }
-    setFertilizerItems((prev) => [...prev, { type, quantity: String(quantity) }]);
+    setFertilizerItems((prev) => [...prev, { type, quantity: String(quantity), itemId: formItemId }]);
     setFormItemType("");
     setFormQuantity("");
+    setFormItemId("");
   };
 
   const saveToolItem = () => {
@@ -858,9 +893,10 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
       Alert.alert("Invalid Item", "Enter a valid tool type and quantity, then save.");
       return;
     }
-    setToolItems((prev) => [...prev, { type, quantity: String(quantity) }]);
+    setToolItems((prev) => [...prev, { type, quantity: String(quantity), itemId: formItemId }]);
     setFormItemType("");
     setFormQuantity("");
+    setFormItemId("");
   };
 
   const handleCancelRequest = async (requestId: string) => {
@@ -890,7 +926,7 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
   };
 
   const statusColor = (status: string) => {
-    if (status === "APPROVED_BY_EXT" || status === "DISPATCHED") return palette.accentGreen;
+    if (status.startsWith("APPROVED") || status === "DISPATCHED") return palette.accentGreen;
     if (status === "PENDING") return "#f39c12";
     return "#e74c3c";
   };
@@ -1093,10 +1129,15 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
             const submittedDateStr = submittedDate ? submittedDate.toLocaleDateString() : "—";
             const toolTypeLabel = String(item.requestType || "").startsWith("TOOL_PURCHASE") ? "Purchase" : String(item.requestType || "").startsWith("TOOL_RENT") ? "Rent" : null;
 
-            const isDirectRequest = item.createdById === item.supplierId;
+            const isDirectRequest = item.createdById === item.supplierId || (item.creatorName && item.supplierName && item.creatorName.trim() === item.supplierName.trim());
 
             return (
-            <View key={item.requestId} style={styles.reqCard}>
+            <TouchableOpacity 
+              key={item.requestId} 
+              style={styles.reqCard} 
+              activeOpacity={0.7}
+              onPress={() => setSelectedRequest(item)}
+            >
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 15 }}>
                 <View>
                   <Text style={styles.cardItemTitle}>{item.supplierName || "Supplier"}</Text>
@@ -1104,112 +1145,64 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
                   <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>
-                    {_(String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' '))}
+                    {activeTab === 'Advisory' && String(item.status || '').startsWith('APPROVED') 
+                      ? 'RECEIVED' 
+                      : _(String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' '))}
                   </Text>
                 </View>
               </View>
+
+              <View style={{ position: 'absolute', bottom: 12, right: 12 }}>
+                <Text style={{ fontSize: 9, color: palette.muted, fontStyle: 'italic' }}>Tap for more info</Text>
+              </View>
               {activeTab === "Advance" && (
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <Text style={styles.reqCardLabel}>{_("Amount")}</Text>
                   <Text style={styles.reqCardValue}>Rs. {Number(item.requestedAmount || 0).toLocaleString()}</Text>
                 </View>
               )}
               {activeTab === "Fertilizer" && (
                 <>
-                  {!hasFertilizerDetailItems && (
-                    <>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                        <Text style={styles.reqCardLabel}>Type</Text>
-                        <Text style={styles.reqCardValue} numberOfLines={1}>{item.itemType || "Standard"}</Text>
-                      </View>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                        <Text style={styles.reqCardLabel}>Quantity</Text>
-                        <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
-                      </View>
-                    </>
-                  )}
-                  {hasFertilizerDetailItems && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={styles.reqCardLabel}>Items</Text>
-                      <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={1}>
-                        {fertilizerDetailItems.map((entry: any) => `${entry.type} (${entry.quantity}kg)`).join(", ")}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={styles.reqCardLabel}>Type</Text>
+                    <Text style={styles.reqCardValue}>{item.itemType || "Standard"}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={styles.reqCardLabel}>Total Quantity</Text>
+                    <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
+                  </View>
                 </>
               )}
               {activeTab === "Tools" && (
                 <>
-                  {toolTypeLabel && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={styles.reqCardLabel}>Type</Text>
-                      <Text style={styles.reqCardValue}>{toolTypeLabel}</Text>
-                    </View>
-                  )}
-                  {item.days > 0 && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={styles.reqCardLabel}>Rent Duration</Text>
-                      <Text style={styles.reqCardValue}>{item.days} days</Text>
-                    </View>
-                  )}
-                  {!hasToolDetailItems && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={styles.reqCardLabel}>Units</Text>
-                      <Text style={styles.reqCardValue}>{item.quantity || 1}</Text>
-                    </View>
-                  )}
-                  {hasToolDetailItems && (
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={styles.reqCardLabel}>Items</Text>
-                      <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={1}>
-                        {toolDetailItems.map((entry: any) => `${entry.type} (${entry.quantity}units)`).join(", ")}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={styles.reqCardLabel}>Item</Text>
+                    <Text style={styles.reqCardValue}>{item.itemType || "Tool"}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={styles.reqCardLabel}>{String(item.requestType || "").startsWith("TOOL_RENT") ? "Rent Days" : "Units"}</Text>
+                    <Text style={styles.reqCardValue}>{item.days || item.quantity || 1}</Text>
+                  </View>
                 </>
               )}
               {activeTab === "Leaf Bags" && (
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                  <Text style={styles.reqCardLabel}>Bags Requested</Text>
-                  <Text style={styles.reqCardValue}>{item.quantity || 0} bags</Text>
-                </View>
+                <>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={styles.reqCardLabel}>Bag Type</Text>
+                    <Text style={styles.reqCardValue}>{item.itemType || "Standard 5kg"}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={styles.reqCardLabel}>Quantity</Text>
+                    <Text style={styles.reqCardValue}>{item.quantity || 0} bags</Text>
+                  </View>
+                </>
               )}
               {activeTab === "Advisory" && (
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <Text style={styles.reqCardLabel}>Topic</Text>
                   <Text style={styles.reqCardValue}>{item.itemType || "General Advisory"}</Text>
                 </View>
               )}
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={styles.reqCardLabel}>{_("Submitted")}</Text>
-                <Text style={styles.reqCardValue}>{submittedDateStr}{submittedDate ? ` · ${submittedTime}` : ""}</Text>
-              </View>
-
-              {item.notes ? (
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-                  <Text style={styles.reqCardLabel}>{isDirectRequest ? _('Supplier Note') : 'Agent Note'}</Text>
-                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={3}>{item.notes}</Text>
-                </View>
-              ) : null}
-
-              {item.itemDetails && !String(item.itemDetails).trim().startsWith("[") && item.itemDetails !== item.notes ? (
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
-                  <Text style={styles.reqCardLabel}>Add notes</Text>
-                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: "right" }]} numberOfLines={2}>{item.itemDetails}</Text>
-                </View>
-              ) : null}
-
-              {(item.approverComment || item.remark) ? (
-                <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)" }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <Text style={[styles.reqCardLabel, { textTransform: "uppercase", fontSize: 10, color: palette.accentGreen }]}>Manager Remark</Text>
-                    {item.updatedAt && item.status !== "PENDING" && (
-                      <Text style={{ fontSize: 9, color: palette.muted }}>{new Date(item.updatedAt).toLocaleDateString()} {new Date(item.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}</Text>
-                    )}
-                  </View>
-                  <Text style={[styles.reqCardValue, { textAlign: "left", fontStyle: "italic", opacity: 0.9, lineHeight: 18 }]}>{item.approverComment || item.remark}</Text>
-                </View>
-              ) : null}
 
               {item.status === "PENDING" && role !== "supplier" ? (
                 <View style={{ marginTop: 15, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)", paddingTop: 15 }}>
@@ -1222,10 +1215,78 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                   </Pressable>
                 </View>
               ) : null}
-            </View>
+            </TouchableOpacity>
           );})}
           <View style={{ height: 100 }} />
         </ScrollView>
+
+        <Modal visible={!!selectedRequest} transparent animationType="fade" onRequestClose={() => setSelectedRequest(null)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", padding: 20 }}>
+            <View style={{ backgroundColor: "#111f38", borderRadius: 24, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>Request Info</Text>
+                <Pressable onPress={() => setSelectedRequest(null)}>
+                  <Ionicons name="close" size={24} color={palette.muted} />
+                </Pressable>
+              </View>
+
+              {selectedRequest && (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>Supplier Details</Text>
+                    <Text style={{ color: "white", fontSize: 16, fontWeight: "bold", marginBottom: 4 }}>{selectedRequest.supplierName}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 13 }}>PB: {selectedRequest.passbookNo}</Text>
+                  </View>
+
+                  <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>Request Summary</Text>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Type</Text>
+                      <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.requestType?.replace(/_/g, ' ')}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? "Rent Duration" : "Quantity/Units"}</Text>
+                      <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>
+                        {selectedRequest.days || selectedRequest.quantity || 0} {selectedRequest.requestType === 'LEAF_BAG' ? 'bags' : (selectedRequest.requestType === 'FERTILIZER' ? 'kg' : (String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? 'days' : 'units'))}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                      <Text style={{ color: palette.accentGreen, fontSize: 13, fontWeight: 'bold' }}>Total Deduction</Text>
+                      <Text style={{ color: palette.accentGreen, fontSize: 14, fontWeight: "bold" }}>
+                        Rs. {Number(selectedRequest.requestedAmount || 0).toLocaleString()}
+                      </Text>
+                    </View>
+                    {(selectedRequest.itemType || selectedRequest.specification) && (
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Specification</Text>
+                        <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.itemType || selectedRequest.specification}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {selectedRequest.approverComment && (
+                    <View style={{ backgroundColor: `${palette.accentGreen}10`, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: `${palette.accentGreen}20` }}>
+                      <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>Manager Remarks</Text>
+                      <Text style={{ color: "white", fontSize: 14, fontStyle: "italic", lineHeight: 22 }}>"{selectedRequest.approverComment}"</Text>
+                    </View>
+                  )}
+
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                    <Text style={{ color: palette.muted, fontSize: 11 }}>Status: {selectedRequest.status}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 11 }}>{new Date(selectedRequest.requestDate).toLocaleDateString()}</Text>
+                  </View>
+
+                  <Pressable 
+                    onPress={() => setSelectedRequest(null)}
+                    style={{ backgroundColor: palette.accentGreen, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 24 }}
+                  >
+                    <Text style={{ color: "#111", fontWeight: "bold" }}>Close Details</Text>
+                  </Pressable>
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
 
       {/* NEW REQUEST MODAL */}
@@ -1295,76 +1356,76 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                   </View>
 
                   {activeTab === "Fertilizer" && (
-                      <View style={{ gap: 14, marginBottom: 25 }}>
-                         <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "bold" }}>Fertilizer Items</Text>
+                    <View style={{ gap: 14, marginBottom: 25 }}>
+                      <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "bold" }}>Fertilizer Items</Text>
 
-                         <View style={{ gap: 12, padding: 14, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
-                           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                             <Text style={{ color: palette.muted, fontSize: 12, fontWeight: "bold" }}>New Item</Text>
-                             <Animated.View style={{ opacity: addItemBlink }}>
-                               <Pressable
-                                 onPress={saveFertilizerItem}
-                                 style={{
-                                   paddingHorizontal: 12,
-                                   paddingVertical: 7,
-                                   borderRadius: 999,
-                                   backgroundColor: "rgba(31,190,87,0.2)",
-                                   borderWidth: 1,
-                                   borderColor: "rgba(31,190,87,0.45)",
-                                 }}
-                               >
-                                 <Text style={{ color: palette.accentGreen, fontSize: 12, fontWeight: "bold" }}>Add Item</Text>
-                               </Pressable>
-                             </Animated.View>
-                           </View>
-                           <View style={{ flexDirection: "row", gap: 10 }}>
-                             <View style={{ flex: 1.5 }}>
-                               <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Fertilizer Type</Text>
-                               <View style={[styles.inputContainer, { height: 52 }]}> 
-                                 <TextInput
-                                   style={[styles.inputField, { paddingLeft: 15, fontSize: 15, fontWeight: "bold" }]}
-                                   placeholder="e.g. U709"
-                                   placeholderTextColor="#7d93b4"
-                                   value={formItemType}
-                                   onChangeText={setFormItemType}
-                                 />
-                               </View>
-                             </View>
-                             <View style={{ flex: 1 }}>
-                               <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Quantity (kg)</Text>
-                               <View style={[styles.inputContainer, { height: 52 }]}> 
-                                 <TextInput
-                                   style={[styles.inputField, { paddingLeft: 15, fontSize: 15, fontWeight: "bold" }]}
-                                   placeholder="kg"
-                                   placeholderTextColor="#7d93b4"
-                                   keyboardType="number-pad"
-                                   value={formQuantity}
-                                   onChangeText={setFormQuantity}
-                                 />
-                               </View>
-                             </View>
-                           </View>
-                         </View>
-
-                         {fertilizerItems.length > 0 && (
-                           <View style={{ borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.03)" }}>
-                             <View style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
-                               <Text style={{ flex: 2, color: palette.muted, fontSize: 11, fontWeight: "bold" }}>Fertilizer</Text>
-                               <Text style={{ flex: 1, color: palette.muted, fontSize: 11, fontWeight: "bold", textAlign: "right" }}>Qty (kg)</Text>
-                             </View>
-                             {fertilizerItems.map((item, idx) => (
-                               <View key={`saved-${idx}`} style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: idx === fertilizerItems.length - 1 ? 0 : 1, borderBottomColor: "rgba(255,255,255,0.06)", alignItems: "center" }}>
-                                 <Text style={{ flex: 2, color: "white", fontSize: 13, fontWeight: "600" }}>{item.type}</Text>
-                                 <Text style={{ flex: 1, color: palette.accentGreen, fontSize: 13, fontWeight: "700", textAlign: "right" }}>{item.quantity}</Text>
-                                 <Pressable onPress={() => setFertilizerItems((prev) => prev.filter((_, i) => i !== idx))} style={{ marginLeft: 10 }}>
-                                   <Ionicons name="trash-outline" size={14} color="#e74c3c" />
-                                 </Pressable>
-                               </View>
-                             ))}
-                           </View>
-                         )}
+                      <View style={{ gap: 12, padding: 14, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <Text style={{ color: palette.muted, fontSize: 12, fontWeight: "bold" }}>New Item</Text>
+                          <Animated.View style={{ opacity: addItemBlink }}>
+                            <Pressable
+                              onPress={saveFertilizerItem}
+                              style={{
+                                paddingHorizontal: 12,
+                                paddingVertical: 7,
+                                borderRadius: 999,
+                                backgroundColor: "rgba(31,190,87,0.2)",
+                                borderWidth: 1,
+                                borderColor: "rgba(31,190,87,0.45)",
+                              }}
+                            >
+                              <Text style={{ color: palette.accentGreen, fontSize: 12, fontWeight: "bold" }}>Add Item</Text>
+                            </Pressable>
+                          </Animated.View>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 10 }}>
+                          <View style={{ flex: 1.5 }}>
+                            <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Fertilizer Type</Text>
+                            <Pressable 
+                              style={[styles.inputContainer, { height: 52, paddingHorizontal: 15, justifyContent: "center" }]}
+                              onPress={() => setShowItemPicker(true)}
+                            > 
+                              <Text style={{ color: formItemType ? "white" : "#7d93b4", fontSize: 15, fontWeight: "bold" }}>
+                                {formItemType || "Select Type"}
+                              </Text>
+                              <Ionicons name="chevron-down" size={18} color={palette.muted} style={{ position: "absolute", right: 15 }} />
+                            </Pressable>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Quantity (kg)</Text>
+                            <View style={[styles.inputContainer, { height: 52 }]}> 
+                              <TextInput
+                                style={[styles.inputField, { paddingLeft: 15, fontSize: 15, fontWeight: "bold" }]}
+                                placeholder="kg"
+                                placeholderTextColor="#7d93b4"
+                                keyboardType="number-pad"
+                                value={formQuantity}
+                                onChangeText={setFormQuantity}
+                              />
+                            </View>
+                          </View>
+                        </View>
                       </View>
-                   )}
+
+                      {fertilizerItems.length > 0 && (
+                        <View style={{ borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                          <View style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+                            <Text style={{ flex: 2, color: palette.muted, fontSize: 11, fontWeight: "bold" }}>Fertilizer</Text>
+                            <Text style={{ flex: 1, color: palette.muted, fontSize: 11, fontWeight: "bold", textAlign: "right" }}>Qty (kg)</Text>
+                          </View>
+                          {fertilizerItems.map((item, idx) => (
+                            <View key={`saved-${idx}`} style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: idx === fertilizerItems.length - 1 ? 0 : 1, borderBottomColor: "rgba(255,255,255,0.06)", alignItems: "center" }}>
+                              <Text style={{ flex: 2, color: "white", fontSize: 13, fontWeight: "600" }}>{item.type}</Text>
+                              <Text style={{ flex: 1, color: palette.accentGreen, fontSize: 13, fontWeight: "700", textAlign: "right" }}>{item.quantity}</Text>
+                              <Pressable onPress={() => setFertilizerItems((prev) => prev.filter((_, i) => i !== idx))} style={{ marginLeft: 10 }}>
+                                <Ionicons name="trash-outline" size={14} color="#e74c3c" />
+                              </Pressable>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
  
                    {activeTab === "Tools" && (
                       <View style={{ gap: 14 }}>
@@ -1385,15 +1446,15 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                             <View style={{ flexDirection: "row", gap: 10 }}>
                                <View style={{ flex: 1 }}>
                                   <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Tool Type</Text>
-                                  <View style={[styles.inputContainer, { height: 48 }]}>
-                                     <TextInput
-                                        style={[styles.inputField, { paddingLeft: 12, fontSize: 14, fontWeight: "600" }]}
-                                        placeholder="e.g. Shovel"
-                                        placeholderTextColor="#7d93b4"
-                                        value={formItemType}
-                                        onChangeText={setFormItemType}
-                                     />
-                                  </View>
+                                  <Pressable 
+                                    style={[styles.inputContainer, { height: 48, paddingHorizontal: 12, justifyContent: "center" }]}
+                                    onPress={() => setShowItemPicker(true)}
+                                  >
+                                    <Text style={{ color: formItemType ? "white" : "#7d93b4", fontSize: 14, fontWeight: "600" }}>
+                                      {formItemType || "Select Tool"}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={16} color={palette.muted} style={{ position: "absolute", right: 12 }} />
+                                  </Pressable>
                                </View>
                                <View style={{ flex: 0.6 }}>
                                   <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Qty</Text>
@@ -1478,6 +1539,18 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                       <View style={{ backgroundColor: "rgba(46,168,255,0.08)", padding: 12, borderRadius: 10, marginBottom: 18, borderWidth: 1, borderColor: "rgba(46,168,255,0.2)" }}>
                         <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600", lineHeight: 18 }}>Leaf bags are factory-issued and will be billed as a debt deducted from your balance payment.</Text>
                       </View>
+                      
+                      <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Bag Type</Text>
+                      <Pressable 
+                        style={[styles.inputContainer, { height: 52, paddingHorizontal: 15, justifyContent: "center", marginBottom: 15 }]}
+                        onPress={() => setShowItemPicker(true)}
+                      > 
+                        <Text style={{ color: formItemType ? "white" : "#7d93b4", fontSize: 15, fontWeight: "bold" }}>
+                          {formItemType || "Select Bag Type"}
+                        </Text>
+                        <Ionicons name="chevron-down" size={18} color={palette.muted} style={{ position: "absolute", right: 15 }} />
+                      </Pressable>
+
                       <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Number of Bags Needed</Text>
                       <View style={[styles.inputContainer, { marginBottom: 20 }]}>
                         <Ionicons name="bag-handle-outline" size={20} color={palette.muted} style={{ marginLeft: 15 }} />
@@ -1536,6 +1609,66 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                 </ScrollView>
               )}
             </View>
+
+            {/* ITEM PICKER MODAL */}
+            <Modal visible={showItemPicker} animationType="fade" transparent>
+              <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 20 }}>
+                <View style={{ backgroundColor: "#111f38", borderRadius: 20, padding: 20, maxHeight: "70%", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+                    <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>Select {activeTab === "Fertilizer" ? "Fertilizer" : (activeTab === "Tools" ? "Tool" : "Bag")}</Text>
+                    <Pressable onPress={() => setShowItemPicker(false)}>
+                      <Ionicons name="close" size={22} color={palette.muted} />
+                    </Pressable>
+                  </View>
+                  
+                  {inventoryLoading ? (
+                    <ActivityIndicator color={palette.accentBlue} style={{ marginVertical: 30 }} />
+                  ) : (
+                    <ScrollView>
+                      {inventoryItems
+                        .filter(item => {
+                          if (activeTab === "Fertilizer") return item.itemCategory === "FERTILIZER";
+                          if (activeTab === "Tools") return item.itemCategory === "TOOLS";
+                          if (activeTab === "Leaf Bags") return item.itemCategory === "LEAF_BAG";
+                          return false;
+                        })
+                        .map((item, idx) => (
+                          <Pressable 
+                            key={idx}
+                            onPress={() => {
+                              setFormItemType(item.itemName);
+                              setFormItemId(item.itemId);
+                              setShowItemPicker(false);
+                            }}
+                            style={{ 
+                              paddingVertical: 15, 
+                              borderBottomWidth: 1, 
+                              borderBottomColor: "rgba(255,255,255,0.05)",
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "center"
+                            }}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: "white", fontSize: 15, fontWeight: "600" }}>{item.itemName}</Text>
+                              <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>In Stock: {item.quantityInStock} {item.unit}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
+                          </Pressable>
+                        ))}
+                      {inventoryItems.filter(item => {
+                          if (activeTab === "Fertilizer") return item.itemCategory === "FERTILIZER";
+                          if (activeTab === "Tools") return item.itemCategory === "TOOLS";
+                          if (activeTab === "Leaf Bags") return item.itemCategory === "LEAF_BAG";
+                          return false;
+                        }).length === 0 && (
+                        <Text style={{ color: palette.muted, textAlign: "center", marginTop: 20 }}>No items available in inventory.</Text>
+                      )}
+                    </ScrollView>
+                  )}
+                </View>
+              </View>
+            </Modal>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1865,10 +1998,11 @@ export function CollectionDetailScreen({ route, navigation }: any) {
     return name.substring(0, 1).toUpperCase();
   };
 
-  // Extract bag id and deductions if any (mock for now since it's not in the base payload)
-  const bagId = "LB-009";
-  const deduction = "-2.5 kg";
-  const netWeight = (item.grossWeight - 2.5).toFixed(1);
+  // Deduction derived from actual netWeight set by factory staff
+  const actualNetWeight = item.netWeight !== undefined && item.netWeight !== null ? Number(item.netWeight) : null;
+  const deductionKg = actualNetWeight !== null ? (item.grossWeight - actualNetWeight) : null;
+  const deductionDisplay = deductionKg !== null && deductionKg > 0 ? `-${deductionKg} kg` : "—";
+  const netWeightDisplay = actualNetWeight !== null ? `${actualNetWeight} kg` : "—";
 
   return (
     <View style={styles.dashboardWrap}>
@@ -1893,7 +2027,7 @@ export function CollectionDetailScreen({ route, navigation }: any) {
           </View>
           
           <View style={{ marginBottom: 15 }}>
-            <Text style={{ fontSize: 42, fontWeight: "900", color: palette.accentGreen, letterSpacing: -1 }}>{item.grossWeight.toFixed(1)} kg</Text>
+            <Text style={{ fontSize: 42, fontWeight: "900", color: palette.accentGreen, letterSpacing: -1 }}>{item.grossWeight} kg</Text>
             <Text style={[styles.cardItemSub, { marginTop: 2 }]}>Gross green leaf weight</Text>
           </View>
 
@@ -1934,17 +2068,17 @@ export function CollectionDetailScreen({ route, navigation }: any) {
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
              <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>DEDUCTION</Text>
-             <Text style={{ color: "#ff6b6b", fontSize: 18, fontWeight: "800" }}>{deduction}</Text>
+             <Text style={{ color: deductionDisplay === "—" ? palette.muted : "#ff6b6b", fontSize: 18, fontWeight: "800" }}>{deductionDisplay}</Text>
           </View>
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
              <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>NET WEIGHT</Text>
-             <Text style={{ color: palette.accentGreen, fontSize: 18, fontWeight: "800" }}>{netWeight} kg</Text>
+             <Text style={{ color: netWeightDisplay === "—" ? palette.muted : palette.accentGreen, fontSize: 18, fontWeight: "800" }}>{netWeightDisplay}</Text>
           </View>
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
-             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>LEAF BAG</Text>
-             <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>{bagId}</Text>
+             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>MANUAL</Text>
+             <Text style={{ color: item.manualOverride ? "#f39c12" : palette.muted, fontSize: 18, fontWeight: "800" }}>{item.manualOverride ? "Yes" : "No"}</Text>
           </View>
 
         </View>

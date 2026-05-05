@@ -182,7 +182,8 @@ public class CollectionService {
                 notificationPublisher.publishCollectionSynced(
                         supplier.getUser().getFullName(),
                         saved.getGrossWeight(),
-                        transportAgent.getFullName()
+                        transportAgent.getFullName(),
+                        saved.getCollectionId().toString()
                 );
 
                 results.add(new CollectionSyncItemResult(
@@ -206,6 +207,12 @@ public class CollectionService {
     }
 
     private CollectionHistoryItemResponse toHistoryResponse(LeafCollection lc) {
+        String agentName = "Unknown Agent";
+        if (lc.getTransportAgentId() != null) {
+            agentName = appUserRepository.findById(lc.getTransportAgentId())
+                    .map(AppUser::getFullName)
+                    .orElse("Unknown Agent");
+        }
         return new CollectionHistoryItemResponse(
                 lc.getCollectionId(),
                 lc.getSupplier() != null ? lc.getSupplier().getSupplierId() : null,
@@ -219,7 +226,9 @@ public class CollectionService {
                 lc.isManualOverride(),
                 lc.getSupervisorNotes(),
                 lc.getTransportAgentId(),
-                "---" // Name will be resolved by the dashboard
+                agentName,
+                lc.getProcessedByName(),
+                lc.getProcessedAt() != null ? lc.getProcessedAt().toInstant() : null
         );
     }
 
@@ -260,11 +269,41 @@ public class CollectionService {
                 .toList();
     }
 
+    public Map<String, Object> getSupplierSummary(UUID supplierId) {
+        List<LeafCollection> history = leafCollectionRepository.findBySupplierHistory(supplierId, PageRequest.of(0, 1000));
+        BigDecimal totalGross = history.stream()
+                .map(LeafCollection::getGrossWeight)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalNet = history.stream()
+                .map(lc -> lc.getNetWeight() != null ? lc.getNetWeight() : lc.getGrossWeight())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("supplierId", supplierId);
+        summary.put("totalGrossWeight", totalGross);
+        summary.put("totalNetWeight", totalNet);
+        summary.put("collectionCount", history.size());
+        return summary;
+    }
+
     public void updateNotes(UUID collectionId, String notes) {
         LeafCollection leafCollection = leafCollectionRepository.findById(collectionId)
                 .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Collection not found: " + collectionId));
         leafCollection.setSupervisorNotes(notes);
         leafCollectionRepository.save(leafCollection);
+    }
+
+    public void applyDeduction(UUID collectionId, BigDecimal deductionWeight, String processedByName) {
+        LeafCollection lc = leafCollectionRepository.findById(collectionId)
+                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Collection not found: " + collectionId));
+        BigDecimal net = lc.getGrossWeight().subtract(deductionWeight);
+        if (net.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(BAD_REQUEST, "Deduction cannot exceed gross weight");
+        }
+        lc.setNetWeight(net);
+        lc.setProcessedByName(processedByName);
+        lc.setProcessedAt(java.time.OffsetDateTime.now());
+        leafCollectionRepository.save(lc);
     }
 
     private int normalizeLimit(Integer requested, int fallback, int max) {

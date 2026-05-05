@@ -133,6 +133,7 @@ public class AuthDtos {
         @JsonProperty("passbookNo") private String passbookNo;
         @JsonProperty("expiresIn") private long   expiresIn;
         @JsonProperty("inChargeName") private String inChargeName;
+        @JsonProperty("supplierId") private String supplierId;
 
         public AuthResponse(String token, String role, String userId, String employeeId, String fullName, String contact, String routeName, UUID estateId, String estateName, BigDecimal arcs, String passbookNo, long expiresIn) {
             this.token = token;
@@ -148,6 +149,7 @@ public class AuthDtos {
             this.passbookNo = passbookNo;
             this.expiresIn = expiresIn;
             this.inChargeName = null;
+            this.supplierId = null;
         }
     }
 
@@ -158,6 +160,7 @@ public class AuthDtos {
         private String fullName;
         private String employeeId;
         private String email;
+        private String role;
     }
 
     @Data

@@ -54,11 +54,12 @@ public class FinanceController {
     public List<ServiceRequestResponse> getRequests(
             @RequestParam(required = false) UUID createdById,
             @RequestParam(required = false) UUID supplierId,
+            @RequestParam(required = false) String passbookNo,
             @RequestParam(required = false) RequestType requestType,
             @RequestParam(required = false) RequestStatus status,
             @RequestParam(required = false) Integer limit
     ) {
-        return financeService.getRequests(createdById, supplierId, requestType, status, limit);
+        return financeService.getRequests(createdById, supplierId, passbookNo, requestType, status, limit);
     }
 
     @PatchMapping("/api/services/request/{requestId}/status")

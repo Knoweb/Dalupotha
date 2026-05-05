@@ -24,3 +24,5 @@ management:
 dalupotha:
   services:
     auth-url: ${AUTH_SERVICE_URL:http://auth-service:8081}
+    collection-url: ${COLLECTION_SERVICE_URL:http://collection-service:8082}
+    inventory-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8084}

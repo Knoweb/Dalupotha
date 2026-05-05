@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import {
   LayoutGrid, Leaf, CircleDollarSign, Package, CheckSquare,
-  Truck, BookOpen, BarChart3, Users, Settings, LogOut, ChevronLeft, FlaskConical
+  Truck, BookOpen, BarChart3, Users, Settings, LogOut, ChevronLeft,
+  FlaskConical, Bell
 } from 'lucide-react'
 import { ROLE_TABS, UserRole } from '../../App'
+import { AppNotification } from '../../hooks/useNotifications'
 
 interface SidebarProps {
   activeTab: string;
@@ -10,6 +13,11 @@ interface SidebarProps {
   userInfo: { fullName: string; estateName: string; employeeId?: string; role?: string };
   userRole: UserRole;
   onLogout: () => void;
+  unreadCount: number;
+  notifications: AppNotification[];
+  onMarkAllRead: () => void;
+  onMarkRead: (id: string) => void;
+  pendingRequestCount?: number;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -25,7 +33,7 @@ const ALL_NAV = [
   { key: 'collections', icon: <Leaf size={18}/>,             label: 'Collections' },
   { key: 'financials',  icon: <CircleDollarSign size={18}/>, label: 'Financials' },
   { key: 'inventory',   icon: <Package size={18}/>,          label: 'Inventory' },
-  { key: 'approvals',   icon: <CheckSquare size={18}/>,      label: 'Requests & Approvals', badge: '18' },
+  { key: 'approvals',   icon: <CheckSquare size={18}/>,      label: 'Requests & Approvals' },
   { key: 'tracking',    icon: <Truck size={18}/>,            label: 'Transport Tracking' },
   { key: 'quality',     icon: <FlaskConical size={18}/>,     label: 'Quality Assessment' },
   { key: 'circulars',   icon: <BookOpen size={18}/>,         label: 'TRI Circulars' },
@@ -34,9 +42,15 @@ const ALL_NAV = [
   { key: 'settings',    icon: <Settings size={18}/>,         label: 'Settings' },
 ];
 
-export default function Sidebar({ activeTab, onTabChange, userInfo, userRole, onLogout }: SidebarProps) {
+export default function Sidebar({
+  activeTab, onTabChange, userInfo, userRole, onLogout,
+  unreadCount, notifications, onMarkAllRead, onMarkRead,
+  pendingRequestCount = 0
+}: SidebarProps) {
+
   const allowedTabs = ROLE_TABS[userRole] || ROLE_TABS['manager'];
   const visibleNav = ALL_NAV.filter(n => allowedTabs.includes(n.key));
+  const recentNotifs = notifications.slice(0, 5);
 
   return (
     <aside className="w-[260px] bg-[var(--sidebar-bg)] flex flex-col shadow-xl z-20">
@@ -67,12 +81,18 @@ export default function Sidebar({ activeTab, onTabChange, userInfo, userRole, on
             label={item.label}
             active={activeTab === item.key}
             onClick={() => onTabChange(item.key)}
-            badge={item.key === 'approvals' ? item.badge : undefined}
+            badge={
+              item.key === 'approvals' && pendingRequestCount > 0 ? (pendingRequestCount > 99 ? '99+' : pendingRequestCount.toString()) : 
+              item.key === 'quality' && unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : 
+              undefined
+            }
           />
         ))}
       </nav>
 
-      <div className="p-6 border-t border-white/10 mt-auto">
+
+
+      <div className="p-6 border-t border-white/10">
         <div className="mb-3 px-1">
           <p className="text-white font-bold text-sm truncate">{userInfo.fullName}</p>
           {userInfo.employeeId && <p className="text-white/50 text-[10px] font-mono tracking-wider">{userInfo.employeeId}</p>}

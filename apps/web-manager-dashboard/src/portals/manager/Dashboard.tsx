@@ -90,7 +90,7 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <KPICard 
-            title={`${stats.todayWeight.toFixed(1)} kg`} 
+            title={`${stats.todayWeight} kg`} 
             subtitle="Today's Green Leaf" 
             label={`${stats.suppliersCount} suppliers active`}
             icon={<TrendingUp size={20} className="text-emerald-500" />} 

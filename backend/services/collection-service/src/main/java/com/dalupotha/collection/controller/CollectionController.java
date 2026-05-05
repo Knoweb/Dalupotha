@@ -66,9 +66,21 @@ public class CollectionController {
         return collectionService.getSupplierHistory(supplierId, limit);
     }
 
+    @GetMapping("/summary/{supplierId}")
+    public java.util.Map<String, Object> getSupplierSummary(@PathVariable UUID supplierId) {
+        return collectionService.getSupplierSummary(supplierId);
+    }
+
     @PatchMapping("/{collectionId}/notes")
     public void updateNotes(@PathVariable UUID collectionId, @RequestBody java.util.Map<String, String> payload) {
         String notes = payload.get("notes");
         collectionService.updateNotes(collectionId, notes);
+    }
+
+    @PatchMapping("/{collectionId}/deduction")
+    public void applyDeduction(@PathVariable UUID collectionId, @RequestBody java.util.Map<String, Object> payload) {
+        java.math.BigDecimal deduction = new java.math.BigDecimal(payload.get("deductionWeight").toString());
+        String processedByName = payload.containsKey("processedByName") ? payload.get("processedByName").toString() : "Unknown Staff";
+        collectionService.applyDeduction(collectionId, deduction, processedByName);
     }
 }

@@ -17,6 +17,9 @@ public record CollectionHistoryItemResponse(
         boolean manualOverride,
         String supervisorNotes,
         UUID transportAgentId,
-        String transportAgentName
+        String transportAgentName,
+        String processedByName,
+        @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+        java.time.Instant processedAt
 ) {
 }

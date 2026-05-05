@@ -51,6 +51,8 @@ public class AuthService {
     public AuthResponse staffLogin(StaffLoginRequest request) {
         User user = userRepository.findByEmail(request.getEmployeeId())
                 .or(() -> userRepository.findByUsername(request.getEmployeeId()))
+                .or(() -> userRepository.findByEmployeeId(request.getEmployeeId()))
+                .or(() -> userRepository.findByContact(request.getEmployeeId()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "Invalid username/email or password"));
 
@@ -147,6 +149,8 @@ public class AuthService {
         AuthResponse response = new AuthResponse(token, "SH", user.getUserId().toString(),
                 null, user.getFullName(), user.getContact(),
                 routeName, estateId, estateName, sh.getArcs(), sh.getPassbookNo(), jwtExpirationMs / 1000);
+        
+        response.setSupplierId(sh.getSupplierId().toString());
         if (sh.getInCharge() != null) {
             response.setInChargeName(sh.getInCharge().getFullName());
         }
@@ -473,7 +477,7 @@ public class AuthService {
     public UserResponse getUser(java.util.UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        return new UserResponse(user.getUserId(), user.getFullName(), user.getEmployeeId(), user.getContact());
+        return new UserResponse(user.getUserId(), user.getFullName(), user.getEmployeeId(), user.getContact(), user.getRole().name());
     }
 
     @Transactional
@@ -481,31 +485,26 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
+        log.info("Starting cleanup for user deletion: {}", userId);
+
+        // Remove the block from small_holders.in_charge_id
         try {
-            jdbcTemplate.update("DELETE FROM audit_logs WHERE user_id = ?", userId);
-            
-            if (user.getRole() == UserRole.SH) {
-                smallHolderRepository.findByUser(user).ifPresent(sh -> {
-                    UUID supplierId = sh.getSupplierId();
-                    jdbcTemplate.update("DELETE FROM leaf_collections WHERE supplier_id = ?", supplierId);
-                    jdbcTemplate.update("DELETE FROM financial_ledger WHERE supplier_id = ?", supplierId);
-                    jdbcTemplate.update("DELETE FROM service_requests WHERE supplier_id = ?", supplierId);
-                    smallHolderRepository.delete(sh);
-                });
-            } else if (user.getRole() == UserRole.TA) {
-                jdbcTemplate.update("DELETE FROM leaf_collections WHERE transport_agent_id = ?", userId);
-                transportAgentRepository.findByUser(user).ifPresent(transportAgentRepository::delete);
-            }
-            
-            jdbcTemplate.update("UPDATE financial_ledger SET approved_by = NULL WHERE approved_by = ?", userId);
-            jdbcTemplate.update("UPDATE service_requests SET processed_by = NULL WHERE processed_by = ?", userId);
             jdbcTemplate.update("UPDATE small_holders SET in_charge_id = NULL WHERE in_charge_id = ?", userId);
-            
         } catch (Exception e) {
-            log.warn("Error cascading delete for user {}: {}", userId, e.getMessage());
+            log.warn("Failed to nullify in_charge_id for user {}", userId, e);
         }
 
+        // Clean up OTP codes for this user's contact number
+        try {
+            jdbcTemplate.update("DELETE FROM otp_codes WHERE contact = ?", user.getContact());
+        } catch (Exception e) {
+            log.warn("Failed to clean up otp_codes for user {}", userId, e);
+        }
+
+        // The database's ON DELETE CASCADE will handle small_holders.user_id and transport_agents.user_id
         userRepository.delete(user);
+        
+        log.info("User deletion complete. User ID: {}", userId);
     }
 
     @Transactional

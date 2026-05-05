@@ -27,6 +27,9 @@ public class FinancialLedgerEntity {
     @Column(name = "approver_id")
     private UUID approverId;
 
+    @Column(name = "request_id")
+    private UUID requestId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "transaction_type", nullable = false)
     private LedgerTransactionType transactionType;
@@ -147,4 +150,7 @@ public class FinancialLedgerEntity {
     public void setRemaining(BigDecimal remaining) {
         this.remaining = remaining;
     }
+
+    public UUID getRequestId() { return requestId; }
+    public void setRequestId(UUID requestId) { this.requestId = requestId; }
 }

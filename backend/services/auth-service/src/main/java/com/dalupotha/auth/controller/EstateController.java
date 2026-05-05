@@ -62,7 +62,9 @@ public class EstateController {
 
         User admin = User.builder()
                 .fullName(request.getManagerName())
-                .contact(request.getAdminEmail())
+                .contact(request.getPhone() != null ? request.getPhone() : request.getAdminEmail())
+                .email(request.getAdminEmail())
+                .username(request.getAdminEmail())
                 .role(UserRole.MG)
                 .estate(estate)
                 .hashedPassword(passwordEncoder.encode(request.getAdminPassword()))

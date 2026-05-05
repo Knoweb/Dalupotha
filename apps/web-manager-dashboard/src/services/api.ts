@@ -19,6 +19,7 @@ export interface ServiceRequest {
   requestType: string;
   requestedAmount: number;
   quantity?: number;
+  days?: number;
   itemType?: string;
   itemDetails?: string;
   creatorName?: string;
@@ -29,6 +30,7 @@ export interface ServiceRequest {
   notes?: string;
   approverId?: string;
   approverComment?: string;
+  itemId?: string;
 }
 
 export const FinanceAPI = {
@@ -39,11 +41,11 @@ export const FinanceAPI = {
     return res.json() as Promise<ServiceRequest[]>;
   },
   
-  updateStatus: async (requestId: string, status: RequestStatus, approverId: string, approverComment?: string) => {
+  updateStatus: async (requestId: string, status: RequestStatus, approverId: string, approverComment?: string, amount?: number) => {
     const res = await fetch(`${API_BASE}/services/request/${requestId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, approverId, approverComment })
+      body: JSON.stringify({ status, approverId, approverComment, amount })
     });
     if (!res.ok) throw new Error('Failed to update request status');
     return res.json() as Promise<ServiceRequest>;
@@ -179,5 +181,30 @@ export const AuthAPI = {
       body: JSON.stringify(data)
     });
     if (!res.ok) throw new Error('Failed to update user');
+  }
+};
+
+export interface InventoryItem {
+  itemId: string;
+  itemCategory: string;
+  itemName: string;
+  quantityInStock: number;
+  reservedQuantity: number;
+  reorderLevel: number;
+  unit: string;
+  unitCost: number;
+  lastUpdated?: string;
+}
+
+export const InventoryAPI = {
+  getItems: async () => {
+    const res = await fetch(`${API_BASE}/inventory`);
+    if (!res.ok) throw new Error('Failed to fetch inventory');
+    return res.json() as Promise<InventoryItem[]>;
+  },
+  getItem: async (id: string) => {
+    const res = await fetch(`${API_BASE}/inventory/${id}`);
+    if (!res.ok) throw new Error('Failed to fetch item');
+    return res.json() as Promise<InventoryItem>;
   }
 };

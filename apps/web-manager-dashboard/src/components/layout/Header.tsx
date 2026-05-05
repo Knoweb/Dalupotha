@@ -1,11 +1,17 @@
 import { useState } from 'react'
-import { ChevronRight, Bell, Settings, LogOut, User as UserIcon, CheckCheck, Trash2, Package } from 'lucide-react'
-import { useNotifications, AppNotification } from '../../hooks/useNotifications'
+import { ChevronRight, Bell, Settings, LogOut, User as UserIcon, CheckCheck, Trash2, Package, CheckSquare } from 'lucide-react'
+import { AppNotification } from '../../hooks/useNotifications'
 
 interface HeaderProps {
   activeTab: string;
   userInfo: { fullName: string, estateName: string, employeeId?: string, role?: string };
   onLogout: () => void;
+  unreadCount: number;
+  notifications: AppNotification[];
+  onMarkAllRead: () => void;
+  onMarkRead: (id: string) => void;
+  onClearAll: () => void;
+  pendingRequestCount?: number;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -17,13 +23,15 @@ const ROLE_LABELS: Record<string, string> = {
   'super-admin':       'Super Admin',
 };
 
-export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
+export default function Header({ 
+  activeTab, userInfo, onLogout, unreadCount, notifications, 
+  onMarkAllRead, onMarkRead, onClearAll, pendingRequestCount = 0 
+}: HeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { notifications, unreadCount, markRead, markAllRead, clearAll } = useNotifications();
 
   const role = userInfo.role || '';
-  const showNotifBell = ['manager', 'factory-staff'].includes(role);
+  const showNotifBell = true; // All roles see bell in header
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-30 shadow-sm relative">
@@ -50,10 +58,10 @@ export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
                 onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false); }}
                 className="relative text-slate-500 hover:text-slate-800 transition-colors"
               >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                <Bell size={20} className={(pendingRequestCount > 0) ? 'animate-wiggle' : ''} />
+                {(pendingRequestCount > 0) && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                    {pendingRequestCount > 9 ? '9+' : pendingRequestCount}
                   </span>
                 )}
               </button>
@@ -67,12 +75,12 @@ export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
                       <p className="text-xs font-black text-slate-800 uppercase tracking-widest">Notifications</p>
                       <div className="flex items-center gap-2">
                         {unreadCount > 0 && (
-                          <button onClick={markAllRead} className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-1">
+                          <button onClick={onMarkAllRead} className="text-[10px] font-bold text-green-600 hover:text-green-700 flex items-center gap-1">
                             <CheckCheck size={11} /> Mark all read
                           </button>
                         )}
                         {notifications.length > 0 && (
-                          <button onClick={clearAll} className="text-[10px] font-bold text-slate-400 hover:text-red-500 flex items-center gap-1">
+                          <button onClick={onClearAll} className="text-[10px] font-bold text-slate-400 hover:text-red-500 flex items-center gap-1">
                             <Trash2 size={11} />
                           </button>
                         )}
@@ -87,7 +95,7 @@ export default function Header({ activeTab, userInfo, onLogout }: HeaderProps) {
                         </div>
                       ) : (
                         notifications.map(n => (
-                          <NotifItem key={n.id} notification={n} onRead={markRead} />
+                          <NotifItem key={n.id} notification={n} onRead={onMarkRead} />
                         ))
                       )}
                     </div>
@@ -159,7 +167,11 @@ function NotifItem({ notification, onRead }: { notification: AppNotification; on
       className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors ${!notification.read ? 'bg-green-50/40' : ''}`}
     >
       <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${!notification.read ? 'bg-green-100' : 'bg-slate-100'}`}>
-        <Package size={13} className={!notification.read ? 'text-green-600' : 'text-slate-400'} />
+        {notification.type === 'service_request' ? (
+          <CheckSquare size={13} className={!notification.read ? 'text-green-600' : 'text-slate-400'} />
+        ) : (
+          <Package size={13} className={!notification.read ? 'text-green-600' : 'text-slate-400'} />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-xs font-bold truncate ${!notification.read ? 'text-slate-900' : 'text-slate-500'}`}>{notification.title}</p>

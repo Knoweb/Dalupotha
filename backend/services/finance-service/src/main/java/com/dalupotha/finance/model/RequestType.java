@@ -8,5 +8,6 @@ public enum RequestType {
     ADVANCE,
     TOOL_PURCHASE,
     TOOL_RENT,
+    LEAF_BAG,
     OTHER
 }

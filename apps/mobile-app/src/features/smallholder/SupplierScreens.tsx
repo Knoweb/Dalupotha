@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
 import { CollectionAPI, FinanceAPI, apiGet } from "../../services/api";
@@ -30,12 +30,93 @@ type SupplierIdentity = {
   estateId?: string;
 };
 
+// ── Detail Modal Component ───────────────────────────────────────────────────
+function CollectionDetailModal({ visible, item, onClose, _ }: any) {
+  if (!item) return null;
+  const d = new Date(item.collectedAt);
+  const dateStr = d.toLocaleDateString(undefined, { weekday: 'long', day: "2-digit", month: "long", year: "numeric" });
+  const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const isSynced = String(item.syncStatus).toUpperCase() === "SYNCED";
+  const gross = Number(Number(item.grossWeight || 0).toFixed(2));
+  const net = Number(Number(item.netWeight ?? item.grossWeight ?? 0).toFixed(2));
+  const deduction = Number(Math.max(0, gross - net).toFixed(2));
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 }}>
+        <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
+        
+        <View style={{ backgroundColor: '#111f38', borderRadius: 32, padding: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
+            <View>
+              <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>Collection Receipt</Text>
+              <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Delivery Details</Text>
+            </View>
+            <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
+              <Ionicons name="close" size={24} color={palette.muted} />
+            </Pressable>
+          </View>
+
+          {/* Main Weight Stats */}
+          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 20, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ color: palette.muted, fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>GROSS</Text>
+              <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>{gross.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
+            </View>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>NET YIELD</Text>
+              <Text style={{ color: palette.accentGreen, fontSize: 22, fontWeight: '900' }}>{net.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
+            </View>
+          </View>
+
+          {/* Detail Rows */}
+          <View style={{ gap: 18 }}>
+            <DetailRow label="Date & Time" value={`${dateStr}\n${timeStr}`} icon="calendar-outline" />
+            <DetailRow label="Transport Agent" value={item.transportAgentName || "Assigned Agent"} icon="bus-outline" />
+            <DetailRow 
+              label="Quality Deduction" 
+              value={deduction > 0.001 ? `-${deduction.toFixed(2)} kg` : "No deductions"} 
+              valueColor={deduction > 0.001 ? '#e74c3c' : palette.muted} 
+              icon="analytics-outline" 
+            />
+            {item.processedByName && (
+              <DetailRow label="Processed By" value={item.processedByName} icon="shield-checkmark-outline" />
+            )}
+            <DetailRow label="Sync Status" value={isSynced ? "Fully Synced" : "Pending Sync"} valueColor={isSynced ? palette.accentGreen : '#f39c12'} icon="cloud-done-outline" />
+          </View>
+
+          {/* Footer Info */}
+          <View style={{ marginTop: 30, paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', alignItems: 'center' }}>
+            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 'bold' }}>ID: {item.collectionId || "REC-000000"}</Text>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DetailRow({ label, value, icon, valueColor = 'white' }: any) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', marginRight: 15 }}>
+        <Ionicons name={icon} size={18} color={palette.accentBlue} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: palette.muted, fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Text>
+        <Text style={{ color: valueColor, fontSize: 14, fontWeight: '600', marginTop: 2 }}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+
 const toNumber = (value: any): number => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
 
-const formatKg = (value: number) => `${value.toFixed(1)} kg`;
+const formatKg = (value: number) => `${value} kg`;
 const formatLKR = (value: number) => `Rs. ${Math.round(value).toLocaleString()}`;
 
 const getSupplierId = (user: any) => user?.supplierId || user?.userId;
@@ -176,6 +257,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
   const [error, setError] = useState<string | null>(null);
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(fallbackSupplierId || null);
   const [resolvedLabel, setResolvedLabel] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SupplierHistoryItem | null>(null);
 
   const _ = (key: string) => getTranslation(key, lang);
 
@@ -227,7 +309,8 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
   const weekStats = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const weekItems = history.filter((item) => new Date(item.collectedAt).getTime() >= cutoff);
-    const gross = weekItems.reduce((sum, item) => sum + toNumber(item.grossWeight), 0);
+    const grossRaw = weekItems.reduce((sum, item) => sum + toNumber(item.grossWeight), 0);
+    const gross = Math.round(grossRaw * 1000) / 1000;
     const syncedCount = weekItems.filter((item) => String(item.syncStatus).toUpperCase() === "SYNCED").length;
 
     return { gross, syncedCount };
@@ -382,14 +465,21 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
             const isGPS = String(item.gpsStatus).toUpperCase() === "GPS";
             const netWt = item.netWeight ?? item.grossWeight;
             return (
-              <View key={item.collectionId || idx} style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", borderLeftWidth: 3, borderLeftColor: isSynced ? palette.accentGreen : "#f39c12" }}>
+              <Pressable 
+                key={item.collectionId || idx} 
+                onPress={() => setSelectedItem(item)}
+                style={({ pressed }) => [
+                  { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", borderLeftWidth: 3, borderLeftColor: isSynced ? palette.accentGreen : "#f39c12" },
+                  pressed && { opacity: 0.7, backgroundColor: "rgba(255,255,255,0.08)" }
+                ]}
+              >
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(31,190,87,0.12)", borderWidth: 1, borderColor: "rgba(31,190,87,0.25)", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                   <MaterialCommunityIcons name="leaf" size={20} color={palette.accentGreen} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: "white", fontSize: 14, fontWeight: "700" }}>
-                    {_("Delivered")} {Number(item.grossWeight || 0).toFixed(1)} kg
-                    {netWt && netWt !== item.grossWeight ? <Text style={{ color: palette.muted, fontWeight: "400", fontSize: 12 }}> ({_("Net:")} {Number(netWt).toFixed(1)} kg)</Text> : null}
+                    {_("Delivered")} {Number(item.grossWeight || 0).toFixed(2)} kg
+                    {netWt && Math.abs(netWt - item.grossWeight) > 0.001 ? <Text style={{ color: palette.muted, fontWeight: "400", fontSize: 12 }}> ({_("Net:")} {Number(netWt).toFixed(2)} kg)</Text> : null}
                   </Text>
                   <View style={{ flexDirection: "row", alignItems: "center", marginTop: 3, gap: 6 }}>
                     <Text style={{ color: palette.muted, fontSize: 12 }}>{dateStr}</Text>
@@ -401,10 +491,17 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={palette.muted} />
-              </View>
+              </Pressable>
             );
           })}
         </View>
+
+        <CollectionDetailModal 
+          visible={!!selectedItem} 
+          item={selectedItem} 
+          onClose={() => setSelectedItem(null)} 
+          _={_} 
+        />
 
         <View style={{height: 100}} />
       </ScrollView>
@@ -421,6 +518,7 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
   const fallbackSupplierId = getSupplierId(user);
   const passbookNo = getPassbookNo(user);
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(fallbackSupplierId || null);
+  const [selectedItem, setSelectedItem] = useState<SupplierHistoryItem | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -474,8 +572,8 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
   }, [activeTab, history]);
 
   const totals = useMemo(() => {
-    const totalGross = filteredHistory.reduce((sum, item) => sum + toNumber(item.grossWeight), 0);
-    const totalNet = filteredHistory.reduce((sum, item) => sum + toNumber(item.netWeight ?? item.grossWeight), 0);
+    const totalGross = filteredHistory.reduce((sum, item) => sum + toNumber(item.grossWeight), 0).toFixed(2);
+    const totalNet = filteredHistory.reduce((sum, item) => sum + toNumber(item.netWeight ?? item.grossWeight), 0).toFixed(2);
     return {
       totalGross,
       totalNet,
@@ -517,12 +615,12 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
 
         <View style={styles.supplySummaryBox}>
           <View style={{ alignItems: "center" }}>
-             <Text style={styles.supplySummValue}>{totals.totalGross.toFixed(1)}<Text style={styles.supplySummUnit}> kg</Text></Text>
+             <Text style={styles.supplySummValue}>{totals.totalGross}<Text style={styles.supplySummUnit}> kg</Text></Text>
              <Text style={styles.supplySummLabel}>{_("TOTAL GROSS")}</Text>
           </View>
           <View style={styles.supSummDivider} />
           <View style={{ alignItems: "center" }}>
-             <Text style={styles.supplySummValue}>{totals.totalNet.toFixed(1)}<Text style={styles.supplySummUnit}> kg</Text></Text>
+             <Text style={styles.supplySummValue}>{totals.totalNet}<Text style={styles.supplySummUnit}> kg</Text></Text>
              <Text style={styles.supplySummLabel}>{_("TOTAL NET")}</Text>
           </View>
           <View style={styles.supSummDivider} />
@@ -550,20 +648,37 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
               <Text style={styles.supHistSub}>{_("No delivery history yet")}</Text>
             </View>
           ) : filteredHistory.map((item) => (
-            <View key={item.collectionId} style={styles.supplyHistItem}>
+            <Pressable 
+              key={item.collectionId} 
+              onPress={() => setSelectedItem(item)}
+              style={({ pressed }) => [
+                styles.supplyHistItem,
+                pressed && { opacity: 0.7, backgroundColor: "rgba(255,255,255,0.08)" }
+              ]}
+            >
               <View>
                 <Text style={styles.supHistDate}>{formatDate(item.collectedAt)}</Text>
                 <Text style={styles.supHistSub}>{formatTime(item.collectedAt)} · {String(item.gpsStatus || "NO_GPS") === "GPS" ? "GPS" : "No GPS"}</Text>
               </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.supHistGross}>{formatKg(toNumber(item.grossWeight))}</Text>
-                <Text style={styles.supHistSub}>{_("Net:")} {toNumber(item.netWeight ?? item.grossWeight).toFixed(1)} kg</Text>
+              <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 10 }}>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.supHistGross}>{Number(toNumber(item.grossWeight)).toFixed(2)} kg</Text>
+                  <Text style={styles.supHistSub}>{_("Net:")} {Number(toNumber(item.netWeight ?? item.grossWeight)).toFixed(2)} kg</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={palette.muted} style={{ alignSelf: 'center' }} />
               </View>
-            </View>
+            </Pressable>
           ))}
           <View style={{height: 100}} />
         </ScrollView>
       </View>
+
+      <CollectionDetailModal 
+        visible={!!selectedItem} 
+        item={selectedItem} 
+        onClose={() => setSelectedItem(null)} 
+        _={_} 
+      />
     </View>
   );
 }

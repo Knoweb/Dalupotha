@@ -110,7 +110,7 @@ export default function CollectionsPage() {
                 </td>
                 <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.grossWeight}</td>
                 <td className="px-6 py-4 font-bold text-green-500 text-sm">{c.netWeight}</td>
-                <td className="px-6 py-4 text-slate-600 text-sm font-medium">{agentsMap[c.transportAgentId] || '---'}</td>
+                <td className="px-6 py-4 text-slate-600 text-sm font-medium">{(c as any).transportAgentName || agentsMap[c.transportAgentId] || '—'}</td>
                 <td className="px-6 py-4">
                    <GPSStatus status={c.gpsStatus} />
                 </td>
@@ -169,9 +169,30 @@ export default function CollectionsPage() {
                     <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                        <User size={14} className="text-blue-500 mb-2" />
                        <p className="text-[10px] font-bold text-slate-400 uppercase">Transport Agent</p>
-                       <p className="text-sm font-bold text-slate-800">{agentsMap[selectedCollection.transportAgentId] || 'Unknown'}</p>
+                        <p className="text-sm font-bold text-slate-800">{ (selectedCollection as any).transportAgentName || agentsMap[selectedCollection.transportAgentId] || 'Unknown'}</p>
                     </div>
                  </div>
+
+                  {/* Processed by */}
+                  {((selectedCollection as any).processedByName || (selectedCollection.netWeight !== null && Number(selectedCollection.netWeight) < Number(selectedCollection.grossWeight))) ? (
+                     <div className="flex items-center gap-3 bg-green-50/60 border border-green-100 rounded-xl px-4 py-3">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                           <User size={13} className="text-green-600" />
+                        </div>
+                        <div>
+                           <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Processed By</p>
+                           <p className="text-sm font-bold text-slate-800">{(selectedCollection as any).processedByName || 'Factory Staff'}</p>
+                           {(selectedCollection as any).processedAt && (
+                              <p className="text-[10px] text-slate-400">{new Date((selectedCollection as any).processedAt).toLocaleString()}</p>
+                           )}
+                        </div>
+                     </div>
+                  ) : (
+                     <div className="flex items-center gap-2 text-slate-400 text-[11px] bg-orange-50/50 border border-orange-100 px-4 py-2.5 rounded-xl">
+                        <User size={12} className="text-orange-400" />
+                        <span>Not yet processed by factory staff</span>
+                     </div>
+                  )}
 
                  {/* Weights */}
                  <div className="bg-green-50/30 p-5 rounded-2xl border border-green-100 flex items-center justify-around text-center">

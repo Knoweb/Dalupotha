@@ -1,7 +1,9 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { UserRole } from '../../App'
+import { useNotifications, AppNotification } from '../../hooks/useNotifications'
+import { X, Leaf, CheckSquare } from 'lucide-react'
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -12,12 +14,223 @@ interface DashboardLayoutProps {
   onLogout: () => void;
 }
 
+interface PendingApiCollection {
+  collectionId: string;
+  supplierName: string;
+  passbookNo: string;
+  transportAgentName?: string;
+  grossWeight: number;
+  collectedAt: string;
+}
+
 export default function DashboardLayout({ children, activeTab, onTabChange, userInfo, userRole, onLogout }: DashboardLayoutProps) {
+  const {
+    notifications, unreadCount, markRead, markAllRead, clearAll,
+    dismissAlert, pendingCollectionAlerts, pendingRequestAlerts, addFromApi, addRequestFromApi,
+  } = useNotifications();
+
+  // ── Fetch actual pending (unprocessed) collections from API on mount ──────
+  const [apiPending, setApiPending] = useState<PendingApiCollection[]>([]);
+  const [pendingRequestCount, setPendingRequestCount] = useState<number>(0);
+  const isAlertRole = ['manager', 'factory-staff', 'extension-officer', 'store-keeper'].includes(userRole || '');
+
+  useEffect(() => {
+    if (!isAlertRole) return;
+
+    const fetchPending = async () => {
+      try {
+        const res = await fetch('/api/collection/recent?limit=200');
+        if (!res.ok) return;
+        const data: any[] = await res.json();
+        // A collection is "pending" if netWeight is null OR netWeight === grossWeight
+        const pending = data.filter(c =>
+          c.netWeight === null ||
+          c.netWeight === undefined ||
+          parseFloat(c.netWeight) >= parseFloat(c.grossWeight)
+        );
+        setApiPending(pending.map(c => ({
+          collectionId: c.collectionId,
+          supplierName: c.supplierName || 'Unknown',
+          passbookNo: c.passbookNo || '—',
+          transportAgentName: c.transportAgentName,
+          grossWeight: parseFloat(c.grossWeight),
+          collectedAt: c.collectedAt,
+        })));
+        // Seed localStorage notifications for any pending collections not yet tracked
+        pending.forEach(c => {
+          addFromApi({
+            collectionId: c.collectionId,
+            supplierName: c.supplierName,
+            grossWeight: c.grossWeight,
+            agentName: c.transportAgentName || 'Unknown Agent',
+            collectedAt: c.collectedAt,
+          });
+        });
+        
+        // 2. Fetch pending service requests count
+        const reqStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
+        const reqRes = await fetch(`/api/services/request?status=${reqStatus}&limit=200`);
+        if (reqRes.ok) {
+           const reqData: any[] = await reqRes.json();
+           
+           // Filter data on client side to be absolutely sure it matches the role
+           const filtered = Array.isArray(reqData) ? reqData.filter(r => r.status === reqStatus) : [];
+           const count = filtered.length;
+           
+           console.log(`[AlertSync] Role: ${userRole}, Status: ${reqStatus}, API Total: ${reqData.length}, Filtered: ${count}`);
+           setPendingRequestCount(count);
+           
+           // Sync persisted alerts
+           const activeIds = new Set(filtered.map(r => r.requestId));
+           
+           // Clear stale alerts
+           pendingRequestAlerts.forEach(alert => {
+             const rid = alert.meta?.requestId;
+             if (rid && !activeIds.has(rid)) {
+               dismissAlert(alert.id);
+             }
+           });
+
+           // Seed notifications for CURRENT items only
+           filtered.forEach(r => {
+             addRequestFromApi({
+               requestId: r.requestId,
+               supplierName: r.supplierName || 'Supplier',
+               requestType: r.requestType,
+               amountOrQty: r.requestedAmount > 0 ? `Rs. ${r.requestedAmount}` : `${r.quantity || 1} units`,
+               timestamp: r.requestDate
+             });
+           });
+        }
+      } catch (err) { console.error("[AlertSync] Fetch error:", err); }
+    };
+
+    fetchPending();
+    // Re-check every 60 seconds to catch any new collections that arrive
+    const interval = setInterval(fetchPending, 60_000);
+    return () => clearInterval(interval);
+  }, [isAlertRole, addFromApi]);
+
+  // Re-fetch counts when a new notification arrives (Real-time update)
+  useEffect(() => {
+    if (!isAlertRole) return;
+    
+    // Check if the latest notification is a service request
+    const latest = notifications[0];
+    if (latest && latest.type === 'service_request' && !latest.read) {
+      // Re-fetch to sync the sidebar badge immediately
+      const fetchPending = async () => {
+        try {
+          const reqStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
+          const reqRes = await fetch(`/api/services/request?status=${reqStatus}&limit=200`);
+          if (reqRes.ok) {
+             const reqData = await reqRes.json();
+             setPendingRequestCount(Array.isArray(reqData) ? reqData.length : 0);
+          }
+        } catch { /* silent */ }
+      };
+      fetchPending();
+    }
+  }, [notifications.length, isAlertRole]);
+
+  const showBanner = pendingCollectionAlerts.length > 0 && isAlertRole;
+
   return (
     <div className="flex h-screen bg-[#f1f5f9] text-[#334155] font-sans overflow-hidden">
-      <Sidebar activeTab={activeTab} onTabChange={onTabChange} userInfo={userInfo} userRole={userRole} onLogout={onLogout} />
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+        userInfo={userInfo}
+        userRole={userRole}
+        onLogout={onLogout}
+        unreadCount={unreadCount}
+        notifications={notifications}
+        onMarkAllRead={markAllRead}
+        onMarkRead={markRead}
+        pendingRequestCount={pendingRequestCount}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header activeTab={activeTab} userInfo={userInfo} onLogout={onLogout} />
+        <Header
+          activeTab={activeTab}
+          userInfo={userInfo}
+          onLogout={onLogout}
+          unreadCount={unreadCount}
+          notifications={notifications}
+          onMarkAllRead={markAllRead}
+          onMarkRead={markRead}
+          onClearAll={clearAll}
+          pendingRequestCount={pendingRequestCount}
+        />
+
+        {/* ── Persistent Service Request Alert Banner (Summarized) ─────────────────── */}
+        {pendingRequestCount > 0 && (
+          <div className="flex-shrink-0 bg-indigo-50 border-b-2 border-indigo-200 px-6 py-2.5 flex items-center gap-3 shadow-sm">
+            <span className="relative flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+            <CheckSquare size={14} className="text-indigo-600 flex-shrink-0" />
+            <p className="flex-1 text-xs font-bold text-indigo-800">
+              <span className="font-black italic">Attention Needed:</span>
+              <span className="font-normal ml-1 text-indigo-700">
+                You have <span className="font-black text-indigo-900 underline decoration-indigo-300">{pendingRequestCount}</span> {userRole === 'store-keeper' ? 'item' : 'pending service request'}{pendingRequestCount > 1 ? (userRole === 'store-keeper' ? 's ready for dispatch' : 's') : (userRole === 'store-keeper' ? ' ready for dispatch' : '')} that need review.
+              </span>
+            </p>
+            <button
+              onClick={() => onTabChange('approvals')}
+              className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-lg hover:bg-indigo-700 transition-all uppercase tracking-wide shadow-sm"
+            >
+              Review All
+            </button>
+            <button
+              onClick={() => pendingRequestAlerts.forEach(a => dismissAlert(a.id))}
+              className="p-1 text-indigo-400 hover:text-indigo-700 rounded transition-colors"
+              title="Dismiss all request alerts"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Persistent Collection Alert Banner ─────────────────── */}
+        {pendingCollectionAlerts.length > 0 && isAlertRole && (
+          <div className="flex-shrink-0 bg-amber-50 border-b-2 border-amber-300 px-6 py-0 divide-y divide-amber-100">
+            {pendingCollectionAlerts.map((alert: AppNotification) => (
+              <div key={alert.id} className="flex items-center gap-3 py-2.5">
+                <span className="relative flex-shrink-0">
+                  <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <Leaf size={14} className="text-amber-600 flex-shrink-0" />
+                <p className="flex-1 text-xs font-bold text-amber-800">
+                  <span className="font-black">{alert.title}</span>
+                  {alert.message && (
+                    <span className="font-normal ml-1 text-amber-700">— {alert.message}</span>
+                  )}
+                </p>
+                <span className="text-[9px] text-amber-500 font-mono whitespace-nowrap">
+                  {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {userRole === 'factory-staff' && (
+                  <button
+                    onClick={() => onTabChange('quality')}
+                    className="px-3 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg hover:bg-amber-600 transition-all uppercase tracking-wide shadow-sm"
+                  >
+                    Process Now
+                  </button>
+                )}
+                <button
+                  onClick={() => dismissAlert(alert.id)}
+                  className="p-1 text-amber-400 hover:text-amber-700 rounded transition-colors"
+                  title="Snooze this alert"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <main className="flex-1 overflow-y-auto p-4 bg-[#f8fafc]">
           {children}
         </main>
@@ -25,5 +238,3 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
     </div>
   );
 }
-
-
