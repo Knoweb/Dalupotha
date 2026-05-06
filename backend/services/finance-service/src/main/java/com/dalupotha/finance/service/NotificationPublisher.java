@@ -57,14 +57,14 @@ public class NotificationPublisher {
      * Publishes a notification when a request status is updated (Approved/Rejected/Dispatched).
      */
     @Async
-    public void publishRequestStatusUpdate(String supplierName, String requestType, String status, String requestId) {
+    public void publishRequestStatusUpdate(String supplierName, String requestType, String status, String requestId, String targetRole) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "service_request");
             payload.put("title", "Request " + status);
             payload.put("message", "Request for " + requestType + " (" + supplierName + ") has been " + status.toLowerCase());
             payload.put("timestamp", Instant.now().toString());
-            payload.put("targetRole", "*"); // Notify everyone interested
+            payload.put("targetRole", targetRole); // Notify targeted user or everyone
 
             Map<String, Object> meta = new HashMap<>();
             meta.put("requestId", requestId);

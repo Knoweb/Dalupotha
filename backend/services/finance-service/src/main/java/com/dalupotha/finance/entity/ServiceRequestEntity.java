@@ -78,6 +78,9 @@ public class ServiceRequestEntity {
     @Column(name = "approver_id")
     private UUID approverId;
 
+    @Column(name = "assigned_agent_id")
+    private UUID assignedAgentId;
+
     @PrePersist
     public void onCreate() {
         if (requestId == null) requestId = UUID.randomUUID();
@@ -241,5 +244,13 @@ public class ServiceRequestEntity {
 
     public void setApproverComment(String approverComment) {
         this.approverComment = approverComment;
+    }
+
+    public UUID getAssignedAgentId() {
+        return assignedAgentId;
+    }
+
+    public void setAssignedAgentId(UUID assignedAgentId) {
+        this.assignedAgentId = assignedAgentId;
     }
 }

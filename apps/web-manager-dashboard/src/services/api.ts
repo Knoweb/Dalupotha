@@ -206,5 +206,14 @@ export const InventoryAPI = {
     const res = await fetch(`${API_BASE}/inventory/${id}`);
     if (!res.ok) throw new Error('Failed to fetch item');
     return res.json() as Promise<InventoryItem>;
+  },
+  updateItem: async (id: string, data: Partial<InventoryItem>) => {
+    const res = await fetch(`${API_BASE}/inventory/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update inventory item');
+    return res.json() as Promise<InventoryItem>;
   }
 };

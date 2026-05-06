@@ -22,6 +22,7 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequestEn
           )
           and (:requestType is null or r.requestType = :requestType)
           and (:status is null or r.status = :status)
+          and (:assignedAgentId is null or r.assignedAgentId = :assignedAgentId)
         order by r.requestDate desc
     """)
     List<ServiceRequestEntity> search(
@@ -30,6 +31,7 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequestEn
             @Param("passbookNo") String passbookNo,
             @Param("requestType") RequestType requestType,
             @Param("status") RequestStatus status,
+            @Param("assignedAgentId") UUID assignedAgentId,
             Pageable pageable
     );
 }

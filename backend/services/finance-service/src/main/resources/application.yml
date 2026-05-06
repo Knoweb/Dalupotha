@@ -26,3 +26,4 @@ dalupotha:
     auth-url: ${AUTH_SERVICE_URL:http://auth-service:8081}
     collection-url: ${COLLECTION_SERVICE_URL:http://collection-service:8082}
     inventory-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8084}
+  notification-url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8085}

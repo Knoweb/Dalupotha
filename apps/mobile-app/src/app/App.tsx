@@ -85,7 +85,7 @@ function MainTabNavigator({ route, navigation }: any) {
           <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} lang={lang} />} />
           <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={token} role={role} lang={lang} />} />
           <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
-          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
           <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} lang={lang} setLang={setLang} />} />
         </>
       ) : (

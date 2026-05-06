@@ -17,6 +17,7 @@ import com.dalupotha.finance.repository.ServiceRequestRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
@@ -93,6 +94,20 @@ public class FinanceService {
         entity.setCreatorName(name);
         entity.setCreatorId(id);
 
+        // Fetch assigned agent (inChargeId) from Auth Service
+        try {
+            String supplierDetailUrl = authServiceUrl + "/api/auth/users/" + request.getSupplierId() + "/detailed";
+            Map<String, Object> supplierDetail = restTemplate.getForObject(supplierDetailUrl, Map.class);
+            if (supplierDetail != null && supplierDetail.get("inChargeId") != null) {
+                entity.setAssignedAgentId(UUID.fromString(supplierDetail.get("inChargeId").toString()));
+                log.info("SUCCESS: Automatically assigned agent {} to request for supplier {}", entity.getAssignedAgentId(), entity.getSupplierName());
+            } else {
+                log.warn("WARNING: No inChargeId found for supplier {} in Auth Service response: {}", entity.getSupplierName(), supplierDetail);
+            }
+        } catch (Exception e) {
+            log.error("ERROR: Failed to fetch assigned agent for supplier {}: {}", request.getSupplierId(), e.getMessage());
+        }
+
         ServiceRequestEntity saved = serviceRequestRepository.save(entity);
 
         // Automatically generate ledger entries for financial impact
@@ -139,6 +154,7 @@ public class FinanceService {
                                                     String passbookNo,
                                                     RequestType requestType,
                                                     RequestStatus status,
+                                                    UUID assignedAgentId,
                                                     Integer limit) {
         int pageSize = limit == null ? 100 : Math.min(Math.max(limit, 1), 300);
         return serviceRequestRepository.search(
@@ -147,6 +163,7 @@ public class FinanceService {
                         passbookNo,
                         requestType,
                         status,
+                        assignedAgentId,
                         PageRequest.of(0, pageSize)
                 )
                 .stream()
@@ -167,10 +184,33 @@ public class FinanceService {
             entity.setApproverComment(request.getApproverComment());
         }
 
+        // For TRANSPORT approval: resolve + PERSIST the agent if missing
+        if (entity.getRequestType() == RequestType.TRANSPORT
+                && request.getStatus() == RequestStatus.APPROVED_BY_EXT
+                && entity.getAssignedAgentId() == null
+                && entity.getSupplierId() != null) {
+            try {
+                String agentLookupUrl = authServiceUrl + "/api/auth/suppliers/" + entity.getSupplierId() + "/agent";
+                Map<String, Object> agentData = restTemplate.getForObject(agentLookupUrl, Map.class);
+                if (agentData != null && agentData.get("inChargeId") != null) {
+                    UUID agentId = UUID.fromString(agentData.get("inChargeId").toString());
+                    entity.setAssignedAgentId(agentId);
+                    serviceRequestRepository.save(entity);  // persist to DB
+                    log.info("PERSISTED assignedAgentId {} to transport request {} for supplier {}",
+                            agentId, entity.getRequestId(), entity.getSupplierName());
+                }
+            } catch (Exception e) {
+                log.warn("Could not persist assignedAgentId for request {}: {}", entity.getRequestId(), e.getMessage());
+            }
+        }
+
         ServiceRequestEntity saved = serviceRequestRepository.save(entity);
 
-        // Update corresponding ledger entry if exists
-        financialLedgerRepository.findOptionalByRequestId(requestId).ifPresent(ledger -> {
+        // Update or create ledger entry on status change
+        Optional<FinancialLedgerEntity> existingLedger = financialLedgerRepository.findOptionalByRequestId(requestId);
+        if (existingLedger.isPresent()) {
+            // Update the existing ledger entry
+            FinancialLedgerEntity ledger = existingLedger.get();
             if (request.getAmount() != null) {
                 ledger.setAmount(request.getAmount());
             }
@@ -181,7 +221,25 @@ public class FinanceService {
                 ledger.setStatus(LedgerStatus.REJECTED);
             }
             financialLedgerRepository.save(ledger);
-        });
+        } else if ((request.getStatus() == RequestStatus.APPROVED_BY_EXT || request.getStatus() == RequestStatus.DISPATCHED)
+                && request.getAmount() != null
+                && request.getAmount().compareTo(BigDecimal.ZERO) > 0
+                && saved.getSupplierId() != null) {
+            // No ledger existed (e.g. transport request had no amount at submission).
+            // Create one now with the manager-set fee, charged to the supplier.
+            FinancialLedgerEntity ledger = new FinancialLedgerEntity();
+            ledger.setSupplierId(saved.getSupplierId());
+            ledger.setTransactionType(LedgerTransactionType.DEBT);
+            ledger.setAmount(request.getAmount());
+            ledger.setRequestId(saved.getRequestId());
+            ledger.setDescription(saved.getRequestType().name() + " charge: " + (saved.getNotes() != null ? saved.getNotes() : "Transport service"));
+            ledger.setStatus(LedgerStatus.APPROVED);
+            ledger.setApproverId(request.getApproverId());
+            financialLedgerRepository.save(ledger);
+            log.info("Created ledger entry of Rs.{} for {} request {} against supplier {}",
+                    request.getAmount(), saved.getRequestType(), saved.getRequestId(), saved.getSupplierName());
+        }
+
 
         // If dispatched, update inventory stock
         if (request.getStatus() == RequestStatus.DISPATCHED && entity.getItemId() != null && entity.getQuantity() != null) {
@@ -202,11 +260,23 @@ public class FinanceService {
 
         // Send Notification for status update
         try {
+            String targetRole = "*";
+
+            if (saved.getRequestType() == RequestType.TRANSPORT && saved.getStatus() == RequestStatus.APPROVED_BY_EXT) {
+                if (saved.getAssignedAgentId() != null) {
+                    targetRole = saved.getAssignedAgentId().toString();
+                    log.info("NOTIFY → agent {} for supplier {} transport request", targetRole, saved.getSupplierName());
+                } else {
+                    log.error("NOTIFY FAILED: assignedAgentId still null after persistence attempt for request {}", saved.getRequestId());
+                }
+            }
+
             notificationPublisher.publishRequestStatusUpdate(
                 saved.getSupplierName(),
                 saved.getRequestType().name(),
                 saved.getStatus().name(),
-                saved.getRequestId().toString()
+                saved.getRequestId().toString(),
+                targetRole
             );
         } catch (Exception e) {
             log.warn("Failed to trigger status update notification: {}", e.getMessage());
@@ -223,6 +293,13 @@ public class FinanceService {
     }
 
     private LedgerTransactionResponse toLedgerTransactionResponse(FinancialLedgerEntity entity) {
+        String approverName = null;
+        if (entity.getApproverId() != null) {
+            UserIdentity approverIdentity = fetchUserIdentity(entity.getApproverId());
+            if (approverIdentity != null) {
+                approverName = approverIdentity.fullName();
+            }
+        }
         return new LedgerTransactionResponse(
                 entity.getTransactionId(),
                 entity.getSupplierId(),
@@ -234,7 +311,8 @@ public class FinanceService {
                 entity.getRemaining(),
                 entity.getDescription(),
                 entity.getTransactionDate(),
-                entity.getStatus()
+                entity.getStatus(),
+                approverName
         );
     }
 
@@ -278,7 +356,10 @@ public class FinanceService {
                 currentDebt,
                 advanceTaken,
                 payoutTotal,
-                estimatedBalance.max(BigDecimal.ZERO)
+                estimatedBalance.max(BigDecimal.ZERO),
+                totalNetWeight,
+                currentPrice,
+                totalGrossEarnings
         );
     }
 
@@ -334,6 +415,46 @@ public class FinanceService {
             }
         }
 
+        // Resolve assigned agent name
+        UUID resolvedAgentId = entity.getAssignedAgentId();
+        String assignedAgentName = null;
+
+        if (resolvedAgentId != null) {
+            // Use stored assignedAgentId directly
+            UserIdentity agentIdentity = fetchUserIdentity(resolvedAgentId);
+            if (agentIdentity != null) {
+                assignedAgentName = agentIdentity.fullName();
+            }
+        } else if (entity.getSupplierId() != null) {
+            // Fallback for ALL request types: look up supplier's assigned agent (inChargeId) from Auth Service
+            try {
+                String agentLookupUrl = authServiceUrl + "/api/auth/suppliers/" + entity.getSupplierId() + "/agent";
+                Map<String, Object> agentData = restTemplate.getForObject(agentLookupUrl, Map.class);
+                if (agentData != null && agentData.get("inChargeId") != null) {
+                    resolvedAgentId = UUID.fromString(agentData.get("inChargeId").toString());
+                    assignedAgentName = agentData.get("inChargeName") != null
+                            ? agentData.get("inChargeName").toString() : null;
+                    log.info("Fallback: resolved agent {} ({}) for {} request {}",
+                            assignedAgentName, resolvedAgentId, entity.getRequestType(), entity.getRequestId());
+                }
+            } catch (Exception e) {
+                log.warn("Could not resolve assigned agent via fallback for request {}: {}", entity.getRequestId(), e.getMessage());
+            }
+        }
+
+        // Resolve approver name from auth-service
+        String approverName = null;
+        if (entity.getApproverId() != null) {
+            try {
+                UserIdentity approverIdentity = fetchUserIdentity(entity.getApproverId());
+                if (approverIdentity != null) {
+                    approverName = approverIdentity.fullName();
+                }
+            } catch (Exception e) {
+                log.warn("Could not resolve approver name for request {}: {}", entity.getRequestId(), e.getMessage());
+            }
+        }
+
         return new ServiceRequestResponse(
                 entity.getRequestId(),
                 entity.getSupplierId(),
@@ -353,9 +474,13 @@ public class FinanceService {
                 entity.getApproverComment(),
                 entity.getItemId(),
                 entity.getRequestDate(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                resolvedAgentId,
+                assignedAgentName,
+                approverName
         );
     }
+
 
     private record UserIdentity(String fullName, String employeeId) {}
 }

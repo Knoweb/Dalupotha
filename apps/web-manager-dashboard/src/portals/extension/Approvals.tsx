@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react"
-import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock } from "lucide-react"
+import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck } from "lucide-react"
 import { FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
 import { useNotifications } from "../../hooks/useNotifications"
 
-const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Machine Rent", "Advisory", "Leaf Bags"]
+const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Transport", "Machine Rent", "Tools", "Advisory", "Leaf Bags"]
 
 // Global caches to persist across re-renders and avoid redundant fetches
 const USER_INFO_CACHE: Record<string, any> = {};
@@ -89,6 +89,8 @@ function matchesFilter(req: ServiceRequest, filter: string) {
   if (filter === "Advance") return req.requestType === "ADVANCE"
   if (filter === "Fertilizer") return req.requestType === "FERTILIZER"
   if (filter === "Machine Rent") return req.requestType === "TOOL_RENT"
+  if (filter === "Tools") return req.requestType === "TOOL_PURCHASE"
+  if (filter === "Transport") return req.requestType === "TRANSPORT"
   if (filter === "Advisory") return req.requestType === "ADVISORY"
   if (filter === "Leaf Bags") return req.requestType === "LEAF_BAG"
   return true
@@ -192,10 +194,11 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
               { label: "Request Type", value: meta.label },
               { label: req.requestType === 'ADVISORY' ? "Subject" : "Amount / Qty", value: getAmountQty(req) },
               { label: "Date",         value: formatDate(req.requestDate) },
+              { label: "Assigned Agent", value: req.assignedAgentName || "Not Assigned" },
             ].map(row => (
               <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
                 <span className="text-[11px] font-medium text-slate-500">{row.label}</span>
-                <span className="text-sm font-bold text-slate-800">{row.value}</span>
+                <span className={`text-sm font-bold ${row.label === 'Assigned Agent' ? (req.assignedAgentName ? 'text-blue-600' : 'text-slate-400') : 'text-slate-800'}`}>{row.value}</span>
               </div>
             ))}
           </div>
@@ -224,7 +227,33 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
                 </div>
               )}
               
-              {req.requestType === 'TOOL_RENT' ? (
+              {req.requestType === 'TRANSPORT' ? (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
+                      <Truck size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Transport Service</p>
+                      <p className="text-sm font-bold text-slate-800 leading-none">{req.notes || "Standard Transport"}</p>
+                      <p className="text-xs font-semibold text-slate-500">Service Category: Logistic</p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-blue-100 flex flex-col gap-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transport Fee (Rs.)</p>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rs.</span>
+                      <input 
+                        type="number" 
+                        value={customAmount}
+                        onChange={e => setCustomAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-white border border-blue-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : req.requestType === 'TOOL_RENT' ? (
                 <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
                   <div className="flex gap-3 items-center">
                     <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-purple-600 shadow-sm border border-purple-50">
@@ -536,21 +565,21 @@ export default function ApprovalsPage() {
       return r.status === "APPROVED_BY_EXT";
     }
     return r.status === "PENDING";
-  });
+  }).sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
   
   const approvedToday  = allowedRequests.filter(r => (r.status === "APPROVED_BY_EXT" || r.status === "DISPATCHED") && new Date(r.updatedAt).toDateString() === new Date().toDateString())
   const rejectedToday  = allowedRequests.filter(r => r.status === "REJECTED" && new Date(r.updatedAt).toDateString() === new Date().toDateString())
   
   const recentApproved = allowedRequests
     .filter(r => r.status === "APPROVED_BY_EXT" || r.status === "DISPATCHED")
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
 
   const recentRejected = allowedRequests
     .filter(r => r.status === "REJECTED")
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
 
   const availableFilters = userRole === 'store-keeper' 
-    ? ["All Types", "Fertilizer", "Machine Rent", "Leaf Bags"] 
+    ? ["All Types", "Fertilizer", "Machine Rent", "Tools", "Leaf Bags"] 
     : TYPE_FILTERS;
 
   const applyFilters = (list: ServiceRequest[]) => list.filter(r =>
@@ -681,10 +710,13 @@ export default function ApprovalsPage() {
                   const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
                   const debt = debtMap[req.supplierId] ?? null
                   const isProcessing = processingId === req.requestId
-                  const c = code(i)
                   return (
                     <tr key={req.requestId} className="hover:bg-slate-50/60 transition-colors">
-                      <td className={TD}><span className="text-xs font-medium text-slate-600">{c}</span></td>
+                      <td className={TD}>
+                        <span className="text-xs font-semibold text-slate-600">
+                          REQ-{String(i + 1).padStart(3, "0")}
+                        </span>
+                      </td>
                       <td className={TD}>
                         <p className="text-sm font-semibold text-slate-800 leading-tight">{req.supplierName || "---"}</p>
                         <p className="text-[10px] text-slate-400">{req.supplierId?.slice(-7)?.toUpperCase()}</p>
@@ -718,13 +750,13 @@ export default function ApprovalsPage() {
                         </span>
                       </td>
                       <td className={TD}>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-400"}`}>
-                          {req.status.charAt(0) + req.status.slice(1).toLowerCase()}
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-400"}`}>
+                          {req.status.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td className={`${TD} text-right`}>
                         <div className="inline-flex items-center gap-1">
-                          <button onClick={() => setViewReq({ req, code: c })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                          <button onClick={() => setViewReq({ req, code: `REQ-${String(i + 1).padStart(3, "0")}` })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
                             <Eye size={14} /> View
                           </button>
                           

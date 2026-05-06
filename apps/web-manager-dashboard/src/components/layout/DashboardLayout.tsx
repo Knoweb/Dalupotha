@@ -73,11 +73,18 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
         if (reqRes.ok) {
            const reqData: any[] = await reqRes.json();
            
-           // Filter data on client side to be absolutely sure it matches the role
-           const filtered = Array.isArray(reqData) ? reqData.filter(r => r.status === reqStatus) : [];
-           const count = filtered.length;
+           // Filter data on client side to be absolutely sure it matches the role AND item types
+           const filtered = Array.isArray(reqData) ? reqData.filter(r => {
+             const matchesStatus = r.status === reqStatus;
+             if (userRole === 'store-keeper') {
+               // Store Keepers only care about physical items
+               return matchesStatus && ["FERTILIZER", "LEAF_BAG", "TOOL_PURCHASE", "TOOL_RENT"].includes(r.requestType);
+             }
+             return matchesStatus;
+           }) : [];
            
-           console.log(`[AlertSync] Role: ${userRole}, Status: ${reqStatus}, API Total: ${reqData.length}, Filtered: ${count}`);
+           const count = filtered.length;
+           console.log(`[AlertSync] Role: ${userRole}, Status: ${reqStatus}, Filtered Count: ${count}`);
            setPendingRequestCount(count);
            
            // Sync persisted alerts

@@ -105,4 +105,15 @@ public class AuthController {
         authService.updateUser(userId, request);
         return ResponseEntity.ok().build();
     }
+    @GetMapping("/suppliers/{supplierId}/agent")
+    public ResponseEntity<java.util.Map<String, Object>> getSupplierAssignedAgent(@PathVariable UUID supplierId) {
+        log.info("API: getSupplierAssignedAgent called for supplierId: {}", supplierId);
+        return ResponseEntity.ok(authService.getSupplierAssignedAgent(supplierId));
+    }
+
+    @GetMapping("/suppliers/{supplierId}/profile")
+    public ResponseEntity<java.util.Map<String, Object>> getSupplierProfile(@PathVariable UUID supplierId) {
+        log.info("API: getSupplierProfile called for supplierId: {}", supplierId);
+        return ResponseEntity.ok(authService.getSupplierProfile(supplierId));
+    }
 }

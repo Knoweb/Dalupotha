@@ -17,6 +17,7 @@ public record LedgerTransactionResponse(
         BigDecimal remaining,
         String description,
         OffsetDateTime transactionDate,
-        LedgerStatus status
+        LedgerStatus status,
+        String approverName
 ) {
 }

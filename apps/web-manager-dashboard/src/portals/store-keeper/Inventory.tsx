@@ -22,7 +22,34 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("")
   const [activeCategory, setActiveCategory] = useState("All Categories")
   const [showUpdateModal, setShowUpdateModal] = useState<InventoryItem | null>(null)
+  const [updateQuantity, setUpdateQuantity] = useState<string>("")
+  const [updateUnitCost, setUpdateUnitCost] = useState<string>("")
+  const [updating, setUpdating] = useState(false)
 
+  const handleOpenUpdate = (item: InventoryItem) => {
+    setShowUpdateModal(item)
+    setUpdateQuantity(item.quantityInStock.toString())
+    setUpdateUnitCost(item.unitCost.toString())
+  }
+
+  const handleUpdateSave = async () => {
+    if (!showUpdateModal) return
+    setUpdating(true)
+    try {
+      await InventoryAPI.updateItem(showUpdateModal.itemId, {
+        ...showUpdateModal,
+        quantityInStock: Number(updateQuantity),
+        unitCost: Number(updateUnitCost)
+      })
+      await loadInventory()
+      setShowUpdateModal(null)
+    } catch (err) {
+      console.error("Failed to update item", err)
+      alert("Failed to update item")
+    } finally {
+      setUpdating(false)
+    }
+  }
   useEffect(() => {
     loadInventory();
   }, []);
@@ -175,7 +202,7 @@ export default function InventoryPage() {
                                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:bg-slate-100 transition-all">
                                     <History size={13} /> History
                                  </button>
-                                 <button onClick={() => setShowUpdateModal(item)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] font-semibold hover:bg-emerald-100 transition-all">
+                                 <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] font-semibold hover:bg-emerald-100 transition-all">
                                     <RefreshCw size={13} /> Update
                                  </button>
                               </div>
@@ -205,19 +232,21 @@ export default function InventoryPage() {
                    </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-1.5">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">New Stock</label>
-                      <input type="number" defaultValue={showUpdateModal.quantityInStock} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
+                      <input type="number" value={updateQuantity} onChange={(e) => setUpdateQuantity(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
                    </div>
                    <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Unit Cost</label>
-                      <input type="number" defaultValue={showUpdateModal.unitCost} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
+                      <input type="number" value={updateUnitCost} onChange={(e) => setUpdateUnitCost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
                    </div>
                 </div>
              </div>
              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2">
-                <button onClick={() => setShowUpdateModal(null)} className="flex-1 py-2.5 text-xs font-bold text-slate-400">Cancel</button>
-                <button onClick={() => setShowUpdateModal(null)} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-900/10">Save Changes</button>
+                <button onClick={() => setShowUpdateModal(null)} disabled={updating} className="flex-1 py-2.5 text-xs font-bold text-slate-400">Cancel</button>
+                <button onClick={handleUpdateSave} disabled={updating} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-900/10">
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </button>
              </div>
           </div>
         </div>

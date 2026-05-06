@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
-import { CollectionAPI, FinanceAPI, apiGet } from "../../services/api";
+import { CollectionAPI, FinanceAPI, ServicesAPI, apiGet } from "../../services/api";
 
 type SupplierHistoryItem = {
   collectionId: string;
@@ -688,6 +688,7 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
   const [activeTab, setActiveTab] = useState("Balance Payments");
   
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const supplierId = getSupplierId(user);
@@ -697,8 +698,12 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
       try {
         setLoading(true);
         if (!supplierId) return;
-        const txRes = await apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token);
+        const [txRes, ledgerRes] = await Promise.all([
+          apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token),
+          apiGet<any>(FinanceAPI.ledger(supplierId), token)
+        ]);
         setTransactions(txRes || []);
+        setLedger(ledgerRes);
       } catch (err) {
         console.error("Failed to fetch payments:", err);
       } finally {
@@ -752,10 +757,48 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
               <Ionicons name="calendar-outline" size={24} color={palette.accentBlue} />
               <View style={{ marginLeft: 15 }}>
                 <Text style={styles.nextPayTitle}>{_("Next Pay:")} 28 {new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}</Text>
-                <Text style={styles.nextPaySub}>{_("Est. Balance Computation")}</Text>
+                <Text style={styles.nextPaySub}>
+                   {loading ? 'Calculating...' : `Est. Rs. ${(ledger?.estimatedBalance || 0).toLocaleString()} available`}
+                </Text>
               </View>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
+              {/* PENDING PAYOUT CARD (MATCHING MOCKUP) */}
+              {!loading && payouts.length === 0 && ledger && (
+                <View style={styles.paymentCard}>
+                  <View style={styles.payCardHeader}>
+                    <View>
+                      <Text style={styles.payCardTitle}>{new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })} Payout</Text>
+                      <Text style={styles.payCardId}>ID: PENDING</Text>
+                    </View>
+                    <View style={styles.statusBadgeGrey}>
+                      <Ionicons name="time-outline" size={10} color="#f39c12" />
+                      <Text style={[styles.statusBadgeTextGrey, { color: '#f39c12' }]}> {_("Pending")}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={[styles.payRow, { marginTop: 15 }]}>
+                    <Text style={styles.payLabel}>{_("Gross Earnings")}</Text>
+                    <Text style={styles.payVal}>Rs. {(ledger?.grossEarnings || 0).toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.payRow}>
+                    <Text style={styles.payLabel}>{_("Deductions")}</Text>
+                    <Text style={styles.payValRed}>-Rs. {((ledger?.currentDebt || 0) + (ledger?.advanceTaken || 0)).toLocaleString()}</Text>
+                  </View>
+                  
+                  <View style={[styles.payDivider, { marginVertical: 15 }]} />
+                  
+                  <View style={styles.payRow}>
+                    <Text style={[styles.payTotalLabel, { fontSize: 18 }]}>{_("Net Amount")}</Text>
+                    <Text style={[styles.payTotalVal, { fontSize: 20, color: palette.accentGreen }]}>Rs. {(ledger?.estimatedBalance || 0).toLocaleString()}</Text>
+                  </View>
+                  
+                  <Text style={[styles.payFooterTextYellow, { marginTop: 15, fontWeight: 'bold' }]}>
+                    Upcoming: 28 {new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                  </Text>
+                </View>
+              )}
+
               {payouts.map((t, idx) => (
                 <View key={idx} style={styles.paymentCard}>
                   <View style={styles.payCardHeader}>
@@ -774,7 +817,8 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
                   </Text>
                 </View>
               ))}
-              {payouts.length === 0 && !loading && (
+              
+              {payouts.length === 0 && !loading && !ledger && (
                 <Text style={{color: palette.muted, textAlign: 'center', marginTop: 40}}>No payouts history available.</Text>
               )}
               <View style={{height: 100}} />
@@ -782,7 +826,7 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
           </>
         ) : (
           <>
-            <Pressable style={[styles.mainBtn, {backgroundColor: palette.success}]} onPress={() => {}}>
+            <Pressable style={[styles.mainBtn, {backgroundColor: palette.success}]} onPress={() => navigation.navigate('DirectRequests')}>
               <Text style={styles.mainBtnText}>+ {_("New Advance Request")}</Text>
             </Pressable>
             <ScrollView showsVerticalScrollIndicator={false} style={{marginTop: 20}}>
@@ -795,7 +839,7 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
                     </View>
                     <View style={styles.statusBadgeGrey}><Ionicons name="checkmark-circle-outline" size={12} color={palette.muted} /><Text style={styles.statusBadgeTextGrey}> {t.status === 'CLEARED' ? _("Cleared") : _(t.status.charAt(0) + t.status.slice(1).toLowerCase())}</Text></View>
                   </View>
-                  <View style={styles.payRow}><Text style={styles.payLabel}>{_("Approved by")}</Text><Text style={styles.payVal}>{t.approverId ? "Mgr" : "Ext. Officer"}</Text></View>
+                  <View style={styles.payRow}><Text style={styles.payLabel}>{_("Approved by")}</Text><Text style={styles.payVal}>{t.approverName || "—"}</Text></View>
                   <View style={styles.payRow}>
                     <Text style={styles.payLabel}>{_("Remaining")}</Text>
                     {t.status === 'CLEARED' ? (
@@ -819,66 +863,341 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
 }
 
 
-export function SupplierDebtsScreen({ user, navigation, lang }: any) {
+export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
   const _ = (key: string) => getTranslation(key, lang);
+  const supplierId = getSupplierId(user);
+  const [ledger, setLedger] = useState<any>(null);
+  const [debtItems, setDebtItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!supplierId) return;
+      try {
+        const passbookNo = user?.passbookNo || user?.passbook_no;
+        const qp = new URLSearchParams();
+        if (supplierId) qp.set("supplierId", String(supplierId));
+        if (passbookNo) qp.set("passbookNo", passbookNo);
+        qp.set("limit", "120");
+
+        const [ledgerData, txData, reqData] = await Promise.all([
+          apiGet<any>(FinanceAPI.ledger(supplierId), token).catch(() => null),
+          apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token).catch(() => []),
+          apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => []),
+        ]);
+        setLedger(ledgerData);
+
+        // 1. Process Ledger Debts
+        const ledgerDebts = (txData || []).filter((t: any) => 
+          (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
+          t.amount > 0 && 
+          !t.description?.toUpperCase().includes('ADVISORY')
+        );
+
+        // 2. Process Approved/Dispatched Requests
+        const pendingReqs = (reqData || []).filter((r: any) => 
+          (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED') &&
+          r.requestType !== 'ADVISORY'
+        ).map(r => ({
+          transactionDate: r.updatedAt || r.requestDate,
+          description: r.requestType === 'FERTILIZER' ? `FERTILIZER: ${r.fertilizerItems?.map((f:any)=>f.type).join(', ') || 'Fertilizer'}` : r.requestType,
+          // Extract amount from any field used by the system
+          amount: Number(r.requestedAmount || r.totalDeduction || r.estimatedCost || r.amount || r.totalAmount || r.cost || 0), 
+          isRequest: true,
+          status: r.status,
+          requestId: r.requestId
+        }));
+
+        // 3. Robust Deduplication: Prevent doubling by matching exact category and amount
+        const finalItems: any[] = [];
+        const seenItems = new Set<string>();
+
+        // Step A: Load all Ledger items first (Source of Truth)
+        ledgerDebts.forEach(ld => {
+          const cat = getCategoryInfo(ld.description).label;
+          const key = `${cat}_${Number(ld.amount)}`;
+          seenItems.add(key);
+          finalItems.push(ld);
+        });
+
+        // Step B: Only add requests if we haven't seen this exact category + amount combo
+        pendingReqs.forEach(req => {
+          const cat = getCategoryInfo(req.description).label;
+          const key = `${cat}_${Number(req.amount)}`;
+          
+          // Always allow if we haven't seen this exact amount in this category yet
+          if (!seenItems.has(key)) {
+            finalItems.push(req);
+            seenItems.add(key);
+          }
+        });
+
+        setDebtItems(finalItems);
+
+      } catch (err) {
+        console.error('Debts load failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [supplierId, token]);
+
+  const debtIconMap: Record<string, string> = {
+    FERTILIZER: 'leaf', LEAF_BAG: 'bag-handle-outline', ADVANCE: 'wallet-outline',
+    TRANSPORT: 'car-outline', TOOL_RENT: 'construct-outline', TOOL_PURCHASE: 'construct-outline',
+  };
+  const debtColorMap: Record<string, string> = {
+    FERTILIZER: palette.accentGreen, LEAF_BAG: palette.accentBlue, ADVANCE: '#f39c12',
+    TRANSPORT: '#607b96', TOOL_RENT: '#9b59b6', TOOL_PURCHASE: '#9b59b6',
+  };
+
+  const getCategoryInfo = (desc: string) => {
+    const d = desc?.toUpperCase() || '';
+    if (d.includes('FERTILIZER')) return { label: _("Fertilizer"), icon: 'leaf', color: '#2ecc71', sub: desc };
+    if (d.includes('BAG')) return { label: _("Leaf Bags"), icon: 'bag-handle-outline', color: '#3498db', sub: desc };
+    if (d.includes('ADVANCE')) return { label: _("Advance"), icon: 'wallet-outline', color: '#f39c12', sub: desc };
+    if (d.includes('TOOL')) return { label: _("Tools"), icon: 'construct-outline', color: '#9b59b6', sub: desc };
+    if (d.includes('TRANSPORT')) return { label: _("Transport"), icon: 'car-outline', color: '#e67e22', sub: desc };
+    return { label: desc || _("Other"), icon: 'receipt-outline', color: '#95a5a6', sub: desc };
+  };
+
+  const totalOutstanding = debtItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
   return (
-    <View style={styles.dashboardWrap}>
+    <View style={localStyles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
-        <View style={styles.headerBar}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
+        <View style={localStyles.headerBar}>
+          <Pressable onPress={() => navigation.goBack()} style={localStyles.iconBtn}>
             <Ionicons name="chevron-back" size={24} color={palette.muted} />
           </Pressable>
-          <Text style={styles.headerTitle}>{_("Debts & Deductions")}</Text>
+          <Text style={localStyles.headerTitle}>{_("Debts & Deductions")}</Text>
           <View style={{width: 40}} />
         </View>
       </SafeAreaView>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <View style={styles.debtSummaryCard}>
-          <Text style={styles.debtTitle}>{_("Current Outstanding")}</Text>
-          <Text style={styles.debtAmount}>Rs. 7,800</Text>
-          <Text style={styles.debtSubTitle}>{_("Estimated for next payout")}</Text>
+        {/* OUTSTANDING CARD (MOCKUP STYLE) */}
+        <View style={localStyles.debtSummaryCard}>
+          <Text style={localStyles.debtTitle}>{_("Current Outstanding")}</Text>
+          <Text style={localStyles.debtAmount}>{loading ? '...' : `Rs. ${totalOutstanding.toLocaleString()}`}</Text>
+          <Text style={localStyles.debtSubTitle}>{_("Estimated for next payout")}</Text>
         </View>
 
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={20} color={palette.accentBlue} />
-          <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.infoBoxTitle}>{_("How it works")}</Text>
-            <Text style={styles.infoBoxText}>{_("Debts for services (fertilizer, tools) are deducted automatically.")}</Text>
+        {/* HOW IT WORKS (MOCKUP STYLE) */}
+        <View style={localStyles.infoBox}>
+          <Ionicons name="information-circle" size={24} color={palette.accentBlue} />
+          <View style={{ marginLeft: 15, flex: 1 }}>
+            <Text style={localStyles.infoBoxTitle}>{_("How it works")}</Text>
+            <Text style={localStyles.infoBoxText}>{_("Debts for services (fertilizer, tools) are deducted automatically.")}</Text>
           </View>
         </View>
 
-        <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>{_("DETAILED BREAKDOWN")}</Text>
+        <Text style={[styles.sectionHeader, { fontSize: 13, color: palette.muted, letterSpacing: 1, marginTop: 10, textTransform: 'uppercase' }]}>{_("Detailed Breakdown")}</Text>
 
-        {[
-          { title: _("Fertilizer"), date: "15 Feb 2026", amt: "Rs. 3,200", icon: "leaf", color: palette.accentGreen },
-          { title: _("Leaf Bags"), date: "10 Feb 2026", amt: "Rs. 2,600", icon: "bag-handle-outline", color: palette.accentBlue },
-          { title: _("Advance"), date: "01 Feb 2026", amt: "Rs. 2,000", icon: "wallet-outline", color: "#f39c12" },
-        ].map((item, idx) => (
-          <View key={idx} style={styles.debtItemRow}>
-            <View style={styles.debtIconBox}>
-              <Ionicons name={item.icon as any} size={20} color={item.color} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.debtItemTitle}>{item.title}</Text>
-              <Text style={styles.debtItemDate}>{item.date}</Text>
-            </View>
-            <Text style={styles.debtItemVal}>{item.amt}</Text>
-            <Ionicons name="chevron-down" size={16} color={palette.muted} style={{ marginLeft: 10 }} />
+        {loading ? (
+          <ActivityIndicator color={palette.accentBlue} style={{ marginVertical: 30 }} />
+        ) : debtItems.length === 0 ? (
+          <View style={localStyles.debtItemRow}>
+            <Text style={{ color: palette.muted, flex: 1, textAlign: 'center' }}>{_("No outstanding debts found.")}</Text>
           </View>
-        ))}
+        ) : (
+          (() => {
+            // Group and sum debts
+            const groups: Record<string, { label: string, icon: string, color: string, amount: number, date: Date, items: any[] }> = {};
+            
+            debtItems.forEach(item => {
+              const info = getCategoryInfo(item.description);
+              const key = info.label;
+              if (!groups[key]) {
+                groups[key] = { ...info, amount: 0, date: new Date(item.transactionDate), items: [] };
+              }
+              groups[key].amount += Number(item.amount || 0);
+              groups[key].items.push(item);
+              // Keep the latest date
+              const itemDate = new Date(item.transactionDate);
+              if (itemDate > groups[key].date) groups[key].date = itemDate;
+            });
 
-        <View style={styles.clarifyBox}>
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color={palette.accentGreen} />
-          <View style={{ marginLeft: 12, flex: 1 }}>
-            <Text style={styles.clarifyTitle}>{_("Need clarification?")}</Text>
-            <Text style={styles.clarifyText}>{_("Speak to your Extension Officer about these charges.")}</Text>
+            return Object.values(groups).map((group, idx) => {
+              const dateStr = group.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+              const isExpanded = expandedCategory === group.label;
+              
+              return (
+                <View key={idx} style={[localStyles.debtCardContainer, isExpanded && { backgroundColor: 'rgba(255,255,255,0.02)' }]}>
+                  <Pressable 
+                    onPress={() => setExpandedCategory(isExpanded ? null : group.label)}
+                    style={localStyles.debtItemRow}
+                  >
+                    <View style={[localStyles.debtIconBox, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                      <Ionicons name={group.icon as any} size={22} color={group.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={localStyles.debtItemTitle}>{group.label}</Text>
+                      <Text style={localStyles.debtItemDate}>{dateStr}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={localStyles.debtItemVal}>Rs. {group.amount.toLocaleString()}</Text>
+                      <Ionicons 
+                        name={isExpanded ? "chevron-up" : "chevron-down"} 
+                        size={16} 
+                        color={palette.muted} 
+                        style={{ marginLeft: 10 }} 
+                      />
+                    </View>
+                  </Pressable>
+
+                  {isExpanded && (
+                    <View style={localStyles.expandedContent}>
+                      <View style={localStyles.divider} />
+                      {group.items.map((item, iIdx) => (
+                        <View key={iIdx} style={localStyles.subItemRow}>
+                          <Text style={localStyles.subItemTitle}>{item.description?.replace(/FERTILIZER: /g, '') || group.label}</Text>
+                          <Text style={localStyles.subItemVal}>Rs. {Number(item.amount || 0).toLocaleString()}</Text>
+                        </View>
+                      ))}
+                      
+                      <Pressable style={localStyles.historyLink}>
+                        <Text style={localStyles.historyLinkText}>Full Transaction History →</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              );
+            });
+          })()
+        )}
+
+        {/* CLARIFICATION BOX (MOCKUP STYLE) */}
+        <View style={localStyles.clarifyBox}>
+          <Ionicons name="chatbubble-ellipses" size={24} color={palette.accentGreen} />
+          <View style={{ marginLeft: 15, flex: 1 }}>
+            <Text style={localStyles.clarifyTitle}>{_("Need clarification?")}</Text>
+            <Text style={localStyles.clarifyText}>{_("Speak to your Extension Officer about these charges.")}</Text>
           </View>
         </View>
+        
         <View style={{height: 100}} />
       </ScrollView>
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  dashboardWrap: { flex: 1, backgroundColor: "#061224" },
+  headerBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 15, paddingHorizontal: 20 },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  iconBtn: { padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12 },
+  sectionHeader: { color: "#fff", fontSize: 18, fontWeight: "bold", marginBottom: 15 },
+  
+  debtSummaryCard: { 
+    backgroundColor: "rgba(130, 20, 20, 0.4)", 
+    borderRadius: 32, 
+    padding: 35, 
+    alignItems: "center", 
+    marginBottom: 25, 
+    borderWidth: 1, 
+    borderColor: "rgba(255, 107, 107, 0.2)" 
+  },
+  debtTitle: { color: "#fff", fontSize: 16, marginBottom: 15, fontWeight: '500' },
+  debtAmount: { color: "#ff8a8a", fontSize: 48, fontWeight: "900", marginBottom: 12 },
+  debtSubTitle: { color: "rgba(255,255,255,0.7)", fontSize: 15 },
+
+  infoBox: { 
+    flexDirection: "row", 
+    backgroundColor: "#11223b", 
+    padding: 20, 
+    borderRadius: 24, 
+    marginBottom: 25, 
+    borderWidth: 1, 
+    borderColor: "rgba(46, 168, 255, 0.15)",
+    alignItems: 'center'
+  },
+  infoBoxTitle: { color: "#fff", fontSize: 16, fontWeight: "900", marginBottom: 4 },
+  infoBoxText: { color: "#7f9cc5", fontSize: 13, lineHeight: 20 },
+
+  debtItemRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: "#111f38", 
+    padding: 18, 
+    borderRadius: 24, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: "rgba(255,255,255,0.04)" 
+  },
+  debtIconBox: { 
+    width: 50, 
+    height: 50, 
+    borderRadius: 16, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    marginRight: 18 
+  },
+  debtItemTitle: { color: "#fff", fontSize: 17, fontWeight: "bold", marginBottom: 4 },
+  debtItemDate: { color: "#7f9cc5", fontSize: 13 },
+  debtItemVal: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+
+  debtCardContainer: { 
+    borderRadius: 24, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: "rgba(255,255,255,0.04)",
+    overflow: 'hidden',
+    backgroundColor: "#111f38",
+  },
+  expandedContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 22,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 15,
+  },
+  subItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingHorizontal: 5
+  },
+  subItemTitle: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 14,
+    fontWeight: '500'
+  },
+  subItemVal: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  historyLink: {
+    marginTop: 8,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.03)'
+  },
+  historyLinkText: {
+    color: '#7f9cc5',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5
+  },
+
+  clarifyBox: { 
+    flexDirection: "row", 
+    backgroundColor: "rgba(31, 190, 87, 0.08)", 
+    padding: 20, 
+    borderRadius: 24, 
+    marginTop: 15, 
+    borderWidth: 1, 
+    borderColor: "rgba(31, 190, 87, 0.2)",
+    alignItems: 'center'
+  },
+  clarifyTitle: { color: "#2ecc71", fontSize: 16, fontWeight: "900", marginBottom: 4 },
+  clarifyText: { color: "rgba(255,255,255,0.6)", fontSize: 13, lineHeight: 20 },
+});
 
 export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) {
   const getPassbook = (u: any) => u?.passbookNo || u?.passbook_no || "N/A";

@@ -89,6 +89,8 @@ services:
       - "8083:8083"
     depends_on:
       - postgres
+      - auth-service
+      - notification-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
@@ -96,6 +98,10 @@ services:
       DB_NAME: ${POSTGRES_DB:-dalupotha}
       DB_USER: ${POSTGRES_USER:-dalupotha_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      COLLECTION_SERVICE_URL: http://collection-service:8082
+      INVENTORY_SERVICE_URL: http://inventory-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
     develop:
       watch:
         - path: ./services/finance-service/src

@@ -39,6 +39,10 @@ export default function Header({
          <span className="text-slate-400 font-medium">Project Dalupotha</span>
          <ChevronRight size={14} className="text-slate-300" />
          <span className="text-slate-800 font-bold capitalize">{activeTab.replace('-', ' ')}</span>
+         <div className="h-4 w-px bg-slate-200 mx-2" />
+         <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100 uppercase tracking-tight">
+           {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+         </span>
       </div>
 
       <div className="flex items-center gap-6">

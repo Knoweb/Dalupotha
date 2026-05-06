@@ -87,6 +87,169 @@ const toGpsBadgeType = (gps: CollectionCardItem["gpsStatus"]) => {
 };
 
 // ─────────────────────────────────────────────────────────────
+// Notification Types
+// ─────────────────────────────────────────────────────────────
+
+type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+};
+
+// ─────────────────────────────────────────────────────────────
+// Notifications Modal
+// ─────────────────────────────────────────────────────────────
+
+function NotificationsModal({ visible, onClose, notifications, onClearAll, onDismiss, onTap }: {
+  visible: boolean;
+  onClose: () => void;
+  notifications: AppNotification[];
+  onClearAll: () => void;
+  onDismiss: (id: string) => void;
+  onTap: (n: AppNotification) => void;
+}) {
+  const getIcon = (type: string): { name: any; color: string; bg: string } => {
+    if (type?.includes('transport') || type?.includes('TRANSPORT'))
+      return { name: 'car-outline', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' };
+    if (type?.includes('approved') || type?.includes('APPROVED'))
+      return { name: 'checkmark-circle-outline', color: '#10b981', bg: 'rgba(16,185,129,0.15)' };
+    if (type?.includes('rejected') || type?.includes('REJECTED'))
+      return { name: 'close-circle-outline', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' };
+    if (type?.includes('collection') || type?.includes('COLLECTION'))
+      return { name: 'leaf-outline', color: '#22c55e', bg: 'rgba(34,197,94,0.15)' };
+    return { name: 'notifications-outline', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
+  };
+
+  const formatTime = (ts: string) => {
+    try {
+      const d = new Date(ts);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      if (isToday) return `Today ${time}`;
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + time;
+    } catch { return ts; }
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={onClose}>
+        <Pressable
+          onPress={e => e.stopPropagation()}
+          style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            backgroundColor: '#0f2035', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            paddingBottom: 32, maxHeight: '80%',
+          }}
+        >
+          {/* Header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="notifications" size={20} color="#f59e0b" />
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Notifications</Text>
+              {unreadCount > 0 && (
+                <View style={{ backgroundColor: '#ef4444', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{unreadCount} new</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+              {notifications.length > 0 && (
+                <Pressable onPress={onClearAll}>
+                  <Text style={{ color: '#60a5fa', fontSize: 13, fontWeight: '600' }}>Clear all</Text>
+                </Pressable>
+              )}
+              <Pressable onPress={onClose}>
+                <Ionicons name="close" size={22} color="rgba(255,255,255,0.5)" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Tap hint */}
+          {notifications.length > 0 && (
+            <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>Tap to open • Swipe X to dismiss</Text>
+            </View>
+          )}
+
+          {/* List */}
+          <ScrollView style={{ paddingHorizontal: 16, paddingTop: 8 }} showsVerticalScrollIndicator={false}>
+            {notifications.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 48, gap: 12 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="notifications-off-outline" size={28} color="rgba(255,255,255,0.25)" />
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: '600' }}>No notifications</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>Approved requests will appear here</Text>
+              </View>
+            ) : (
+              notifications.map(n => {
+                const icon = getIcon(n.type);
+                const isRead = n.read;
+                return (
+                  <Pressable
+                    key={n.id}
+                    onPress={() => onTap(n)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+                      backgroundColor: pressed
+                        ? 'rgba(59,130,246,0.12)'
+                        : isRead ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
+                      borderRadius: 14,
+                      padding: 14, marginBottom: 10,
+                      borderLeftWidth: 3,
+                      borderLeftColor: isRead ? 'rgba(255,255,255,0.12)' : icon.color,
+                      opacity: isRead ? 0.65 : 1,
+                    })}
+                  >
+                    {/* Icon */}
+                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isRead ? 'rgba(255,255,255,0.06)' : icon.bg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Ionicons name={icon.name} size={18} color={isRead ? 'rgba(255,255,255,0.3)' : icon.color} />
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <Text style={{ color: isRead ? 'rgba(255,255,255,0.5)' : '#fff', fontSize: 13, fontWeight: '700', flex: 1 }}>{n.title}</Text>
+                        {!isRead && (
+                          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#f59e0b' }} />
+                        )}
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 17 }}>{n.message}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>{formatTime(n.timestamp)}</Text>
+                        {!isRead && (
+                          <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '600' }}>Tap to view →</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Dismiss X */}
+                    <Pressable
+                      onPress={() => onDismiss(n.id)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={{ padding: 2 }}
+                    >
+                      <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.2)" />
+                    </Pressable>
+                  </Pressable>
+                );
+              })
+            )}
+            <View style={{ height: 20 }} />
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Dashboard Screen
 // ─────────────────────────────────────────────────────────────
 
@@ -98,6 +261,44 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
 
   const [historyItems, setHistoryItems] = useState<CollectionCardItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [jobCount, setJobCount] = useState(0);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const prevJobCount = useRef(0);
+
+  const fetchJobCount = useCallback(async () => {
+    if (!token || !user?.userId) return;
+    try {
+      const params = new URLSearchParams();
+      params.set("assignedAgentId", String(user.userId || user.id));
+      params.set("requestType", "TRANSPORT");
+      params.set("status", "APPROVED_BY_EXT");
+      const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
+      if (Array.isArray(data)) {
+        const count = data.length;
+        setJobCount(count);
+        // Add a notification entry for each new approved transport request
+        if (count > prevJobCount.current) {
+          const newNotes: AppNotification[] = data.slice(0, count - prevJobCount.current).map((req: any) => ({
+            id: req.requestId || String(Date.now() + Math.random()),
+            type: 'service_request_approved_TRANSPORT',
+            title: '🚛 Transport Request Approved',
+            message: `Transport request for ${req.supplierName || 'a supplier'} has been approved${req.approverName ? ` by ${req.approverName}` : ''} and is ready for dispatch.`,
+            timestamp: req.updatedAt || req.requestDate || new Date().toISOString(),
+            read: false,
+          }));
+          setNotifications(prev => {
+            const existingIds = new Set(prev.map(n => n.id));
+            const fresh = newNotes.filter(n => !existingIds.has(n.id));
+            return [...fresh, ...prev];
+          });
+        }
+        prevJobCount.current = count;
+      }
+    } catch (err) {
+      console.log("Failed to fetch job count", err);
+    }
+  }, [token, user?.userId]);
 
   const loadData = useCallback(async () => {
     if (!token || !user?.userId) {
@@ -157,8 +358,15 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+      fetchJobCount();
+    }, [loadData, fetchJobCount])
   );
+
+  useEffect(() => {
+    fetchJobCount();
+    const interval = setInterval(fetchJobCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchJobCount]);
 
   const pendingSync = useMemo(
     () => historyItems.filter((item) => item.syncStatus === "QUEUED" || item.syncStatus === "FAILED" || item.syncStatus === "SYNCING").length,
@@ -247,9 +455,35 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="wifi-outline" size={20} color={palette.muted} />
             </View>
-            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="notifications-outline" size={20} color={palette.muted} />
-            </View>
+            <Pressable 
+              onPress={() => setShowNotifications(true)}
+              style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: showNotifications ? 'rgba(245,158,11,0.2)' : "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}
+            >
+              <Ionicons name={notifications.some(n => !n.read) ? 'notifications' : 'notifications-outline'} size={20} color={notifications.some(n => !n.read) ? '#f59e0b' : palette.muted} />
+              {notifications.some(n => !n.read) && (
+                <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#0b1a30' }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>{notifications.filter(n => !n.read).length}</Text>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Notifications Modal */}
+            <NotificationsModal
+              visible={showNotifications}
+              onClose={() => setShowNotifications(false)}
+              notifications={notifications}
+              onClearAll={() => setNotifications([])}
+              onDismiss={(id) => setNotifications(prev => prev.filter(n => n.id !== id))}
+              onTap={(n) => {
+                // Mark as read
+                setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                // Navigate based on type
+                setShowNotifications(false);
+                if (n.type?.includes('TRANSPORT') || n.type?.includes('transport')) {
+                  navigation.navigate('Requests', { tab: 'Transport' });
+                }
+              }}
+            />
             <Pressable onPress={() => navigation.navigate("Login")} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="log-out-outline" size={20} color={palette.muted} />
             </Pressable>
@@ -631,9 +865,17 @@ export function CollectionsScreen({ navigation, user, token }: any) {
 // Requests Screen
 // ─────────────────────────────────────────────────────────────
 
-export function RequestsScreen({ navigation, user, token, role, lang }: any) {
+export function RequestsScreen({ navigation, route, user, token, role, lang }: any) {
   const _ = (key: string) => getTranslation(key, lang);
   const [activeTab, setActiveTab] = useState("Advance");
+
+  // Switch to tab if navigated with a tab param (e.g. from notification tap)
+  useFocusEffect(
+    useCallback(() => {
+      const tabParam = route?.params?.tab;
+      if (tabParam) setActiveTab(tabParam);
+    }, [route?.params?.tab])
+  );
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -701,25 +943,57 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
     if (!token || !user?.userId) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams();
       if (role === 'supplier') {
+        // Suppliers: fetch by their supplierId
+        const params = new URLSearchParams();
         const sid = user.supplierId || user.userId || user.id;
         params.set("supplierId", String(sid));
         if (user.passbookNo) params.set("passbookNo", user.passbookNo);
+        params.set("requestType", requestType);
+        params.set("limit", "120");
+        const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
+        const sorted = Array.isArray(data) ? data.sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime()) : [];
+        setItems(sorted);
       } else {
-        params.set("createdById", String(user.userId || user.id));
+        // Agents: fetch BOTH requests assigned to them AND requests they created themselves
+        // This ensures self-submitted pending requests appear alongside approved assigned ones
+        const agentId = String(user.userId || user.id);
+
+        const assignedParams = new URLSearchParams();
+        assignedParams.set("assignedAgentId", agentId);
+        assignedParams.set("requestType", requestType);
+        assignedParams.set("limit", "120");
+
+        const createdParams = new URLSearchParams();
+        createdParams.set("createdById", agentId);
+        createdParams.set("requestType", requestType);
+        createdParams.set("limit", "120");
+
+        const [assignedData, createdData] = await Promise.all([
+          apiGet<any[]>(`${ServicesAPI.createRequest}?${assignedParams.toString()}`, token).catch(() => []),
+          apiGet<any[]>(`${ServicesAPI.createRequest}?${createdParams.toString()}`, token).catch(() => []),
+        ]);
+
+        // Merge and deduplicate by requestId
+        const seen = new Set<string>();
+        const merged = [...(Array.isArray(assignedData) ? assignedData : []),
+                        ...(Array.isArray(createdData) ? createdData : [])]
+          .filter(item => {
+            if (seen.has(item.requestId)) return false;
+            seen.add(item.requestId);
+            return true;
+          })
+          .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
+
+        setItems(merged);
       }
-      params.set("requestType", requestType);
-      params.set("limit", "120");
-      const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
-      setItems(Array.isArray(data) ? data : []);
     } catch (err: any) {
       Alert.alert("Request Error", err?.message || "Failed to load requests.");
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [requestType, token, user?.userId]);
+  }, [requestType, token, user?.userId, role]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1143,11 +1417,13 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                   <Text style={styles.cardItemTitle}>{item.supplierName || "Supplier"}</Text>
                   <Text style={styles.cardItemSub}>{item.passbookNo || "No passbook"} · {submittedTime}</Text>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                  <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>
-                    {activeTab === 'Advisory' && String(item.status || '').startsWith('APPROVED') 
-                      ? 'RECEIVED' 
-                      : _(String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' '))}
+                <View style={[styles.statusBadge, { backgroundColor: item.requestType === 'TRANSPORT' && item.status === 'APPROVED_BY_EXT' ? 'rgba(31,190,87,0.2)' : "rgba(255,255,255,0.08)" }]}>
+                  <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")), fontWeight: item.requestType === 'TRANSPORT' && item.status === 'APPROVED_BY_EXT' ? '800' : 'normal' }]}>
+                    {item.requestType === 'TRANSPORT' && item.status === 'APPROVED_BY_EXT' 
+                      ? 'READY TO FULFILL'
+                      : (activeTab === 'Advisory' && String(item.status || '').startsWith('APPROVED') 
+                        ? 'RECEIVED' 
+                        : _(String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' ')))}
                   </Text>
                 </View>
               </View>
@@ -1198,9 +1474,24 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                 </>
               )}
               {activeTab === "Advisory" && (
+                <>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                    <Text style={styles.reqCardLabel}>Topic</Text>
+                    <Text style={styles.reqCardValue}>{item.itemType || "General Advisory"}</Text>
+                  </View>
+                  {item.notes && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={styles.reqCardLabel}>Note</Text>
+                      <Text style={[styles.reqCardValue, { flex: 1, textAlign: 'right', marginLeft: 10 }]} numberOfLines={1}>{item.notes}</Text>
+                    </View>
+                  )}
+                </>
+              )}
+
+              {activeTab === "Transport" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={styles.reqCardLabel}>Topic</Text>
-                  <Text style={styles.reqCardValue}>{item.itemType || "General Advisory"}</Text>
+                  <Text style={styles.reqCardLabel}>Note</Text>
+                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: 'right', marginLeft: 10 }]} numberOfLines={1}>{item.notes || "Standard Transport"}</Text>
                 </View>
               )}
 
@@ -1244,16 +1535,30 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                       <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Type</Text>
                       <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.requestType?.replace(/_/g, ' ')}</Text>
                     </View>
+                    {String(selectedRequest.requestType || "").trim().toUpperCase() === 'TRANSPORT' && (
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Note</Text>
+                        <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.notes || "Standard Transport"}</Text>
+                      </View>
+                    )}
+                    {!(String(selectedRequest.requestType || "").trim().toUpperCase() === 'TRANSPORT' || String(selectedRequest.requestType || "").trim().toUpperCase() === 'ADVANCE' || String(selectedRequest.requestType || "").trim().toUpperCase() === 'ADVISORY') && (
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
+                          {String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? "Rent Duration" : "Quantity/Units"}
+                        </Text>
+                        <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>
+                          {selectedRequest.days || selectedRequest.quantity || 0} {selectedRequest.requestType === 'LEAF_BAG' ? 'bags' : (selectedRequest.requestType === 'FERTILIZER' ? 'kg' : (String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? 'days' : 'units'))}
+                        </Text>
+                      </View>
+                    )}
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? "Rent Duration" : "Quantity/Units"}</Text>
-                      <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>
-                        {selectedRequest.days || selectedRequest.quantity || 0} {selectedRequest.requestType === 'LEAF_BAG' ? 'bags' : (selectedRequest.requestType === 'FERTILIZER' ? 'kg' : (String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? 'days' : 'units'))}
+                      <Text style={{ color: selectedRequest.requestedAmount > 0 ? palette.accentGreen : "#f39c12", fontSize: 13, fontWeight: 'bold' }}>
+                        {selectedRequest.requestType === 'ADVANCE' ? 'Requested Amount' : 'Total Deduction'}
                       </Text>
-                    </View>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                      <Text style={{ color: palette.accentGreen, fontSize: 13, fontWeight: 'bold' }}>Total Deduction</Text>
-                      <Text style={{ color: palette.accentGreen, fontSize: 14, fontWeight: "bold" }}>
-                        Rs. {Number(selectedRequest.requestedAmount || 0).toLocaleString()}
+                      <Text style={{ color: selectedRequest.requestedAmount > 0 ? palette.accentGreen : "#f39c12", fontSize: 14, fontWeight: "bold" }}>
+                        {selectedRequest.requestedAmount > 0 
+                          ? `Rs. ${Number(selectedRequest.requestedAmount).toLocaleString()}`
+                          : (selectedRequest.status === 'PENDING' ? 'Awaiting Review' : 'Rs. 0')}
                       </Text>
                     </View>
                     {(selectedRequest.itemType || selectedRequest.specification) && (
@@ -1651,7 +1956,6 @@ export function RequestsScreen({ navigation, user, token, role, lang }: any) {
                           >
                             <View style={{ flex: 1 }}>
                               <Text style={{ color: "white", fontSize: 15, fontWeight: "600" }}>{item.itemName}</Text>
-                              <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>In Stock: {item.quantityInStock} {item.unit}</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
                           </Pressable>
@@ -1790,6 +2094,7 @@ export function SupplierListScreen({ user, token, navigation }: any) {
   const [search, setSearch] = useState("");
   const [historyItems, setHistoryItems] = useState<ApiCollectionHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -1907,7 +2212,7 @@ export function SupplierListScreen({ user, token, navigation }: any) {
           const timeStr = s.lastDate ? new Date(s.lastDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) : null;
 
           return (
-            <Pressable key={s.supplierId} onPress={() => navigation.navigate("CollectionInput", { token, user, prefillSupplier: s })}
+            <Pressable key={s.supplierId} onPress={() => setSelectedSupplier(s)}
               style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: hasCollection ? "rgba(31,190,87,0.15)" : "rgba(255,255,255,0.06)", borderLeftWidth: 3, borderLeftColor: hasCollection ? "#1fbe57" : "#f39c12" }}>
               <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: bg, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                 <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>{initial}</Text>
@@ -1941,12 +2246,84 @@ export function SupplierListScreen({ user, token, navigation }: any) {
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 {timeStr && <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>{timeStr}</Text>}
-                <Ionicons name="add-circle-outline" size={22} color={palette.accentGreen} style={{ marginTop: 4 }} />
+                <Ionicons name="chevron-forward" size={18} color={palette.muted} style={{ marginTop: 4 }} />
               </View>
             </Pressable>
           );
         })}
       </ScrollView>
+
+      {/* Supplier Profile Modal */}
+      {selectedSupplier && (
+        <Modal visible={!!selectedSupplier} transparent animationType="slide" onRequestClose={() => setSelectedSupplier(null)}>
+          <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} onPress={() => setSelectedSupplier(null)}>
+            <Pressable
+              onPress={e => e.stopPropagation()}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#0f2035', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 36 }}
+            >
+              {/* Handle */}
+              <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+              </View>
+
+              {/* Avatar + Name */}
+              <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                <View style={{ width: 72, height: 72, borderRadius: 22, backgroundColor: getBgColor(selectedSupplier.supplierName), alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 3, borderColor: selectedSupplier.lastWeight > 0 ? '#1fbe57' : '#f39c12' }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 26 }}>{selectedSupplier.supplierName.charAt(0).toUpperCase()}</Text>
+                </View>
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>{selectedSupplier.supplierName}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <Ionicons name="book-outline" size={13} color={palette.muted} />
+                  <Text style={{ color: palette.muted, fontSize: 13 }}>{selectedSupplier.passbookNo}</Text>
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginHorizontal: 20, marginBottom: 20 }} />
+
+              {/* Stats grid */}
+              <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 20 }}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(31,190,87,0.1)', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(31,190,87,0.2)' }}>
+                  <MaterialCommunityIcons name="leaf" size={20} color="#1fbe57" />
+                  <Text style={{ color: '#1fbe57', fontSize: 18, fontWeight: '800', marginTop: 6 }}>{selectedSupplier.lastWeight > 0 ? `${selectedSupplier.lastWeight} kg` : '—'}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2 }}>Last Collection</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: selectedSupplier.gpsStatus === 'GPS' ? 'rgba(31,190,87,0.1)' : 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: selectedSupplier.gpsStatus === 'GPS' ? 'rgba(31,190,87,0.2)' : 'rgba(255,255,255,0.08)' }}>
+                  <Ionicons name="location-outline" size={20} color={selectedSupplier.gpsStatus === 'GPS' ? '#1fbe57' : palette.muted} />
+                  <Text style={{ color: selectedSupplier.gpsStatus === 'GPS' ? '#1fbe57' : palette.muted, fontSize: 14, fontWeight: '800', marginTop: 6 }}>{selectedSupplier.gpsStatus === 'GPS' ? 'GPS' : 'No GPS'}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2 }}>Location</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: selectedSupplier.syncStatus === 'SYNCED' ? 'rgba(31,190,87,0.1)' : 'rgba(243,156,18,0.1)', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: selectedSupplier.syncStatus === 'SYNCED' ? 'rgba(31,190,87,0.2)' : 'rgba(243,156,18,0.2)' }}>
+                  <Ionicons name={selectedSupplier.syncStatus === 'SYNCED' ? 'checkmark-circle-outline' : 'time-outline'} size={20} color={selectedSupplier.syncStatus === 'SYNCED' ? '#1fbe57' : '#f39c12'} />
+                  <Text style={{ color: selectedSupplier.syncStatus === 'SYNCED' ? '#1fbe57' : '#f39c12', fontSize: 13, fontWeight: '800', marginTop: 6 }}>{selectedSupplier.syncStatus === 'SYNCED' ? 'Synced' : 'Queued'}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 10, marginTop: 2 }}>Sync Status</Text>
+                </View>
+              </View>
+
+              {/* Last collected time */}
+              {selectedSupplier.lastDate && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.04)', marginHorizontal: 20, borderRadius: 12, marginBottom: 20 }}>
+                  <Ionicons name="time-outline" size={16} color={palette.accentBlue} />
+                  <Text style={{ color: palette.muted, fontSize: 13 }}>Last collected at </Text>
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                    {new Date(selectedSupplier.lastDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                    {' · '}
+                    {new Date(selectedSupplier.lastDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+              )}
+
+              {/* Close button */}
+              <Pressable
+                onPress={() => setSelectedSupplier(null)}
+                style={{ marginHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Close</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </View>
   );
 }

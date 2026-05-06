@@ -57,9 +57,10 @@ public class FinanceController {
             @RequestParam(required = false) String passbookNo,
             @RequestParam(required = false) RequestType requestType,
             @RequestParam(required = false) RequestStatus status,
+            @RequestParam(required = false) UUID assignedAgentId,
             @RequestParam(required = false) Integer limit
     ) {
-        return financeService.getRequests(createdById, supplierId, passbookNo, requestType, status, limit);
+        return financeService.getRequests(createdById, supplierId, passbookNo, requestType, status, assignedAgentId, limit);
     }
 
     @PatchMapping("/api/services/request/{requestId}/status")

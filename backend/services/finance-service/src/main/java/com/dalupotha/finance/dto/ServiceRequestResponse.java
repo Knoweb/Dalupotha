@@ -26,6 +26,9 @@ public record ServiceRequestResponse(
         @JsonProperty("approverComment") String approverComment,
         UUID itemId,
         OffsetDateTime requestDate,
-        OffsetDateTime updatedAt
+        OffsetDateTime updatedAt,
+        UUID assignedAgentId,
+        String assignedAgentName,
+        String approverName
 ) {
 }

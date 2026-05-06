@@ -99,6 +99,7 @@ export const ServicesAPI = {
   updateStatus:   (requestId: string) =>
                   `${API_BASE}/services/request/${requestId}/status`, // PATCH — approve/dispatch
   inventory:      `${API_BASE}/inventory`,                      // GET — fetch available items
+  history:        `${API_BASE}/services/request`,               // GET — fetch request history
 };
 
 // ── Generic API helpers ───────────────────────────────────────────────────────

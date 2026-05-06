@@ -33,6 +33,7 @@ export default function UsersPage() {
   const [showPin, setShowPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [estates, setEstates] = useState<{estateId:string, name:string}[]>([]);
+  const [transportAgents, setTransportAgents] = useState<UserSummary[]>([]);
 
   const [taData, setTaData] = useState({
     fullName: '',
@@ -153,6 +154,12 @@ export default function UsersPage() {
       const data = await AuthAPI.getDetailedUser(userId);
       setDetailedUser(data);
       setIsProfileModalOpen(true);
+      // Load transport agents for this estate when viewing a supplier profile
+      if (data.role === 'SH') {
+        const estateId = data.estateId || sessionStorage.getItem('current_estate_id') || '';
+        const allUsers = await AuthAPI.getUsers(estateId || undefined);
+        setTransportAgents(allUsers.filter(u => u.role === 'TA' || getFullRoleName(u.role) === 'Transport Agent'));
+      }
     } catch (err) {
       alert("Failed to fetch user details.");
     } finally {
@@ -631,8 +638,23 @@ export default function UsersPage() {
                                  <p className="text-sm font-bold text-slate-700">{detailedUser.passbookNo}</p>
                               </div>
                               <div>
-                                 <label className="text-xs font-bold text-slate-400">Field In-Charge</label>
-                                 <p className="text-sm font-bold text-slate-700">{detailedUser.inChargeName || 'Not Appointed'}</p>
+                                 <label className="text-xs font-bold text-slate-400">Assigned Transport Agent</label>
+                                 {isEditing ? (
+                                   <select
+                                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]"
+                                     value={detailedUser.inChargeId || ''}
+                                     onChange={e => setDetailedUser({ ...detailedUser, inChargeId: e.target.value })}
+                                   >
+                                     <option value="">— Not Assigned —</option>
+                                     {transportAgents.map(ta => (
+                                       <option key={ta.userId} value={ta.userId}>
+                                         {ta.name} ({ta.id})
+                                       </option>
+                                     ))}
+                                   </select>
+                                 ) : (
+                                   <p className="text-sm font-bold text-slate-700">{detailedUser.inChargeName || 'Not Appointed'}</p>
+                                 )}
                               </div>
                            </>
                         )}

@@ -681,4 +681,33 @@ public class AuthService {
                 3600
         );
     }
+
+    public java.util.Map<String, Object> getSupplierAssignedAgent(UUID supplierId) {
+        SmallHolder sh = smallHolderRepository.findById(supplierId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Supplier not found"));
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        if (sh.getInCharge() != null) {
+            result.put("inChargeId", sh.getInCharge().getUserId().toString());
+            result.put("inChargeName", sh.getInCharge().getFullName());
+        }
+        return result;
+    }
+
+    public java.util.Map<String, Object> getSupplierProfile(UUID supplierId) {
+        SmallHolder sh = smallHolderRepository.findById(supplierId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Supplier not found"));
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("supplierId", sh.getSupplierId().toString());
+        result.put("passbookNo", sh.getPassbookNo());
+        result.put("landName", sh.getLandName());
+        result.put("address", sh.getAddress());
+        result.put("arcs", sh.getArcs());
+        if (sh.getInCharge() != null) {
+            result.put("inChargeId", sh.getInCharge().getUserId().toString());
+            result.put("inChargeName", sh.getInCharge().getFullName());
+        }
+        return result;
+    }
 }
