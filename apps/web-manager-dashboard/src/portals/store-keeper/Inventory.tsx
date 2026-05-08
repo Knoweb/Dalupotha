@@ -15,8 +15,10 @@ import {
   RotateCcw
 } from 'lucide-react'
 import { InventoryAPI, InventoryItem } from '../../services/api'
+import { useLanguage } from '../../hooks/useLanguage'
 
 export default function InventoryPage() {
+  const { t } = useLanguage()
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -45,7 +47,7 @@ export default function InventoryPage() {
       setShowUpdateModal(null)
     } catch (err) {
       console.error("Failed to update item", err)
-      alert("Failed to update item")
+      alert(t("Failed to update item"))
     } finally {
       setUpdating(false)
     }
@@ -92,10 +94,10 @@ export default function InventoryPage() {
     <div className="w-full space-y-4 px-4 py-3 animate-in fade-in duration-700">
       {/* KPI Grid */}
       <div className="grid grid-cols-4 gap-5">
-         <StatCard label="TOTAL FERTILIZER STOCK" value={`${stats.fertilizerTotal} kg`} sub="Urea + TSP + MOP" icon={<Package size={20} className="text-emerald-500"/>} color="border-emerald-500" />
-         <StatCard label="TOTAL LEAF BAGS" value={`${stats.bagsTotal} bags`} sub="Standard + Large" icon={<Layers size={20} className="text-emerald-500"/>} color="border-emerald-500" />
-         <StatCard label="LOW STOCK ALERTS" value={stats.lowStockAlerts.toString()} sub="Urea Fertilizer" icon={<AlertTriangle size={20} className="text-rose-500"/>} color="border-rose-500" />
-         <StatCard label="TOOLS UNITS" value={`${stats.toolsTotal} units`} sub="1 reserved (TA-003)" icon={<Settings size={20} className="text-amber-500"/>} color="border-amber-500" />
+         <StatCard label={t("TOTAL FERTILIZER STOCK")} value={`${stats.fertilizerTotal} ${t('kg')}`} sub={t("Urea + TSP + MOP")} icon={<Package size={20} className="text-emerald-500"/>} color="border-emerald-500" />
+         <StatCard label={t("TOTAL LEAF BAGS")} value={`${stats.bagsTotal} ${t('bags')}`} sub={t("Standard + Large")} icon={<Layers size={20} className="text-emerald-500"/>} color="border-emerald-500" />
+         <StatCard label={t("LOW STOCK ALERTS")} value={stats.lowStockAlerts.toString()} sub={t("Urea Fertilizer")} icon={<AlertTriangle size={20} className="text-rose-500"/>} color="border-rose-500" />
+         <StatCard label={t("TOOLS UNITS")} value={`${stats.toolsTotal} ${t('units')}`} sub={t("1 reserved (TA-003)")} icon={<Settings size={20} className="text-amber-500"/>} color="border-amber-500" />
       </div>
 
       {/* Low Stock Alert */}
@@ -105,33 +107,33 @@ export default function InventoryPage() {
                <AlertTriangle className="text-rose-500" size={20} />
             </div>
             <p className="text-[13px] text-rose-800 font-medium tracking-tight">
-               <span className="font-semibold">Urea Fertilizer</span> stock is below reorder level (1420 kg remaining, reorder at 1000 kg).
+               <span className="font-semibold">{t('Urea Fertilizer')}</span> {t('stock is below reorder level')} (1420 kg {t('remaining')}, {t('reorder at')} 1000 kg).
             </p>
          </div>
          <button className="flex items-center gap-2 px-5 py-2 bg-white border border-rose-200 rounded-xl text-[12px] font-semibold text-rose-600 hover:bg-rose-50 transition-all shadow-sm">
-            <RefreshCw size={14} /> Reorder Now
+            <RefreshCw size={14} /> {t('Reorder Now')}
          </button>
       </div>
 
       {/* Inventory Items Section */}
       <div className="space-y-4 pt-2">
          <div className="flex justify-between items-center">
-         <h2 className="text-[14px] font-semibold text-slate-700 uppercase tracking-widest">Inventory Items</h2>
+         <h2 className="text-[14px] font-semibold text-slate-700 uppercase tracking-widest">{t('Inventory Items')}</h2>
          <button className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[12px] font-semibold uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm">
-            <Plus size={15} /> Add Item
+            <Plus size={15} /> {t('Add Item')}
          </button>
          </div>
 
          {/* Filters row */}
          <div className="flex items-center gap-4">
             <div className="relative w-80">
-               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-900" size={16} />
                <input 
                   type="text" 
-                  placeholder="Search item..." 
+                  placeholder={t("Search item...")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[14px] font-medium placeholder:text-slate-400 focus:border-emerald-200 outline-none transition-all shadow-sm"
+                  className="w-full pl-10 pr-5 py-2.5 bg-white border border-slate-200 rounded-xl text-[14px] font-medium placeholder:text-slate-900 focus:border-emerald-200 outline-none transition-all shadow-sm"
                />
             </div>
             <div className="flex items-center gap-3">
@@ -139,13 +141,13 @@ export default function InventoryPage() {
                   <button 
                      key={c}
                      onClick={() => setActiveCategory(c)}
-                   className={`px-5 py-1.5 rounded-full text-[12px] font-medium transition-all border ${activeCategory === c ? 'bg-emerald-50 text-emerald-600 border-emerald-500' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 shadow-sm'}`}
+                   className={`px-5 py-1.5 rounded-full text-[12px] font-medium transition-all border ${activeCategory === c ? 'bg-emerald-50 text-emerald-600 border-emerald-500' : 'bg-white text-slate-950 border-slate-200 hover:border-slate-300 shadow-sm'}`}
                   >
-                     {c}
+                     {t(c)}
                   </button>
                ))}
                <button className="flex items-center gap-2 ml-1 px-4 py-1.5 bg-white border border-slate-200 rounded-xl text-[12px] font-medium text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-                  <Download size={16} /> Export
+                  <Download size={16} /> {t('Export')}
                </button>
             </div>
          </div>
@@ -155,15 +157,15 @@ export default function InventoryPage() {
             <table className="w-full text-left">
                <thead>
                    <tr className="bg-slate-50/50 border-b border-slate-200">
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">ITEM</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">CATEGORY</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">STOCK</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">RESERVED</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">REORDER LEVEL</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">STOCK LEVEL</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">UNIT COST</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest">STATUS</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-widest text-right">ACTIONS</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('ITEM')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('CATEGORY')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('STOCK')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('RESERVED')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('REORDER LEVEL')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('STOCK LEVEL')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('UNIT COST')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('STATUS')}</th>
+                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest text-right">{t('ACTIONS')}</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-50">
@@ -175,15 +177,15 @@ export default function InventoryPage() {
                      return (
                         <tr key={item.itemId} className="hover:bg-slate-50/30 transition-colors">
                            <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.itemName}</td>
-                           <td className="px-6 py-4 text-[12px] font-normal text-slate-500">{item.itemCategory.charAt(0) + item.itemCategory.slice(1).toLowerCase().replace('_', ' ')}</td>
-                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.quantityInStock} {item.unit}</td>
-                           <td className="px-6 py-4 text-[12px] font-normal text-slate-500">{item.reservedQuantity} {item.unit}</td>
-                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.reorderLevel} {item.unit}</td>
+                           <td className="px-6 py-4 text-[12px] font-normal text-slate-950">{t(item.itemCategory.charAt(0) + item.itemCategory.slice(1).toLowerCase().replace('_', ' '))}</td>
+                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.quantityInStock} {t(item.unit)}</td>
+                           <td className="px-6 py-4 text-[12px] font-normal text-slate-950">{item.reservedQuantity} {t(item.unit)}</td>
+                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.reorderLevel} {t(item.unit)}</td>
                            <td className="px-6 py-4 w-48">
                               <div className="space-y-2">
-                                 <div className="flex justify-between text-[9px] font-medium text-slate-400 uppercase tracking-tight">
-                                    <span>{item.quantityInStock} available</span>
-                                    <span>{item.reservedQuantity} reserved</span>
+                                 <div className="flex justify-between text-[9px] font-medium text-slate-900 uppercase tracking-tight">
+                                    <span>{item.quantityInStock} {t('available')}</span>
+                                    <span>{item.reservedQuantity} {t('reserved')}</span>
                                  </div>
                                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
                                     <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
@@ -194,16 +196,16 @@ export default function InventoryPage() {
                            <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">Rs. {item.unitCost.toLocaleString()}</td>
                            <td className="px-6 py-4">
                               <span className={`px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-tight ${isLow ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                 {isLow ? 'Low Stock' : 'OK'}
+                                 {isLow ? t('Low Stock') : t('OK')}
                               </span>
                            </td>
                            <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2.5">
-                                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:bg-slate-100 transition-all">
-                                    <History size={13} /> History
+                                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-slate-950 hover:bg-slate-100 transition-all">
+                                    <History size={13} /> {t('History')}
                                  </button>
                                  <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] font-semibold hover:bg-emerald-100 transition-all">
-                                    <RefreshCw size={13} /> Update
+                                    <RefreshCw size={13} /> {t('Update')}
                                  </button>
                               </div>
                            </td>
@@ -220,32 +222,32 @@ export default function InventoryPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Update Stock</h3>
-                <button onClick={() => setShowUpdateModal(null)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"><X size={18} /></button>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">{t('Update Stock')}</h3>
+                <button onClick={() => setShowUpdateModal(null)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-900"><X size={18} /></button>
              </div>
              <div className="p-6 space-y-4">
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-3">
                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-50"><Package size={20} /></div>
                    <div>
-                      <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">SELECTED ITEM</p>
+                      <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">{t('SELECTED ITEM')}</p>
                       <p className="text-sm font-bold text-slate-900">{showUpdateModal.itemName}</p>
                    </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">New Stock</label>
-                      <input type="number" value={updateQuantity} onChange={(e) => setUpdateQuantity(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
-                   </div>
-                   <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Unit Cost</label>
-                      <input type="number" value={updateUnitCost} onChange={(e) => setUpdateUnitCost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
-                   </div>
+                       <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest ml-1">{t('New Stock')}</label>
+                       <input type="number" value={updateQuantity} onChange={(e) => setUpdateQuantity(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest ml-1">{t('Unit Cost')}</label>
+                       <input type="number" value={updateUnitCost} onChange={(e) => setUpdateUnitCost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
+                    </div>
                 </div>
              </div>
              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2">
-                <button onClick={() => setShowUpdateModal(null)} disabled={updating} className="flex-1 py-2.5 text-xs font-bold text-slate-400">Cancel</button>
+                <button onClick={() => setShowUpdateModal(null)} disabled={updating} className="flex-1 py-2.5 text-xs font-bold text-slate-900">{t('Cancel')}</button>
                 <button onClick={handleUpdateSave} disabled={updating} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-900/10">
-                  {updating ? 'Saving...' : 'Save Changes'}
+                  {updating ? t('Saving...') : t('Save Changes')}
                 </button>
              </div>
           </div>
@@ -265,7 +267,7 @@ function StatCard({ label, value, sub, icon, color }: any) {
        <div>
          <h3 className="text-[28px] font-bold text-slate-800 tracking-tight leading-none mb-1">{value}</h3>
          <p className="text-[12px] font-semibold text-slate-600 uppercase tracking-[0.08em]">{label}</p>
-         <p className="text-[11px] text-slate-400 font-normal uppercase tracking-tight">{sub}</p>
+         <p className="text-[11px] text-slate-900 font-normal uppercase tracking-tight">{sub}</p>
        </div>
     </div>
   )

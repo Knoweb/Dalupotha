@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { ROLE_TABS, UserRole } from '../../App'
 import { AppNotification } from '../../hooks/useNotifications'
+import { useLanguage } from '../../hooks/useLanguage'
 
 interface SidebarProps {
   activeTab: string;
@@ -19,14 +20,6 @@ interface SidebarProps {
   onMarkRead: (id: string) => void;
   pendingRequestCount?: number;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  'manager': 'Manager',
-  'extension-officer': 'Extension Officer',
-  'office-staff': 'Office Staff',
-  'store-keeper': 'Store Keeper',
-  'factory-staff': 'Factory Staff',
-};
 
 const ALL_NAV = [
   { key: 'dashboard',   icon: <LayoutGrid size={18}/>,       label: 'Dashboard' },
@@ -47,6 +40,15 @@ export default function Sidebar({
   unreadCount, notifications, onMarkAllRead, onMarkRead,
   pendingRequestCount = 0
 }: SidebarProps) {
+  const { t } = useLanguage();
+
+  const ROLE_LABELS: Record<string, string> = {
+    'manager': t('Manager'),
+    'extension-officer': t('Extension Officer'),
+    'office-staff': t('Office Staff'),
+    'store-keeper': t('Store Keeper'),
+    'factory-staff': t('Factory Staff'),
+  };
 
   const allowedTabs = ROLE_TABS[userRole] || ROLE_TABS['manager'];
   const visibleNav = ALL_NAV.filter(n => allowedTabs.includes(n.key));
@@ -69,7 +71,7 @@ export default function Sidebar({
       {/* Role Badge */}
       <div className="px-6 mb-3">
         <span className="inline-block bg-white/10 text-white/80 text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full border border-white/10">
-          {ROLE_LABELS[userRole] || 'Staff'}
+          {ROLE_LABELS[userRole] || t('Staff')}
         </span>
       </div>
 
@@ -78,7 +80,7 @@ export default function Sidebar({
           <NavItem
             key={item.key}
             icon={item.icon}
-            label={item.label}
+            label={t(item.label)}
             active={activeTab === item.key}
             onClick={() => onTabChange(item.key)}
             badge={
@@ -90,8 +92,6 @@ export default function Sidebar({
         ))}
       </nav>
 
-
-
       <div className="p-6 border-t border-white/10">
         <div className="mb-3 px-1">
           <p className="text-white font-bold text-sm truncate">{userInfo.fullName}</p>
@@ -102,7 +102,7 @@ export default function Sidebar({
           className="w-full flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white hover:bg-black/10 rounded-xl transition-all text-sm font-semibold group"
         >
           <LogOut size={18} className="group-hover:translate-x-1 transition-transform" />
-          <span>Sign Out</span>
+          <span>{t('Sign Out')}</span>
         </button>
       </div>
     </aside>

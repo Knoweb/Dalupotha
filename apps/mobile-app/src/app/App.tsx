@@ -20,7 +20,9 @@ type RootStackParamList = {
   Register: { initialRole?: Role };
   Otp: { role: Role; contact?: string; isRegistering?: boolean; registerData?: any };
   MainTabs: { role: Role; token?: string; user?: any };
-  CollectionInput: { token: string; user: any };
+  CollectionInput: { token: string; user: any; lang?: string };
+  CollectionDetail: { item: any; token: string; lang?: string };
+  SupplierList: { user: any; token: string; lang?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -166,9 +168,9 @@ export default function App() {
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Otp" component={OtpScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
-        <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
-        <Stack.Screen name="SupplierList" children={(props) => <SupplierListScreen {...props} user={props.route.params?.user} token={props.route.params?.token} />} />
+        <Stack.Screen name="CollectionInput" children={(props) => <CollectionInputScreen {...props} lang={props.route.params?.lang} />} />
+        <Stack.Screen name="CollectionDetail" children={(props) => <CollectionDetailScreen {...props} lang={props.route.params?.lang} />} />
+        <Stack.Screen name="SupplierList" children={(props) => <SupplierListScreen {...props} user={props.route.params?.user} token={props.route.params?.token} lang={props.route.params?.lang} />} />
       </Stack.Navigator>
     </NavigationContainer>
   );

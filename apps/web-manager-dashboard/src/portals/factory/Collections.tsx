@@ -2,8 +2,10 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Search, Filter, Download, ChevronRight, RefreshCw, CheckCircle2, XCircle, RotateCcw, MapPin, User, Scale, Clock, X } from 'lucide-react'
 import { CollectionAPI, CollectionItem } from '../../services/api'
 import { supabase } from '../../services/supabase'
+import { useLanguage } from '../../hooks/useLanguage'
 
 export default function CollectionsPage() {
+  const { t, lang } = useLanguage()
   const [collections, setCollections] = useState<CollectionItem[]>([])
   const [agentsMap, setAgentsMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
@@ -23,7 +25,7 @@ export default function CollectionsPage() {
           fetch(`/api/auth/users/${id}`)
             .then(res => res.json())
             .then(u => setAgentsMap(prev => ({ ...prev, [id]: u.fullName })))
-            .catch(() => setAgentsMap(prev => ({ ...prev, [id]: 'Unknown' })))
+            .catch(() => setAgentsMap(prev => ({ ...prev, [id]: t('Unknown') })))
         })
       }
     } catch (err) {
@@ -31,7 +33,7 @@ export default function CollectionsPage() {
     } finally {
       setLoading(false)
     }
-  }, [agentsMap])
+  }, [agentsMap, t])
 
   useEffect(() => {
     fetchCollections()
@@ -58,14 +60,14 @@ export default function CollectionsPage() {
   }, [collections, search, filter, agentsMap])
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Search & Filter Bar */}
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
-           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-950" size={18} />
            <input 
              type="text" 
-             placeholder="Search by supplier, ID or TA..." 
+             placeholder={t("Search by supplier, ID or TA...")}
              value={search}
              onChange={(e) => setSearch(e.target.value)}
              className="w-full bg-white border border-slate-100 rounded-lg py-2.5 pl-12 pr-4 outline-none shadow-sm focus:ring-2 focus:ring-green-500/10 text-sm" 
@@ -73,12 +75,12 @@ export default function CollectionsPage() {
         </div>
         <div className="flex items-center gap-2">
            {['All', 'Today', 'This Week', 'This Month'].map(f => (
-             <FilterBtn key={f} label={f} active={filter === f} onClick={() => setFilter(f)} />
+             <FilterBtn key={f} label={t(f)} active={filter === f} onClick={() => setFilter(f)} />
            ))}
         </div>
         <button className="flex items-center gap-2 bg-white border border-slate-100 px-4 py-2.5 rounded-lg text-slate-600 text-xs font-bold shadow-sm hover:bg-slate-50">
-           <Download size={14} className="text-slate-400" />
-           <span>Export</span>
+           <Download size={14} className="text-slate-900" />
+           <span>{t('Export')}</span>
         </button>
       </div>
 
@@ -86,44 +88,43 @@ export default function CollectionsPage() {
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <table className="w-full text-left">
           <thead>
-            <tr className="bg-white border-b border-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-              <th className="px-6 py-5">COLLECTION ID</th>
-              <th className="px-6 py-5">SUPPLIER</th>
-              <th className="px-6 py-5">WEIGHT (KG)</th>
-              <th className="px-6 py-5">NET (KG)</th>
-              <th className="px-6 py-5">TRANSPORT AGENT</th>
-              <th className="px-6 py-5">GPS</th>
-              <th className="px-6 py-5 text-center">TIME</th>
-              <th className="px-6 py-5">SYNC</th>
-              <th className="px-6 py-5 text-right">ACTIONS</th>
+            <tr className="bg-white border-b border-slate-50 text-slate-900 text-[10px] font-bold uppercase tracking-wider">
+              <th className="px-6 py-5">{t('COLLECTION ID')}</th>
+              <th className="px-6 py-5">{t('SUPPLIER')}</th>
+              <th className="px-6 py-5">{t('WEIGHT (KG)')}</th>
+              <th className="px-6 py-5">{t('NET (KG)')}</th>
+              <th className="px-6 py-5">{t('TRANSPORT AGENT')}</th>
+              <th className="px-6 py-5">{t('GPS')}</th>
+              <th className="px-6 py-5 text-center">{t('TIME')}</th>
+              <th className="px-6 py-5">{t('SYNC')}</th>
+              <th className="px-6 py-5 text-right">{t('ACTIONS')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {loading && collections.length === 0 ? (
-               <tr><td colSpan={9} className="text-center py-20 text-slate-300 text-xs tracking-widest uppercase">Loading Registry...</td></tr>
+               <tr><td colSpan={9} className="text-center py-20 text-slate-950 text-xs tracking-widest uppercase">{t('Loading Registry...')}</td></tr>
             ) : filtered.map((c) => (
               <tr key={c.collectionId} className="hover:bg-slate-50/30 transition-colors">
                 <td className="px-6 py-4 font-bold text-slate-900 text-sm">{c.collectionId.slice(0, 4).toUpperCase()}</td>
                 <td className="px-6 py-4">
                    <p className="font-bold text-slate-800 text-sm">{c.supplierName}</p>
-                   <p className="text-[10px] text-slate-300 font-medium">{c.passbookNo}</p>
                 </td>
                 <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.grossWeight}</td>
                 <td className="px-6 py-4 font-bold text-green-500 text-sm">{c.netWeight}</td>
                 <td className="px-6 py-4 text-slate-600 text-sm font-medium">{(c as any).transportAgentName || agentsMap[c.transportAgentId] || '—'}</td>
                 <td className="px-6 py-4">
-                   <GPSStatus status={c.gpsStatus} />
+                   <GPSStatus status={c.gpsStatus} t={t} />
                 </td>
-                <td className="px-6 py-4 text-center text-slate-500 text-sm font-medium">
+                <td className="px-6 py-4 text-center text-slate-950 text-sm font-medium">
                   {new Date(c.collectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
                 </td>
-                <td className="px-6 py-4"><StatusPill status={c.syncStatus} /></td>
+                <td className="px-6 py-4"><StatusPill status={c.syncStatus} t={t} /></td>
                 <td className="px-6 py-4 text-right">
                    <div className="flex items-center justify-end gap-2">
                      <button 
                        onClick={() => setSelectedCollection(c)}
                        className="bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-100 border border-slate-100"
-                     >Detail</button>
+                     >{t('Detail')}</button>
                      {c.syncStatus === 'FAILED' && (
                        <button className="bg-green-50 text-green-600 p-1.5 rounded-lg hover:bg-green-100 border border-green-100">
                           <RotateCcw size={12} />
@@ -142,8 +143,8 @@ export default function CollectionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
               <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-b border-slate-100">
-                 <h3 className="font-bold text-slate-800 tracking-tight">Collection Details</h3>
-                 <button onClick={() => setSelectedCollection(null)} className="p-1 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
+                 <h3 className="font-bold text-slate-800 tracking-tight">{t('Collection Details')}</h3>
+                 <button onClick={() => setSelectedCollection(null)} className="p-1 hover:bg-slate-200 rounded-full text-slate-900 transition-colors">
                     <X size={18} />
                  </button>
               </div>
@@ -152,24 +153,24 @@ export default function CollectionsPage() {
                  {/* ID & Status */}
                  <div className="flex items-center justify-between">
                     <div>
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Collection ID</p>
+                       <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">{t('Collection ID')}</p>
                        <p className="text-sm font-mono font-bold text-slate-900">{selectedCollection.collectionId.toUpperCase()}</p>
                     </div>
-                    <StatusPill status={selectedCollection.syncStatus} />
+                    <StatusPill status={selectedCollection.syncStatus} t={t} />
                  </div>
 
                  {/* Supplier & Agent */}
                  <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                        <User size={14} className="text-green-500 mb-2" />
-                       <p className="text-[10px] font-bold text-slate-400 uppercase">Supplier</p>
+                       <p className="text-[10px] font-bold text-slate-900 uppercase">{t('Supplier')}</p>
                        <p className="text-sm font-bold text-slate-800">{selectedCollection.supplierName}</p>
-                       <p className="text-[10px] text-slate-400">{selectedCollection.passbookNo}</p>
+                       <p className="text-[10px] text-slate-900">{selectedCollection.passbookNo}</p>
                     </div>
                     <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                        <User size={14} className="text-blue-500 mb-2" />
-                       <p className="text-[10px] font-bold text-slate-400 uppercase">Transport Agent</p>
-                        <p className="text-sm font-bold text-slate-800">{ (selectedCollection as any).transportAgentName || agentsMap[selectedCollection.transportAgentId] || 'Unknown'}</p>
+                       <p className="text-[10px] font-bold text-slate-900 uppercase">{t('TRANSPORT AGENT')}</p>
+                        <p className="text-sm font-bold text-slate-800">{ (selectedCollection as any).transportAgentName || agentsMap[selectedCollection.transportAgentId] || t('Unknown')}</p>
                     </div>
                  </div>
 
@@ -180,51 +181,51 @@ export default function CollectionsPage() {
                            <User size={13} className="text-green-600" />
                         </div>
                         <div>
-                           <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Processed By</p>
-                           <p className="text-sm font-bold text-slate-800">{(selectedCollection as any).processedByName || 'Factory Staff'}</p>
+                           <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">{t('Processed By')}</p>
+                           <p className="text-sm font-bold text-slate-800">{(selectedCollection as any).processedByName || t('Factory Staff')}</p>
                            {(selectedCollection as any).processedAt && (
-                              <p className="text-[10px] text-slate-400">{new Date((selectedCollection as any).processedAt).toLocaleString()}</p>
+                              <p className="text-[10px] text-slate-900">{new Date((selectedCollection as any).processedAt).toLocaleString(lang === 'si' ? 'si-LK' : 'en-GB')}</p>
                            )}
                         </div>
                      </div>
                   ) : (
-                     <div className="flex items-center gap-2 text-slate-400 text-[11px] bg-orange-50/50 border border-orange-100 px-4 py-2.5 rounded-xl">
+                     <div className="flex items-center gap-2 text-slate-900 text-[11px] bg-orange-50/50 border border-orange-100 px-4 py-2.5 rounded-xl">
                         <User size={12} className="text-orange-400" />
-                        <span>Not yet processed by factory staff</span>
+                        <span>{t('Not yet processed by factory staff')}</span>
                      </div>
                   )}
 
                  {/* Weights */}
                  <div className="bg-green-50/30 p-5 rounded-2xl border border-green-100 flex items-center justify-around text-center">
                     <div>
-                       <Scale size={16} className="text-slate-400 mx-auto mb-2" />
-                       <p className="text-[10px] font-bold text-slate-400 uppercase">Gross Weight</p>
+                       <Scale size={16} className="text-slate-900 mx-auto mb-2" />
+                       <p className="text-[10px] font-bold text-slate-900 uppercase">{t('Gross Weight')}</p>
                        <p className="text-xl font-black text-slate-800">{selectedCollection.grossWeight}<span className="text-[10px] ml-1">KG</span></p>
                     </div>
                     <div className="w-px h-10 bg-green-200/50"></div>
                     <div>
                        <Scale size={16} className="text-green-500 mx-auto mb-2" />
-                       <p className="text-[10px] font-bold text-green-600 uppercase">Net Weight</p>
+                       <p className="text-[10px] font-bold text-green-600 uppercase">{t('Net Weight')}</p>
                        <p className="text-xl font-black text-green-600">{selectedCollection.netWeight}<span className="text-[10px] ml-1">KG</span></p>
                     </div>
                  </div>
 
                  {/* Footer Info */}
-                 <div className="flex items-center justify-between text-slate-400 text-[11px] font-medium pt-2">
+                 <div className="flex items-center justify-between text-slate-900 text-[11px] font-medium pt-2">
                     <div className="flex items-center gap-1.5">
                        <Clock size={12} />
-                       <span>Collected at {new Date(selectedCollection.collectedAt).toLocaleString()}</span>
+                       <span>{t('Collected at')} {new Date(selectedCollection.collectedAt).toLocaleString(lang === 'si' ? 'si-LK' : 'en-GB')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                        <MapPin size={12} className={selectedCollection.gpsStatus === 'GPS' ? 'text-green-500' : 'text-rose-400'} />
-                       <span>{selectedCollection.gpsStatus === 'GPS' ? 'GPS Verified' : 'Manual Entry'}</span>
+                       <span>{selectedCollection.gpsStatus === 'GPS' ? t('GPS Verified') : t('Manual Entry')}</span>
                     </div>
                  </div>
               </div>
 
               <div className="bg-slate-50 p-4 flex gap-3">
-                 <button className="flex-1 bg-white border border-slate-200 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all">Download Receipt</button>
-                 <button onClick={() => setSelectedCollection(null)} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">Close</button>
+                 <button className="flex-1 bg-white border border-slate-200 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all">{t('Download Receipt')}</button>
+                 <button onClick={() => setSelectedCollection(null)} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20">{t('Close')}</button>
               </div>
            </div>
         </div>
@@ -233,7 +234,7 @@ export default function CollectionsPage() {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function StatusPill({ status, t }: { status: string, t: any }) {
   const styles: Record<string, string> = {
     SYNCED: 'bg-green-50 text-green-600 border-green-100',
     QUEUED: 'bg-orange-50 text-orange-600 border-orange-100',
@@ -241,27 +242,27 @@ function StatusPill({ status }: { status: string }) {
   }
   return (
     <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${styles[status] || styles.SYNCED}`}>
-      {status}
+      {t(status)}
     </span>
   )
 }
 
-function GPSStatus({ status }: { status: string }) {
+function GPSStatus({ status, t }: { status: string, t: any }) {
   return status === 'GPS' ? (
     <div className="flex items-center gap-1 text-[10px] font-bold text-green-500/80">
        <CheckCircle2 size={12} />
-       <span>Yes</span>
+       <span>{t('Yes')}</span>
     </div>
   ) : (
     <div className="flex items-center gap-1 text-[10px] font-bold text-rose-400">
        <XCircle size={12} />
-       <span>No</span>
+       <span>{t('No')}</span>
     </div>
   )
 }
 
 function FilterBtn({ label, active, onClick }: any) {
   return (
-    <button onClick={onClick} className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all ${active ? 'bg-green-50 text-green-600 shadow-sm border border-green-100' : 'text-slate-400 hover:text-slate-600'}`}>{label}</button>
+    <button onClick={onClick} className={`px-4 py-2 rounded-full text-[11px] font-bold transition-all ${active ? 'bg-green-50 text-green-600 shadow-sm border border-green-100' : 'text-slate-900 hover:text-slate-600'}`}>{label}</button>
   );
 }

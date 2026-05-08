@@ -1,8 +1,186 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet } from "react-native";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet, Alert } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
 import { CollectionAPI, FinanceAPI, ServicesAPI, apiGet } from "../../services/api";
+
+export const dictionary: any = {
+  si: {
+    // Shared / Navigation
+    "Home": "මුල් පිටුව",
+    "Supply": "සැපයුම",
+    "Requests": "ඉල්ලීම්",
+    "All": "සියල්ල",
+    "Payments": "ගෙවීම්",
+    "Debts": "ණය",
+    "Profile": "ගිණුම",
+    "Dashboard": "මුල් පිටුව",
+    "Collections": "එකතු කිරීම්",
+    "New": "නව",
+    "Request": "ඉල්ලීම",
+    "Sign Out": "පිටවන්න",
+    "Language Preference": "භාෂාව තෝරන්න",
+    "Switch between Sinhala and English": "සිංහල සහ ඉංග්‍රීසි අතර මාරු වන්න",
+    "SETTINGS": "සැකසුම්",
+    "ACCOUNT": "ගිණුම",
+    "Notifications": "දැනුම්දීම්",
+    "All alerts enabled": "සියලු දැනුම්දීම් සබල කර ඇත",
+    "Change Password": "මුරපදය වෙනස් කරන්න",
+    "Contact Support": "සහාය අමතන්න",
+    "EXTENSION OFFICER": "ව්‍යාප්ති නිලධාරී",
+    "Hello": "ආයුබෝවන්",
+    "Weekly Supply": "සතියේ දළු සැපයුම",
+    "Current Debt": "දැනට ණය",
+    "Advance": "ඇත්තිකාරම්",
+    "Advances": "අත්තිකාරම්",
+    "Estimated Balance": "ඇස්තමේන්තු ගත ඉතිරිය",
+    "Fertilizer": "පොහොර",
+    "Leaf Bags": "දළු බෑග්",
+    "Tools": "මෙවලම්",
+    "Advisory": "උපදෙස්",
+    "Submit Request": "ඉල්ලීම ඉදිරිපත් කරන්න",
+    "Request History": "ඉල්ලීම් ඉතිහාසය",
+    "No history found": "පෙර ඉතිහාසය හමු නොවීය",
+    "Status": "තත්ත්වය",
+    "Amount": "මුදල",
+    "Quantity": "ප්‍රමාණය",
+    "Type": "වර්ගය",
+    "Date": "දිනය",
+    "Pending": "බලාපොරොත්තු වේ",
+    "Approved": "අනුමත කර ඇත",
+    "Rejected": "ප්‍රතික්ෂේප කර ඇත",
+    "Processing": "ක්‍රියාත්මක වෙමින් පවතී",
+    "Completed": "සම්පූර්ණයි",
+    "Cancelled": "අවලංගුයි",
+
+    // Agent Dashboard
+    "Quick Actions": "ඉක්මන් පියවර",
+    "Gross Green Leaf": "මුළු අමු තේ දළු",
+    "Suppliers": "සැපයුම්කරුවන්",
+    "Total KG": "මුළු බර (kg)",
+    "New Delivery": "නව එකතු කිරීම",
+    "View Report": "වාර්තාව බලන්න",
+    "Route Map": "මාර්ග සිතියම",
+    "System Logs": "පද්ධති ලොග",
+    "Active Collection": "ක්‍රියාකාරී එකතු කිරීම්",
+    "Direct Requests": "සෘජු ඉල්ලීම්",
+    "History": "ඉතිහාසය",
+    "Bluetooth Scale": "බ්ලූටූත් තරාදිය",
+    "DL-7200 · Connected": "DL-7200 · සම්බන්ධ කර ඇත",
+    "GPS Accuracy": "GPS නිරවද්‍යතාවය",
+    "High accuracy mode · ON": "ඉහළ නිරවද්‍යතා මාදිලිය · සක්‍රියයි",
+    "Sync Settings": "සමමුහුර්ත සැකසුම්",
+    "Auto-sync on WiFi · ON": "WiFi මත ස්වයංක්‍රීය සමමුහුර්තකරණය · සක්‍රියයි",
+    "My Collections": "මගේ එකතු කිරීම්",
+    "View full history": "සම්පූර්ණ ඉතිහාසය බලන්න",
+    "Change PIN": "PIN අංකය වෙනස් කරන්න",
+    "Last changed 30 days ago": "අවසාන වරට දින 30කට පෙර වෙනස් කරන ලදී",
+    "KG TODAY": "අද බර (kg)",
+    "SUPPLIERS": "සැපයුම්කරුවන්",
+    "KG MONTH": "මාසික බර (kg)",
+    "TODAY'S LEAF": "අද දළු ප්‍රමාණය",
+    "PENDING SYNC": "සමමුහුර්ත වීමට ඇත",
+    "ROUTE PROGRESS": "මාර්ග ප්‍රගතිය",
+    "QUICK ACTIONS": "ඉක්මන් පියවර",
+    "New Collection": "නව එකතු කිරීම",
+    "View History": "ඉතිහාසය බලන්න",
+    "Supplier List": "සැපයුම්කරුවන්ගේ ලැයිස්තුව",
+    "Today's Collections": "අද එකතු කිරීම්",
+    "No collections today": "අද දින එකතු කිරීම් නොමැත",
+    "recent collections": "මෑතකදී එකතු කළ දත්ත",
+    "Synced": "සමමුහුර්ත කර ඇත",
+    "Queued": "පෝලිමේ ඇත",
+    "GPS": "GPS",
+    "No GPS": "GPS නොමැත",
+    "Not yet collected": "තවමත් එකතු කර නොමැත",
+    "Total": "මුළු",
+    "records queued": "වාර්තා පෝලිමේ ඇත",
+    "complete": "සම්පූර්ණයි",
+    "No data": "දත්ත නොමැත",
+    "suppliers": "සැපයුම්කරුවන්",
+    "Last sync": "අවසාන සමමුහුර්තකරණය",
+
+    // Supplier Screens
+    "Outstanding Debt": "ගෙවිය යුතු මුළු ණය",
+    "Last collection recorded": "අවසාන එකතු කිරීම වාර්තා කර ඇත",
+    "Available for advances": "අත්තිකාරම් සඳහා ලබා ගත හැකිය",
+    "Need clarification?": "පැහැදිලි කිරීමක් අවශ්‍යද?",
+    "Speak to your Extension Officer about these charges.": "මෙම ගාස්තු පිළිබඳව ඔබේ ව්‍යාප්ති නිලධාරියා සමඟ කතා කරන්න.",
+    "Verified Supplier": "තහවුරු කළ සැපයුම්කරු",
+    "Land Name": "ඉඩමේ නම",
+    "In-Charge": "භාරකරු",
+    "Passbook No.": "පාස්බුක් නම්බර්",
+    "Supplier ID": "සැපයුම්කරුගේ හැඳුනුම්පත",
+    "Pending Assignment": "පවරන තෙක් රැඳී පවතී",
+    "Full Transaction History →": "සම්පූර්ණ ගනුදෙනු ඉතිහාසය →",
+    "collected today": "අද එකතු කළ ප්‍රමාණය",
+    "Search by name or passbook...": "නම හෝ පාස්බුක් නම්බර් මගින් සොයන්න...",
+    "Pending sync": "සමමුහුර්ත වීමට ඇති",
+    "Sync Queue": "සමමුහුර්ත පෝලිම",
+    "Failed": "අසාර්ථකයි",
+    "Passbook unavailable": "පාස්බුක් නම්බර් නොමැත",
+    "No collections found": "එකතු කිරීම් හමු නොවීය",
+    "Manual": "අත්පොත",
+    "Delivery Details": "බාරදීමේ විස්තර",
+    "Collection Receipt": "එකතු කිරීමේ රිසිට්පත",
+    "GROSS": "මුළු බර (kg)",
+    "NET YIELD": "ශුද්ධ බර (kg)",
+    "Date & Time": "දිනය සහ වේලාව",
+    "Quality Deduction": "තත්ත්ව අඩු කිරීම්",
+    "No deductions": "අඩු කිරීම් නොමැත",
+    "Processed By": "සැකසූවේ",
+    "Sync Status": "සමමුහුර්ත තත්ත්වය",
+    "Fully Synced": "සම්පූර්ණයෙන්ම සමමුහුර්ත කර ඇත",
+    "Pending Sync": "සමමුහුර්ත වීමට ඇත",
+    "Transport Agent": "ප්‍රවාහන නියෝජිතයා",
+    "My Profile": "මගේ ගිණුම",
+    "Add new request": "නව ඉල්ලීමක් එක් කරන්න",
+    "Create New Request": "නව ඉල්ලීමක් සාදන්න",
+    "Only for suppliers under your assignment": "ඔබට පවරා ඇති සැපයුම්කරුවන් සඳහා පමණි",
+    "No requests found": "ඉල්ලීම් හමු නොවීය",
+    "Purchase": "මිලදී ගැනීම",
+    "Rent": "කුලියට ගැනීම",
+    "READY TO FULFILL": "සම්පූර්ණ කිරීමට සූදානම්",
+    "RECEIVED": "ලැබී ඇත",
+    "Tap for more info": "වැඩි විස්තර සඳහා තට්ටු කරන්න",
+    "Amount": "මුදල",
+    "Type": "වර්ගය",
+    "Total Quantity": "මුළු ප්‍රමාණය",
+    "Item": "භාණ්ඩය",
+    "Rent Days": "කුලියට ගන්නා දින ගණන",
+    "Units": "ඒකක",
+    "Bag Type": "බෑග් වර්ගය",
+    "Quantity": "ප්‍රමාණය",
+    "Topic": "මාතෘකාව",
+    "Note": "සටහන",
+    "Remove Request": "ඉල්ලීම ඉවත් කරන්න",
+    "Request Info": "ඉල්ලීම් තොරතුරු",
+    "Supplier Details": "සැපයුම්කරුගේ විස්තර",
+    "Request Summary": "ඉල්ලීම් සාරාංශය",
+    "Rent Duration": "කුලියට ගන්නා කාලය",
+    "Quantity/Units": "ප්‍රමාණය/ඒකක",
+    "Requested Amount": "ඉල්ලූ මුදල",
+    "Total Deduction": "මුළු අඩු කිරීම",
+    "Awaiting Review": "සලකා බලමින් පවතී",
+    "Specification": "විස්තරය",
+    "Manager Remarks": "කළමනාකරුගේ සටහන්",
+    "Status": "තත්ත්වය",
+    "Close Details": "විස්තර වසා දමන්න",
+    "Search Supplier": "සැපයුම්කරු සොයන්න",
+    "No suppliers found": "සැපයුම්කරුවන් හමු නොවීය",
+    "Standard": "සාමාන්‍ය",
+    "General Advisory": "සාමාන්‍ය උපදෙස්",
+    "Standard Transport": "සාමාන්‍ය ප්‍රවාහනය"
+  }
+};
+
+export function getTranslation(key: string, lang: string) {
+  if (lang === 'si' && dictionary.si[key]) {
+    return dictionary.si[key];
+  }
+  return key;
+}
 
 type SupplierHistoryItem = {
   collectionId: string;
@@ -50,45 +228,45 @@ function CollectionDetailModal({ visible, item, onClose, _ }: any) {
           {/* Header */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
             <View>
-              <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>Collection Receipt</Text>
-              <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Delivery Details</Text>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Collection Receipt")}</Text>
+              <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{_("Delivery Details")}</Text>
             </View>
             <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
-              <Ionicons name="close" size={24} color={palette.muted} />
+              <Ionicons name="close" size={24} color="#fff" />
             </Pressable>
           </View>
 
           {/* Main Weight Stats */}
           <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 20, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
             <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.05)' }}>
-              <Text style={{ color: palette.muted, fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>GROSS</Text>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>{_("GROSS")}</Text>
               <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>{gross.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
             </View>
             <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>NET YIELD</Text>
+              <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>{_("NET YIELD")}</Text>
               <Text style={{ color: palette.accentGreen, fontSize: 22, fontWeight: '900' }}>{net.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
             </View>
           </View>
 
           {/* Detail Rows */}
           <View style={{ gap: 18 }}>
-            <DetailRow label="Date & Time" value={`${dateStr}\n${timeStr}`} icon="calendar-outline" />
-            <DetailRow label="Transport Agent" value={item.transportAgentName || "Assigned Agent"} icon="bus-outline" />
+            <DetailRow label={_("Date & Time")} value={`${dateStr}\n${timeStr}`} icon="calendar-outline" />
+            <DetailRow label={_("Transport Agent")} value={item.transportAgentName || _("Assigned Agent")} icon="bus-outline" />
             <DetailRow 
-              label="Quality Deduction" 
-              value={deduction > 0.001 ? `-${deduction.toFixed(2)} kg` : "No deductions"} 
-              valueColor={deduction > 0.001 ? '#e74c3c' : palette.muted} 
+              label={_("Quality Deduction")} 
+              value={deduction > 0.001 ? `-${deduction.toFixed(2)} kg` : _("No deductions")} 
+              valueColor={deduction > 0.001 ? '#ff8a8a' : '#fff'} 
               icon="analytics-outline" 
             />
             {item.processedByName && (
-              <DetailRow label="Processed By" value={item.processedByName} icon="shield-checkmark-outline" />
+              <DetailRow label={_("Processed By")} value={item.processedByName} icon="shield-checkmark-outline" />
             )}
-            <DetailRow label="Sync Status" value={isSynced ? "Fully Synced" : "Pending Sync"} valueColor={isSynced ? palette.accentGreen : '#f39c12'} icon="cloud-done-outline" />
+            <DetailRow label={_("Sync Status")} value={isSynced ? _("Fully Synced") : _("Pending Sync")} valueColor={isSynced ? palette.accentGreen : '#f39c12'} icon="cloud-done-outline" />
           </View>
 
           {/* Footer Info */}
           <View style={{ marginTop: 30, paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', alignItems: 'center' }}>
-            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 'bold' }}>ID: {item.collectionId || "REC-000000"}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 'bold' }}>ID: {item.collectionId || "REC-000000"}</Text>
           </View>
         </View>
       </View>
@@ -164,7 +342,7 @@ const resolveSupplierIdentity = async (token: string, user: any): Promise<Suppli
   };
 };
 
-export const getTranslation = (key: string, lang: 'en' | 'si' | string) => {
+export const getTranslationOld = (key: string, lang: 'en' | 'si' | string) => {
   const dict: any = {
     si: {
       "Hello": "ආයුබෝවන්",
@@ -220,14 +398,13 @@ export const getTranslation = (key: string, lang: 'en' | 'si' | string) => {
       "Land Name": "ඉඩමෙහි නම",
       "In-Charge": "භාරකරු",
       "Pending Assignment": "පැවරීමට නියමිතයි",
-      "Passbook No.": "පාස්පොත් අංකය",
+      "Passbook No.": "පාස්බුක් නම්බර්",
       "Supplier ID": "සැපයුම්කරු අංකය",
       "ACCOUNT": "ගිණුම",
       "Language Preference": "භාෂා තේරීම",
       "Switch between Sinhala and English": "සිංහල සහ ඉංග්‍රීසි අතර මාරු වන්න",
-      "Notifications": "දැනුම්දීම්",
-      "All alerts enabled": "සියලුම දැනුම්දීම් සක්‍රීයයි",
-      "Change Password": "මුරපදය වෙනස් කරන්න",
+      "Change PIN": "PIN අංකය වෙනස් කරන්න",
+      "Update security access code": "ආරක්ෂිත PIN අංකය යාවත්කාලීන කරන්න",
       "Direct Requests": "සෘජු ඉල්ලීම්",
       "Logistics & Requests": "ප්‍රවාහන සහ ඉල්ලීම්",
       "REQUEST CATEGORY": "ඉල්ලුම් වර්ගය",
@@ -262,49 +439,51 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
   const _ = (key: string) => getTranslation(key, lang);
 
 
-  useEffect(() => {
-    const load = async () => {
-      if (!token || !passbookNo) {
-        setError("Missing supplier session data.");
+  const load = useCallback(async () => {
+    if (!token || !passbookNo) {
+      setError("Missing supplier session data.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const identity = await resolveSupplierIdentity(token, user).catch(() => null);
+      const supplierId = identity?.supplierId || fallbackSupplierId;
+
+      if (!supplierId) {
+        setError("Unable to resolve supplier record. Please re-login.");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      setError(null);
+      setResolvedSupplierId(supplierId);
+      setResolvedLabel(identity?.fullName || user?.fullName || null);
+
+      const historyData = await fetchSupplierHistory(token, supplierId);
+      setHistory(historyData);
 
       try {
-        const identity = await resolveSupplierIdentity(token, user).catch(() => null);
-        const supplierId = identity?.supplierId || fallbackSupplierId;
-
-        if (!supplierId) {
-          setError("Unable to resolve supplier record. Please re-login.");
-          setLoading(false);
-          return;
-        }
-
-        setResolvedSupplierId(supplierId);
-        setResolvedLabel(identity?.fullName || user?.fullName || null);
-
-        const historyData = await fetchSupplierHistory(token, supplierId);
-        setHistory(historyData);
-
-        try {
-          const ledgerData = await apiGet<any>(FinanceAPI.ledger(supplierId), token);
-          setLedger(normalizeLedger(ledgerData));
-        } catch {
-          setLedger({ currentDebt: 0, estimatedBalance: 0, advanceTaken: 0 });
-        }
-      } catch (err: any) {
-        setError(err?.message || "Failed to load supplier dashboard data.");
-        setHistory([]);
-      } finally {
-        setLoading(false);
+        const ledgerData = await apiGet<any>(FinanceAPI.ledger(supplierId), token);
+        setLedger(normalizeLedger(ledgerData));
+      } catch {
+        setLedger({ currentDebt: 0, estimatedBalance: 0, advanceTaken: 0 });
       }
-    };
-
-    load();
+    } catch (err: any) {
+      setError(err?.message || "Failed to load supplier dashboard data.");
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
   }, [fallbackSupplierId, passbookNo, token, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const weekStats = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -326,7 +505,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
           <View style={{ marginLeft: 15 }}>
             <Text style={{ color: "#fff", fontSize: 18, fontWeight: "bold" }}>{lang === 'si' ? 'ආයුබෝවන්' : 'Hello'}, {user?.fullName || "Supplier"} 👋</Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={{ color: palette.muted, fontSize: 13 }}>SH-{user?.userId?.slice(-4) || "0000"} · {getPassbook(user)}</Text>
+              <Text style={{ color: palette.muted, fontSize: 13 }}>{getPassbook(user)}</Text>
               <Text style={{ color: palette.accentGreen, fontSize: 13, fontWeight: "600", marginLeft: 8 }}>✓ Verified</Text>
             </View>
           </View>
@@ -871,78 +1050,83 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
   const [loading, setLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!supplierId) return;
-      try {
-        const passbookNo = user?.passbookNo || user?.passbook_no;
-        const qp = new URLSearchParams();
-        if (supplierId) qp.set("supplierId", String(supplierId));
-        if (passbookNo) qp.set("passbookNo", passbookNo);
-        qp.set("limit", "120");
+  const loadDebts = useCallback(async () => {
+    if (!supplierId || !token) return;
+    setLoading(true);
+    try {
+      const passbookNo = user?.passbookNo || user?.passbook_no;
+      const qp = new URLSearchParams();
+      if (supplierId) qp.set("supplierId", String(supplierId));
+      if (passbookNo) qp.set("passbookNo", passbookNo);
+      qp.set("size", "120");
 
-        const [ledgerData, txData, reqData] = await Promise.all([
-          apiGet<any>(FinanceAPI.ledger(supplierId), token).catch(() => null),
-          apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token).catch(() => []),
-          apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => []),
-        ]);
-        setLedger(ledgerData);
+      const [ledgerData, txData, reqData] = await Promise.all([
+        apiGet<any>(FinanceAPI.ledger(supplierId), token).catch(() => null),
+        apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token).catch(() => []),
+        apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => []),
+      ]);
+      setLedger(ledgerData);
 
-        // 1. Process Ledger Debts
-        const ledgerDebts = (txData || []).filter((t: any) => 
-          (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
-          t.amount > 0 && 
-          !t.description?.toUpperCase().includes('ADVISORY')
+      // 1. Process Ledger Debts
+      const ledgerDebts = (txData || []).filter((t: any) => 
+        (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
+        t.amount > 0 && 
+        !t.description?.toUpperCase().includes('ADVISORY')
+      );
+
+      // 2. Process Approved/Dispatched Requests
+      const pendingReqs = (reqData || []).filter((r: any) => 
+        (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED' || r.status === 'PENDING') &&
+        r.requestType !== 'ADVISORY'
+      ).map(r => ({
+        transactionDate: r.updatedAt || r.requestDate,
+        description: r.requestType === 'FERTILIZER' ? `FERTILIZER: ${r.fertilizerItems?.map((f:any)=>f.type).join(', ') || 'Fertilizer'}` : r.requestType,
+        amount: Number(r.requestedAmount || r.totalDeduction || r.estimatedCost || r.amount || r.totalAmount || r.cost || 0) || 0, 
+        isRequest: true,
+        status: r.status,
+        requestId: r.requestId
+      }));
+
+      // 3. Robust Deduplication
+      const finalItems: any[] = [];
+      const seenRequestIds = new Set<string>();
+      
+      // Step A: Load Ledger items and record their requestIds
+      ledgerDebts.forEach(ld => {
+        if (ld.requestId) seenRequestIds.add(String(ld.requestId));
+        finalItems.push(ld);
+      });
+
+      // Step B: Add requests only if they aren't already in the ledger
+      pendingReqs.forEach(req => {
+        // Match by ID if available (definitive)
+        if (req.requestId && seenRequestIds.has(String(req.requestId))) return;
+
+        // Fallback for older data: category + amount match
+        const cat = getCategoryInfo(req.description).label;
+        const alreadyInLedger = ledgerDebts.some(ld => 
+          getCategoryInfo(ld.description).label === cat && 
+          Math.abs(Number(ld.amount) - Number(req.amount)) < 0.01
         );
+        
+        if (!alreadyInLedger) {
+          finalItems.push(req);
+        }
+      });
 
-        // 2. Process Approved/Dispatched Requests
-        const pendingReqs = (reqData || []).filter((r: any) => 
-          (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED') &&
-          r.requestType !== 'ADVISORY'
-        ).map(r => ({
-          transactionDate: r.updatedAt || r.requestDate,
-          description: r.requestType === 'FERTILIZER' ? `FERTILIZER: ${r.fertilizerItems?.map((f:any)=>f.type).join(', ') || 'Fertilizer'}` : r.requestType,
-          // Extract amount from any field used by the system
-          amount: Number(r.requestedAmount || r.totalDeduction || r.estimatedCost || r.amount || r.totalAmount || r.cost || 0), 
-          isRequest: true,
-          status: r.status,
-          requestId: r.requestId
-        }));
+      setDebtItems(finalItems);
+    } catch (err) {
+      console.error('Debts load failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [supplierId, token, user]);
 
-        // 3. Robust Deduplication: Prevent doubling by matching exact category and amount
-        const finalItems: any[] = [];
-        const seenItems = new Set<string>();
-
-        // Step A: Load all Ledger items first (Source of Truth)
-        ledgerDebts.forEach(ld => {
-          const cat = getCategoryInfo(ld.description).label;
-          const key = `${cat}_${Number(ld.amount)}`;
-          seenItems.add(key);
-          finalItems.push(ld);
-        });
-
-        // Step B: Only add requests if we haven't seen this exact category + amount combo
-        pendingReqs.forEach(req => {
-          const cat = getCategoryInfo(req.description).label;
-          const key = `${cat}_${Number(req.amount)}`;
-          
-          // Always allow if we haven't seen this exact amount in this category yet
-          if (!seenItems.has(key)) {
-            finalItems.push(req);
-            seenItems.add(key);
-          }
-        });
-
-        setDebtItems(finalItems);
-
-      } catch (err) {
-        console.error('Debts load failed:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [supplierId, token]);
+  useFocusEffect(
+    useCallback(() => {
+      loadDebts();
+    }, [loadDebts])
+  );
 
   const debtIconMap: Record<string, string> = {
     FERTILIZER: 'leaf', LEAF_BAG: 'bag-handle-outline', ADVANCE: 'wallet-outline',
@@ -958,7 +1142,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
     if (d.includes('FERTILIZER')) return { label: _("Fertilizer"), icon: 'leaf', color: '#2ecc71', sub: desc };
     if (d.includes('BAG')) return { label: _("Leaf Bags"), icon: 'bag-handle-outline', color: '#3498db', sub: desc };
     if (d.includes('ADVANCE')) return { label: _("Advance"), icon: 'wallet-outline', color: '#f39c12', sub: desc };
-    if (d.includes('TOOL')) return { label: _("Tools"), icon: 'construct-outline', color: '#9b59b6', sub: desc };
+    if (d.includes('TOOL') || d.includes('MACHINE')) return { label: _("Tools"), icon: 'construct-outline', color: '#9b59b6', sub: desc };
     if (d.includes('TRANSPORT')) return { label: _("Transport"), icon: 'car-outline', color: '#e67e22', sub: desc };
     return { label: desc || _("Other"), icon: 'receipt-outline', color: '#95a5a6', sub: desc };
   };
@@ -1085,7 +1269,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
 
 const localStyles = StyleSheet.create({
   dashboardWrap: { flex: 1, backgroundColor: "#061224" },
-  headerBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 15, paddingHorizontal: 20 },
+  headerBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 15, paddingHorizontal: 20, backgroundColor: "#111f38" },
   headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   iconBtn: { padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12 },
   sectionHeader: { color: "#fff", fontSize: 18, fontWeight: "bold", marginBottom: 15 },
@@ -1099,9 +1283,9 @@ const localStyles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: "rgba(255, 107, 107, 0.2)" 
   },
-  debtTitle: { color: "#fff", fontSize: 16, marginBottom: 15, fontWeight: '500' },
+  debtTitle: { color: "#fff", fontSize: 16, marginBottom: 15, fontWeight: '700' },
   debtAmount: { color: "#ff8a8a", fontSize: 48, fontWeight: "900", marginBottom: 12 },
-  debtSubTitle: { color: "rgba(255,255,255,0.7)", fontSize: 15 },
+  debtSubTitle: { color: "#ffffff", fontSize: 15, fontWeight: '600' },
 
   infoBox: { 
     flexDirection: "row", 
@@ -1114,7 +1298,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center'
   },
   infoBoxTitle: { color: "#fff", fontSize: 16, fontWeight: "900", marginBottom: 4 },
-  infoBoxText: { color: "#7f9cc5", fontSize: 13, lineHeight: 20 },
+  infoBoxText: { color: "#ffffff", fontSize: 13, lineHeight: 20, fontWeight: '600' },
 
   debtItemRow: { 
     flexDirection: "row", 
@@ -1122,9 +1306,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: "#111f38", 
     padding: 18, 
     borderRadius: 24, 
-    marginBottom: 12, 
-    borderWidth: 1, 
-    borderColor: "rgba(255,255,255,0.04)" 
+    marginBottom: 0, 
   },
   debtIconBox: { 
     width: 50, 
@@ -1132,23 +1314,25 @@ const localStyles = StyleSheet.create({
     borderRadius: 16, 
     alignItems: "center", 
     justifyContent: "center", 
-    marginRight: 18 
+    marginRight: 18,
+    backgroundColor: "rgba(255,255,255,0.05)"
   },
   debtItemTitle: { color: "#fff", fontSize: 17, fontWeight: "bold", marginBottom: 4 },
-  debtItemDate: { color: "#7f9cc5", fontSize: 13 },
+  debtItemDate: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
   debtItemVal: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 
   debtCardContainer: { 
     borderRadius: 24, 
     marginBottom: 12, 
     borderWidth: 1, 
-    borderColor: "rgba(255,255,255,0.04)",
+    borderColor: "rgba(255,255,255,0.05)",
     overflow: 'hidden',
     backgroundColor: "#111f38",
   },
   expandedContent: {
     paddingHorizontal: 18,
     paddingBottom: 22,
+    backgroundColor: "rgba(255,255,255,0.02)"
   },
   divider: {
     height: 1,
@@ -1162,9 +1346,9 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 5
   },
   subItemTitle: {
-    color: 'rgba(255,255,255,0.65)',
+    color: '#ffffff',
     fontSize: 14,
-    fontWeight: '500'
+    fontWeight: '700'
   },
   subItemVal: {
     color: '#fff',
@@ -1179,10 +1363,11 @@ const localStyles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.03)'
   },
   historyLinkText: {
-    color: '#7f9cc5',
+    color: '#ffffff',
     fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.5
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textDecorationLine: 'underline'
   },
 
   clarifyBox: { 
@@ -1196,7 +1381,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center'
   },
   clarifyTitle: { color: "#2ecc71", fontSize: 16, fontWeight: "900", marginBottom: 4 },
-  clarifyText: { color: "rgba(255,255,255,0.6)", fontSize: 13, lineHeight: 20 },
+  clarifyText: { color: "#ffffff", fontSize: 13, lineHeight: 20, fontWeight: '700' },
 });
 
 export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) {
@@ -1204,8 +1389,16 @@ export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) 
   const initials = user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "SH";
   const _ = (key: string) => getTranslation(key, lang);
 
+  const [showPinModal, setShowPinModal] = useState(false);
+
   return (
     <View style={styles.dashboardWrap}>
+      <PinChangeModal 
+        visible={showPinModal} 
+        onClose={() => setShowPinModal(false)} 
+        user={user}
+        _={_}
+      />
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
         <View style={styles.headerBar}>
           <View style={{width: 40}} />
@@ -1256,16 +1449,11 @@ export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) 
             </Pressable>
           )}
 
-          <View style={styles.settingItem}>
-            <View style={[styles.settingIconBg, { backgroundColor: "rgba(243, 156, 18, 0.15)" }]}><Ionicons name="notifications-outline" size={20} color="#f39c12" /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Notifications")}</Text><Text style={styles.settingItemSub}>{_("All alerts enabled")}</Text></View>
-            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
-          </View>
-          <View style={styles.settingItem}>
+          <Pressable style={styles.settingItem} onPress={() => setShowPinModal(true)}>
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(231, 76, 60, 0.15)" }]}><Ionicons name="lock-closed-outline" size={20} color="#e74c3c" /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Change Password")}</Text><Text style={styles.settingItemSub}>{_("Last changed 45 days ago")}</Text></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Change PIN")}</Text><Text style={styles.settingItemSub}>{_("Update security access code")}</Text></View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
-          </View>
+          </Pressable>
           <View style={styles.settingItem}>
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="chatbox-ellipses-outline" size={20} color={palette.accentBlue} /></View>
             <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Contact Support")}</Text><Text style={styles.settingItemSub}>{_("Extension Officer")}</Text></View>
@@ -1280,5 +1468,146 @@ export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) 
         <View style={{height: 100}} />
       </ScrollView>
     </View>
+  );
+}
+function PinChangeModal({ visible, onClose, user, token, _ }: any) {
+  const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const reset = () => {
+    setStep(1);
+    setOtp("");
+    setNewPin("");
+    setLoading(false);
+  };
+
+  const handleSendOTP = async () => {
+    setLoading(true);
+    try {
+      // Mocking OTP send
+      await new Promise(r => setTimeout(r, 1500));
+      setStep(2);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length < 4) return Alert.alert("Wait", "Please enter the OTP code");
+    setLoading(true);
+    try {
+      // Mocking OTP verify
+      await new Promise(r => setTimeout(r, 1200));
+      setStep(3);
+    } catch (err: any) {
+      Alert.alert("Error", "Invalid OTP code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePIN = async () => {
+    if (newPin.length !== 4) return Alert.alert("Wait", "PIN must be 4 digits");
+    setLoading(true);
+    try {
+      // Mocking PIN update
+      await new Promise(r => setTimeout(r, 1800));
+      Alert.alert("Success", "Security PIN updated successfully!");
+      onClose();
+      reset();
+    } catch (err: any) {
+      Alert.alert("Error", "Failed to update PIN");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable onPress={e => e.stopPropagation()} style={{ backgroundColor: '#111f38', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Security Center")}</Text>
+                <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold' }}>{_("Update PIN")}</Text>
+              </View>
+              <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </Pressable>
+            </View>
+
+            {/* Step 1: Request OTP */}
+            {step === 1 && (
+              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(46, 168, 255, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Ionicons name="shield-checkmark" size={32} color={palette.accentBlue} />
+                </View>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>{_("Identity Verification")}</Text>
+                <Text style={{ color: palette.muted, fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 30 }}>{_("We will send a one-time verification code to your registered mobile number to confirm it's you.")}</Text>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleSendOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Send Verification Code")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+            {/* Step 2: Verify OTP */}
+            {step === 2 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Enter the 6-digit code sent to your phone")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', letterSpacing: 10, textAlign: 'center' }}
+                    placeholder="000000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otp}
+                    onChangeText={setOtp}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleVerifyOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Verify Code")}</Text>}
+                </Pressable>
+                <Pressable onPress={() => setStep(1)} style={{ marginTop: 20, alignSelf: 'center' }}>
+                  <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: 'bold' }}>{_("Didn't receive code? Resend")}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Step 3: Set New PIN */}
+            {step === 3 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Set your new 4-digit security PIN")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: palette.accentGreen, fontSize: 32, fontWeight: 'bold', letterSpacing: 15, textAlign: 'center' }}
+                    placeholder="0000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    secureTextEntry
+                    value={newPin}
+                    onChangeText={setNewPin}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', backgroundColor: palette.accentGreen, marginBottom: 0 }]} onPress={handleUpdatePIN} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Update Security PIN")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
   );
 }

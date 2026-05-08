@@ -8,6 +8,7 @@ export const palette = {
   white: "#eaf3ff",
   accentBlue: "#2ea8ff",
   accentGreen: "#1fbe57",
+  success: "#1fbe57",
   input: "#04132b",
 };
 
@@ -243,4 +244,20 @@ export const styles = StyleSheet.create({
   supDetailVal: { color: "#fff", fontSize: 14, fontWeight: "500" },
   inlineError: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255, 107, 107, 0.1)", padding: 12, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255, 107, 107, 0.3)", gap: 10 },
   inlineErrorText: { color: "#ff6b6b", fontSize: 13, fontWeight: "500", flex: 1 },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: palette.accentGreen,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+  },
 });

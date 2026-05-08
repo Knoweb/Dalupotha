@@ -2,6 +2,7 @@ package com.dalupotha.finance.controller;
 
 import com.dalupotha.finance.dto.CreateServiceRequestRequest;
 import com.dalupotha.finance.dto.LedgerTransactionResponse;
+import com.dalupotha.finance.dto.ProcessPayoutRequest;
 import com.dalupotha.finance.dto.ServiceRequestResponse;
 import com.dalupotha.finance.dto.SupplierLedgerResponse;
 import com.dalupotha.finance.dto.UpdateRequestStatusRequest;
@@ -9,6 +10,7 @@ import com.dalupotha.finance.model.RequestStatus;
 import com.dalupotha.finance.model.RequestType;
 import com.dalupotha.finance.service.FinanceService;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +29,20 @@ public class FinanceController {
 
     public FinanceController(FinanceService financeService) {
         this.financeService = financeService;
+    }
+
+    @PostMapping("/api/finance/payout")
+    public LedgerTransactionResponse processPayout(@Valid @RequestBody ProcessPayoutRequest request) {
+        return financeService.processPayout(request.getSupplierId(), request.getAmount(), request.getRequesterId(), request.getDescription(), request.isImmediate());
+    }
+
+    @PostMapping("/api/finance/payout/bulk")
+    public void bulkProcessPayouts(
+            @RequestParam List<UUID> supplierIds,
+            @RequestParam UUID requesterId,
+            @RequestParam(defaultValue = "false") boolean immediate
+    ) {
+        financeService.bulkProcessPayouts(supplierIds, requesterId, immediate);
     }
 
     @GetMapping("/api/finance/ledger/{supplierId}")

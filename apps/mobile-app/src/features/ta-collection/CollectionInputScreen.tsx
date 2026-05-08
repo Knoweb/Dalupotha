@@ -25,7 +25,10 @@ type SupplierSummary = {
 
 const ACTION_BUTTON_HEIGHT = 55;
 
-export function CollectionInputScreen({ navigation, route }: any) {
+import { getTranslation } from "../smallholder/SupplierScreens";
+
+export function CollectionInputScreen({ navigation, route, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const token = route?.params?.token as string | undefined;
   const user = route?.params?.user as any;
 
@@ -136,7 +139,6 @@ export function CollectionInputScreen({ navigation, route }: any) {
       try {
         const current = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
-          maximumAge: 5000,
         });
         setLocation(current);
         return current;
@@ -282,7 +284,7 @@ export function CollectionInputScreen({ navigation, route }: any) {
           <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
             <Ionicons name="close" size={26} color={palette.muted} />
           </Pressable>
-          <Text style={styles.headerTitle}>New Collection</Text>
+          <Text style={styles.headerTitle}>{_("New Collection")}</Text>
           <View style={{ width: 40 }} />
         </View>
       </SafeAreaView>
@@ -321,7 +323,7 @@ export function CollectionInputScreen({ navigation, route }: any) {
         </View>
 
         {/* Supplier Selection */}
-        <Text style={styles.label}>Small Holder</Text>
+        <Text style={styles.label}>{_("Small Holder")}</Text>
         <Pressable style={styles.inputContainer} onPress={() => setShowSupplierModal(true)}>
           <Ionicons name="person-outline" size={20} color={palette.muted} />
           <Text style={{ flex: 1, color: selectedSupplier ? "white" : palette.muted, marginLeft: 10 }}>
@@ -339,7 +341,7 @@ export function CollectionInputScreen({ navigation, route }: any) {
         )}
 
         {/* IoT Scale Input */}
-        <Text style={[styles.label, { marginTop: 10 }]}>Gross Weight (kg)</Text>
+        <Text style={[styles.label, { marginTop: 10 }]}>{_("Gross Weight (kg)")}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 30, width: "100%" }}>
           <View style={[styles.inputContainer, { flex: 3, height: ACTION_BUTTON_HEIGHT, marginBottom: 0, paddingRight: 0 }]}> 
             <Ionicons name="scale-outline" size={18} color={palette.muted} style={{ marginLeft: 15 }} />
@@ -379,7 +381,7 @@ export function CollectionInputScreen({ navigation, route }: any) {
             ) : (
               <Ionicons name="bluetooth" size={18} color="white" style={{ marginRight: 6 }} />
             )}
-            <Text style={[styles.primaryBtnText, { fontSize: 13, color: "white" }]} numberOfLines={1}>Read Scale</Text>
+            <Text style={[styles.primaryBtnText, { fontSize: 13, color: "white" }]} numberOfLines={1}>{_("Read Scale")}</Text>
           </Pressable>
         </View>
 
@@ -414,7 +416,7 @@ export function CollectionInputScreen({ navigation, route }: any) {
           ) : (
             <Ionicons name="checkmark-circle-outline" size={22} color="white" />
           )}
-          <Text style={[styles.primaryBtnText, { letterSpacing: 0.5, fontWeight: "700" }]}>COMPLETE COLLECTION</Text>
+          <Text style={[styles.primaryBtnText, { letterSpacing: 0.5, fontWeight: "700" }]}>{_("COMPLETE COLLECTION")}</Text>
         </Pressable>
         {!!saveFeedback && (
           <Text style={{ color: palette.muted, fontSize: 12, textAlign: "center", marginTop: 8 }}>

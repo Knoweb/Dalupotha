@@ -304,6 +304,7 @@ public class FinanceService {
                 entity.getTransactionId(),
                 entity.getSupplierId(),
                 entity.getApproverId(),
+                entity.getRequestId(),
                 entity.getTransactionType(),
                 entity.getAmount(),
                 entity.getGrossAmount(),
@@ -314,6 +315,31 @@ public class FinanceService {
                 entity.getStatus(),
                 approverName
         );
+    }
+
+    public LedgerTransactionResponse processPayout(UUID supplierId, BigDecimal amount, UUID requesterId, String description, boolean immediate) {
+        log.info("PROCESSING PAYOUT: Supplier: {}, Amount: {}, Requester: {}, Immediate: {}", supplierId, amount, requesterId, immediate);
+
+        FinancialLedgerEntity ledger = new FinancialLedgerEntity();
+        ledger.setSupplierId(supplierId);
+        ledger.setTransactionType(LedgerTransactionType.PAYOUT);
+        ledger.setAmount(amount);
+        ledger.setApproverId(immediate ? requesterId : null); // Only set approver if immediate
+        ledger.setDescription(description != null ? description : "Balance Payment Payout");
+        ledger.setStatus(immediate ? LedgerStatus.APPROVED : LedgerStatus.AWAITING_APPROVAL);
+        
+        FinancialLedgerEntity saved = financialLedgerRepository.save(ledger);
+        return toLedgerTransactionResponse(saved);
+    }
+
+    public void bulkProcessPayouts(List<UUID> supplierIds, UUID requesterId, boolean immediate) {
+        log.info("BULK PROCESSING PAYOUTS: Count: {}, Requester: {}, Immediate: {}", supplierIds.size(), requesterId, immediate);
+        for (UUID sid : supplierIds) {
+            SupplierLedgerResponse ledger = getSupplierLedger(sid);
+            if (ledger.estimatedBalance().compareTo(BigDecimal.ZERO) > 0) {
+                processPayout(sid, ledger.estimatedBalance(), requesterId, "Bulk Monthly Payout", immediate);
+            }
+        }
     }
 
     public SupplierLedgerResponse getSupplierLedger(UUID supplierId) {

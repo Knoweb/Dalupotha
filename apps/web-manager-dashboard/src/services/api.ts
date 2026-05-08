@@ -60,6 +60,28 @@ export const FinanceAPI = {
       payoutTotal: number;
       estimatedBalance: number;
     }>;
+  },
+
+  processPayout: async (data: { supplierId: string, amount: number, requesterId: string, description?: string, immediate?: boolean }) => {
+    const res = await fetch(`${API_BASE}/finance/payout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to process payout');
+    return res.json();
+  },
+
+  processBulkPayout: async (supplierIds: string[], requesterId: string, immediate: boolean = false) => {
+    const query = new URLSearchParams({
+      supplierIds: supplierIds.join(','),
+      requesterId,
+      immediate: immediate.toString()
+    }).toString();
+    const res = await fetch(`${API_BASE}/finance/payout/bulk?${query}`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to process bulk payout');
   }
 };
 

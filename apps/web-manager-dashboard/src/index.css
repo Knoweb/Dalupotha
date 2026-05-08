@@ -5,11 +5,12 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
   color-scheme: light;
-  background-color: #f8fafc;
+  background-color: #f1f5f9;
+  color: #000000;
 
   /* DALUPOTHA BRAND COLORS */
   --sidebar-bg: #4c9141; /* Plantation Green */
@@ -17,6 +18,12 @@
   --status-pending: #f97316;
   --status-approved: #22c55e;
   --status-rejected: #ef4444;
+}
+
+h1, h2, h3, h4, h5, h6, button, .font-jakarta {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: -0.01em;
+  color: #000000;
 }
 
 body {

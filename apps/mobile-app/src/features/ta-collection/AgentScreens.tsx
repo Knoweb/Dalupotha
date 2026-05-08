@@ -253,7 +253,8 @@ function NotificationsModal({ visible, onClose, notifications, onClearAll, onDis
 // Dashboard Screen
 // ─────────────────────────────────────────────────────────────
 
-export function DashboardScreen({ user, role, navigation, token }: any) {
+export function DashboardScreen({ user, role, navigation, token, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
@@ -447,7 +448,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
           </View>
           {/* Title */}
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800" }}>Transport Agent</Text>
+            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800" }}>{_("Transport Agent")}</Text>
             <Text style={{ color: palette.muted, fontSize: 13 }}>{user?.fullName || "Agent"}</Text>
           </View>
           {/* Icons */}
@@ -494,13 +495,13 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingBottom: 14, gap: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(31,190,87,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: "rgba(31,190,87,0.25)" }}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#1fbe57" }} />
-            <Text style={{ color: "#1fbe57", fontSize: 12, fontWeight: "700" }}>Online</Text>
+            <Text style={{ color: "#1fbe57", fontSize: 12, fontWeight: "700" }}>{_("Online")}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
             <Ionicons name="checkmark" size={14} color={palette.accentBlue} />
-            <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>Synced</Text>
+            <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>{_("Synced")}</Text>
           </View>
-          <Text style={{ color: palette.muted, fontSize: 12, marginLeft: "auto" }}>Last sync: {lastSyncText}</Text>
+          <Text style={{ color: palette.muted, fontSize: 12, marginLeft: "auto" }}>{_("Last sync")}: {lastSyncText}</Text>
         </View>
       </SafeAreaView>
 
@@ -520,8 +521,8 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               <MaterialCommunityIcons name="leaf" size={18} color="#1fbe57" />
             </View>
             <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayKgToday} kg</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>TODAY'S LEAF</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupToday} suppliers</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>{_("TODAY'S LEAF")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupToday} {_("suppliers")}</Text>
           </Pressable>
 
           {/* Pending Sync */}
@@ -536,13 +537,13 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               <Ionicons name="time-outline" size={18} color="#f39c12" />
             </View>
             <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayPendingSync}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>PENDING SYNC</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>records queued</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>{_("PENDING SYNC")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{_("records queued")}</Text>
           </Pressable>
 
           {/* Route Progress */}
           <Pressable 
-            onPress={() => navigation.navigate("SupplierList", { user, token })}
+            onPress={() => navigation.navigate("SupplierList", { user, token, lang })}
             style={({pressed}) => [{ 
               flex: 1, backgroundColor: "#0d1f36", borderRadius: 16, padding: 14, borderTopWidth: 3, borderTopColor: palette.accentBlue, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
               opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }]
@@ -552,21 +553,21 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               <Ionicons name="location-outline" size={18} color={palette.accentBlue} />
             </View>
             <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displaySupToday}/{displaySupTotal || "—"}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>ROUTE PROGRESS</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% complete` : "No data"}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>{_("ROUTE PROGRESS")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% ${_("complete")}` : _("No data")}</Text>
           </Pressable>
         </View>
 
         {/* ── Quick Actions ── */}
-        <Text style={[styles.sectionHeader, { marginBottom: 12 }]}>QUICK ACTIONS</Text>
+        <Text style={[styles.sectionHeader, { marginBottom: 12 }]}>{_("QUICK ACTIONS")}</Text>
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
           <Pressable
-            onPress={() => navigation.navigate("CollectionInput", { token, user })}
+            onPress={() => navigation.navigate("CollectionInput", { token, user, lang })}
             style={{ flex: 1, backgroundColor: "#1fbe57", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
               boxShadow: "0px 6px 10px rgba(31, 190, 87, 0.35)", elevation: 8 }}
           >
             <Ionicons name="add" size={26} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>New Collection</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("New Collection")}</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate("Collections")}
@@ -574,17 +575,17 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               boxShadow: "0px 6px 10px rgba(37, 99, 235, 0.35)", elevation: 8 }}
           >
             <Ionicons name="search-outline" size={24} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>View History</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("View History")}</Text>
           </Pressable>
         </View>
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
           <Pressable
-            onPress={() => navigation.navigate("SupplierList", { user, token })}
+            onPress={() => navigation.navigate("SupplierList", { user, token, lang })}
             style={{ flex: 1, backgroundColor: "#7c3aed", borderRadius: 16, height: 70, alignItems: "center", justifyContent: "center", gap: 6,
               boxShadow: "0px 6px 10px rgba(124, 58, 237, 0.35)", elevation: 8 }}
           >
             <Ionicons name="list-outline" size={24} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Supplier List</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("Supplier List")}</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate("Requests")}
@@ -592,15 +593,15 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               boxShadow: "0px 6px 10px rgba(217, 119, 6, 0.35)", elevation: 8 }}
           >
             <Ionicons name="paper-plane-outline" size={24} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Requests</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("Requests")}</Text>
           </Pressable>
         </View>
 
         {/* ── Today's Collections ── */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={styles.sectionHeader}>TODAY'S COLLECTIONS</Text>
+          <Text style={styles.sectionHeader}>{_("Today's Collections")}</Text>
           <Pressable onPress={() => navigation.navigate("Collections")}>
-            <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: "600" }}>See All →</Text>
+            <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: "600" }}>{_("See All")} →</Text>
           </Pressable>
         </View>
 
@@ -613,7 +614,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         {!loading && displayItems.length === 0 && (
           <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 24, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
             <MaterialCommunityIcons name="leaf-off" size={28} color={palette.muted} />
-            <Text style={{ color: palette.muted, fontSize: 13, marginTop: 8 }}>No collections today yet</Text>
+            <Text style={{ color: palette.muted, fontSize: 13, marginTop: 8 }}>{_("No collections today yet")}</Text>
           </View>
         )}
 
@@ -629,7 +630,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             : item.supplierName;
           return (
             <Pressable key={item.key || idx}
-              onPress={() => navigation.navigate("CollectionDetail", { item, token })}
+              onPress={() => navigation.navigate("CollectionDetail", { item, token, lang })}
               style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", opacity: pressed ? 0.75 : 1 }]}>
               <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                 <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>{initial}</Text>
@@ -665,7 +666,8 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
 // Collections Screen
 // ─────────────────────────────────────────────────────────────
 
-export function CollectionsScreen({ navigation, user, token }: any) {
+export function CollectionsScreen({ navigation, user, token, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");
   const [historyItems, setHistoryItems] = useState<CollectionCardItem[]>([]);
@@ -781,7 +783,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
           <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
             <Ionicons name="chevron-back" size={24} color={palette.muted} />
           </Pressable>
-          <Text style={styles.headerTitle}>Collections</Text>
+          <Text style={styles.headerTitle}>{_("Collections")}</Text>
           <Pressable style={styles.iconBtn}>
             <Ionicons name="qr-code-outline" size={20} color={palette.muted} />
           </Pressable>
@@ -791,7 +793,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         <View style={styles.searchBox}>
           <Ionicons name="search" size={20} color={palette.muted} />
           <TextInput
-            placeholder="Search by name or passbook..."
+            placeholder={_("Search by name or passbook...")}
             placeholderTextColor={palette.muted}
             style={styles.searchInput}
             value={search}
@@ -800,7 +802,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={styles.cardItemSub}>Pending sync: {pendingCount}</Text>
+          <Text style={styles.cardItemSub}>{_("Pending sync")}: {pendingCount}</Text>
           <Pressable
             style={[styles.filterChip, { borderColor: palette.accentBlue }]}
             onPress={handleSync}
@@ -809,7 +811,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
             {isSyncing ? (
               <ActivityIndicator size="small" color={palette.accentBlue} />
             ) : (
-              <Text style={[styles.filterChipText, { color: pendingCount > 0 ? palette.accentBlue : palette.muted }]}>Sync Queue</Text>
+              <Text style={[styles.filterChipText, { color: pendingCount > 0 ? palette.accentBlue : palette.muted }]}>{_("Sync Queue")}</Text>
             )}
           </Pressable>
         </View>
@@ -817,7 +819,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         <View style={styles.filterRow}>
           {["All", "Synced", "Queued", "Failed"].map((tab) => (
             <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.filterChip, activeTab === tab && styles.filterChipActive]}>
-              <Text style={[styles.filterChipText, activeTab === tab && styles.filterChipTextActive]}>{tab}</Text>
+              <Text style={[styles.filterChipText, activeTab === tab && styles.filterChipTextActive]}>{_(tab)}</Text>
             </Pressable>
           ))}
         </View>
@@ -830,22 +832,22 @@ export function CollectionsScreen({ navigation, user, token }: any) {
 
           {!isLoading && filtered.length === 0 && (
             <View style={styles.collectionItemCard}>
-              <Text style={styles.cardItemSub}>No collections found.</Text>
+              <Text style={styles.cardItemSub}>{_("No collections found")}</Text>
             </View>
           )}
 
           {!isLoading && filtered.map((item, idx) => (
-            <Pressable key={idx} style={styles.collectionItemCard} onPress={() => navigation.navigate("CollectionDetail", { item, token })}>
+            <Pressable key={idx} style={styles.collectionItemCard} onPress={() => navigation.navigate("CollectionDetail", { item, token, lang })}>
               <View style={[styles.collectionAvatarCompact, { backgroundColor: "#2ea8ff" }]}>
                 <Text style={styles.collectionAvatarText}>{(item.supplierName || "?").substring(0, 1).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardItemTitle}>{item.supplierName}</Text>
-                <Text style={styles.cardItemSub}>{item.passbookNo || "Passbook unavailable"}</Text>
+                <Text style={styles.cardItemSub}>{item.passbookNo || _("Passbook unavailable")}</Text>
                 <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                   <StatusBadge type={toGpsBadgeType(item.gpsStatus)} text={item.gpsStatus === "GPS" ? "GPS" : "No GPS"} />
                   <StatusBadge type={toStatusBadgeType(item.syncStatus)} text={item.syncStatus.charAt(0) + item.syncStatus.slice(1).toLowerCase()} />
-                  {item.manualOverride && <StatusBadge type="manual" text="Manual" />}
+                  {item.manualOverride && <StatusBadge type="manual" text={_("Manual")} />}
                 </View>
               </View>
               <View style={{ alignItems: "flex-end" }}>
@@ -950,7 +952,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
         params.set("supplierId", String(sid));
         if (user.passbookNo) params.set("passbookNo", user.passbookNo);
         params.set("requestType", requestType);
-        params.set("limit", "120");
+        params.set("size", "120");
         const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
         const sorted = Array.isArray(data) ? data.sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime()) : [];
         setItems(sorted);
@@ -1353,13 +1355,13 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               style={{ flex: 1, paddingVertical: 10, alignItems: "center", backgroundColor: toolViewMode === "TOOL_PURCHASE" ? palette.accentBlue : "transparent", borderRadius: 6 }}
               onPress={() => setToolViewMode("TOOL_PURCHASE")}
             >
-              <Text style={{ color: toolViewMode === "TOOL_PURCHASE" ? "white" : palette.muted, fontWeight: "bold", fontSize: 13 }}>Purchase</Text>
+              <Text style={{ color: toolViewMode === "TOOL_PURCHASE" ? "white" : palette.muted, fontWeight: "bold", fontSize: 13 }}>{_("Purchase")}</Text>
             </Pressable>
             <Pressable 
               style={{ flex: 1, paddingVertical: 10, alignItems: "center", backgroundColor: toolViewMode === "TOOL_RENT" ? palette.accentBlue : "transparent", borderRadius: 6 }}
               onPress={() => setToolViewMode("TOOL_RENT")}
             >
-              <Text style={{ color: toolViewMode === "TOOL_RENT" ? "white" : palette.muted, fontWeight: "bold", fontSize: 13 }}>Rent</Text>
+              <Text style={{ color: toolViewMode === "TOOL_RENT" ? "white" : palette.muted, fontWeight: "bold", fontSize: 13 }}>{_("Rent")}</Text>
             </Pressable>
           </View>
         )}
@@ -1371,11 +1373,11 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               onPress={openForm}
             >
               <Ionicons name="add" size={24} color="#111" />
-              <Text style={{ color: "#111", fontSize: 16, fontWeight: "bold" }}>Create New Request</Text>
+              <Text style={{ color: "#111", fontSize: 16, fontWeight: "bold" }}>{_("Create New Request")}</Text>
             </Pressable>
             <View style={[styles.warningBox, { marginTop: 0, paddingVertical: 10 }]}>
               <Ionicons name="alert-circle-outline" size={16} color="#f39c12" />
-              <Text style={styles.warningText}>Only for suppliers under your assignment</Text>
+              <Text style={styles.warningText}>{_("Only for suppliers under your assignment")}</Text>
             </View>
           </View>
         )}
@@ -1389,7 +1391,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
 
           {!loading && items.length === 0 && (
             <View style={styles.reqCard}>
-              <Text style={styles.cardItemSub}>No {activeTab.toLowerCase()} requests found.</Text>
+              <Text style={styles.cardItemSub}>{_("No requests found")}</Text>
             </View>
           )}
 
@@ -1420,16 +1422,16 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
                 <View style={[styles.statusBadge, { backgroundColor: item.requestType === 'TRANSPORT' && item.status === 'APPROVED_BY_EXT' ? 'rgba(31,190,87,0.2)' : "rgba(255,255,255,0.08)" }]}>
                   <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")), fontWeight: item.requestType === 'TRANSPORT' && item.status === 'APPROVED_BY_EXT' ? '800' : 'normal' }]}>
                     {item.requestType === 'TRANSPORT' && item.status === 'APPROVED_BY_EXT' 
-                      ? 'READY TO FULFILL'
+                      ? _('READY TO FULFILL')
                       : (activeTab === 'Advisory' && String(item.status || '').startsWith('APPROVED') 
-                        ? 'RECEIVED' 
+                        ? _('RECEIVED') 
                         : _(String(item.status || "PENDING").startsWith('APPROVED') ? 'APPROVED' : String(item.status || "PENDING").replace(/_/g, ' ')))}
                   </Text>
                 </View>
               </View>
 
               <View style={{ position: 'absolute', bottom: 12, right: 12 }}>
-                <Text style={{ fontSize: 9, color: palette.muted, fontStyle: 'italic' }}>Tap for more info</Text>
+                <Text style={{ fontSize: 9, color: palette.muted, fontStyle: 'italic' }}>{_("Tap for more info")}</Text>
               </View>
               {activeTab === "Advance" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -1440,11 +1442,11 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {activeTab === "Fertilizer" && (
                 <>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={styles.reqCardLabel}>Type</Text>
+                    <Text style={styles.reqCardLabel}>{_("Type")}</Text>
                     <Text style={styles.reqCardValue}>{item.itemType || "Standard"}</Text>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={styles.reqCardLabel}>Total Quantity</Text>
+                    <Text style={styles.reqCardLabel}>{_("Total Quantity")}</Text>
                     <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
                   </View>
                 </>
@@ -1452,11 +1454,11 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {activeTab === "Tools" && (
                 <>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={styles.reqCardLabel}>Item</Text>
+                    <Text style={styles.reqCardLabel}>{_("Item")}</Text>
                     <Text style={styles.reqCardValue}>{item.itemType || "Tool"}</Text>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={styles.reqCardLabel}>{String(item.requestType || "").startsWith("TOOL_RENT") ? "Rent Days" : "Units"}</Text>
+                    <Text style={styles.reqCardLabel}>{String(item.requestType || "").startsWith("TOOL_RENT") ? _("Rent Days") : _("Units")}</Text>
                     <Text style={styles.reqCardValue}>{item.days || item.quantity || 1}</Text>
                   </View>
                 </>
@@ -1464,11 +1466,11 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {activeTab === "Leaf Bags" && (
                 <>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={styles.reqCardLabel}>Bag Type</Text>
+                    <Text style={styles.reqCardLabel}>{_("Bag Type")}</Text>
                     <Text style={styles.reqCardValue}>{item.itemType || "Standard 5kg"}</Text>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={styles.reqCardLabel}>Quantity</Text>
+                    <Text style={styles.reqCardLabel}>{_("Quantity")}</Text>
                     <Text style={styles.reqCardValue}>{item.quantity || 0} bags</Text>
                   </View>
                 </>
@@ -1476,12 +1478,12 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {activeTab === "Advisory" && (
                 <>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text style={styles.reqCardLabel}>Topic</Text>
+                    <Text style={styles.reqCardLabel}>{_("Topic")}</Text>
                     <Text style={styles.reqCardValue}>{item.itemType || "General Advisory"}</Text>
                   </View>
                   {item.notes && (
                     <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text style={styles.reqCardLabel}>Note</Text>
+                      <Text style={styles.reqCardLabel}>{_("Note")}</Text>
                       <Text style={[styles.reqCardValue, { flex: 1, textAlign: 'right', marginLeft: 10 }]} numberOfLines={1}>{item.notes}</Text>
                     </View>
                   )}
@@ -1490,8 +1492,8 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
 
               {activeTab === "Transport" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={styles.reqCardLabel}>Note</Text>
-                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: 'right', marginLeft: 10 }]} numberOfLines={1}>{item.notes || "Standard Transport"}</Text>
+                  <Text style={styles.reqCardLabel}>{_("Note")}</Text>
+                  <Text style={[styles.reqCardValue, { flex: 1, textAlign: 'right', marginLeft: 10 }]} numberOfLines={1}>{item.notes || _("Standard Transport")}</Text>
                 </View>
               )}
 
@@ -1502,7 +1504,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
                     style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 8, borderRadius: 8, backgroundColor: "rgba(231,76,60,0.1)", borderWidth: 1, borderColor: "rgba(231,76,60,0.2)" }}
                   >
                     <Ionicons name="trash-outline" size={16} color="#e74c3c" />
-                    <Text style={{ color: "#e74c3c", fontSize: 13, fontWeight: "bold" }}>Remove Request</Text>
+                    <Text style={{ color: "#e74c3c", fontSize: 13, fontWeight: "bold" }}>{_("Remove Request")}</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -1515,7 +1517,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
           <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", padding: 20 }}>
             <View style={{ backgroundColor: "#111f38", borderRadius: 24, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>Request Info</Text>
+                <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>{_("Request Info")}</Text>
                 <Pressable onPress={() => setSelectedRequest(null)}>
                   <Ionicons name="close" size={24} color={palette.muted} />
                 </Pressable>
@@ -1524,27 +1526,27 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {selectedRequest && (
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
-                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>Supplier Details</Text>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>{_("Supplier Details")}</Text>
                     <Text style={{ color: "white", fontSize: 16, fontWeight: "bold", marginBottom: 4 }}>{selectedRequest.supplierName}</Text>
                     <Text style={{ color: palette.muted, fontSize: 13 }}>PB: {selectedRequest.passbookNo}</Text>
                   </View>
 
                   <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
-                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>Request Summary</Text>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>{_("Request Summary")}</Text>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Type</Text>
+                      <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{_("Type")}</Text>
                       <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.requestType?.replace(/_/g, ' ')}</Text>
                     </View>
                     {String(selectedRequest.requestType || "").trim().toUpperCase() === 'TRANSPORT' && (
                       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Note</Text>
+                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{_("Note")}</Text>
                         <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.notes || "Standard Transport"}</Text>
                       </View>
                     )}
                     {!(String(selectedRequest.requestType || "").trim().toUpperCase() === 'TRANSPORT' || String(selectedRequest.requestType || "").trim().toUpperCase() === 'ADVANCE' || String(selectedRequest.requestType || "").trim().toUpperCase() === 'ADVISORY') && (
                       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
                         <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-                          {String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? "Rent Duration" : "Quantity/Units"}
+                          {String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? _("Rent Duration") : _("Quantity/Units")}
                         </Text>
                         <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>
                           {selectedRequest.days || selectedRequest.quantity || 0} {selectedRequest.requestType === 'LEAF_BAG' ? 'bags' : (selectedRequest.requestType === 'FERTILIZER' ? 'kg' : (String(selectedRequest.requestType || "").startsWith("TOOL_RENT") ? 'days' : 'units'))}
@@ -1553,17 +1555,17 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
                     )}
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
                       <Text style={{ color: selectedRequest.requestedAmount > 0 ? palette.accentGreen : "#f39c12", fontSize: 13, fontWeight: 'bold' }}>
-                        {selectedRequest.requestType === 'ADVANCE' ? 'Requested Amount' : 'Total Deduction'}
+                        {selectedRequest.requestType === 'ADVANCE' ? _('Requested Amount') : _('Total Deduction')}
                       </Text>
                       <Text style={{ color: selectedRequest.requestedAmount > 0 ? palette.accentGreen : "#f39c12", fontSize: 14, fontWeight: "bold" }}>
                         {selectedRequest.requestedAmount > 0 
                           ? `Rs. ${Number(selectedRequest.requestedAmount).toLocaleString()}`
-                          : (selectedRequest.status === 'PENDING' ? 'Awaiting Review' : 'Rs. 0')}
+                          : (selectedRequest.status === 'PENDING' ? _('Awaiting Review') : 'Rs. 0')}
                       </Text>
                     </View>
                     {(selectedRequest.itemType || selectedRequest.specification) && (
                       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>Specification</Text>
+                        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{_("Specification")}</Text>
                         <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.itemType || selectedRequest.specification}</Text>
                       </View>
                     )}
@@ -1571,13 +1573,13 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
 
                   {selectedRequest.approverComment && (
                     <View style={{ backgroundColor: `${palette.accentGreen}10`, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: `${palette.accentGreen}20` }}>
-                      <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>Manager Remarks</Text>
+                      <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>{_("Manager Remarks")}</Text>
                       <Text style={{ color: "white", fontSize: 14, fontStyle: "italic", lineHeight: 22 }}>"{selectedRequest.approverComment}"</Text>
                     </View>
                   )}
 
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-                    <Text style={{ color: palette.muted, fontSize: 11 }}>Status: {selectedRequest.status}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 11 }}>{_("Status")}: {_(selectedRequest.status)}</Text>
                     <Text style={{ color: palette.muted, fontSize: 11 }}>{new Date(selectedRequest.requestDate).toLocaleDateString()}</Text>
                   </View>
 
@@ -1585,7 +1587,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
                     onPress={() => setSelectedRequest(null)}
                     style={{ backgroundColor: palette.accentGreen, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 24 }}
                   >
-                    <Text style={{ color: "#111", fontWeight: "bold" }}>Close Details</Text>
+                    <Text style={{ color: "#111", fontWeight: "bold" }}>{_("Close Details")}</Text>
                   </Pressable>
                 </ScrollView>
               )}
@@ -1600,7 +1602,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
           <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "flex-end" }}>
             <View style={{ backgroundColor: "#111f38", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 25, maxHeight: "90%" }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>New {activeTab} Request</Text>
+                <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>{_("New")} {_(activeTab)} {_("Request")}</Text>
                 <Pressable onPress={() => setShowForm(false)}>
                   <Ionicons name="close" size={24} color={palette.muted} />
                 </Pressable>
@@ -1609,7 +1611,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {!formSupplier ? (
                 // Step 1: Select Supplier
                 <View style={{ flexShrink: 1 }}>
-                  <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Search Supplier</Text>
+                  <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>{_("Search Supplier")}</Text>
                   <View style={[styles.inputContainer, { marginBottom: 15 }]}>
                     <Ionicons name="search" size={18} color={palette.muted} style={{ marginLeft: 15 }} />
                     <TextInput
@@ -1640,7 +1642,7 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
                         </Pressable>
                       ))}
                       {suppliers.length === 0 && (
-                        <Text style={{ color: palette.muted, textAlign: "center", marginTop: 20 }}>No suppliers found.</Text>
+                        <Text style={{ color: palette.muted, textAlign: "center", marginTop: 20 }}>{_("No suppliers found")}</Text>
                       )}
                     </ScrollView>
                   )}
@@ -1990,14 +1992,25 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
 // Profile Screen
 // ─────────────────────────────────────────────────────────────
 
-export function ProfileScreen({ user, navigation }: any) {
+export function ProfileScreen({ user, navigation, lang, setLang, token }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
+  
+  const [showPinModal, setShowPinModal] = useState(false);
+
   return (
     <View style={styles.dashboardWrap}>
+      <PinChangeModal 
+        visible={showPinModal} 
+        onClose={() => setShowPinModal(false)} 
+        user={user}
+        token={token}
+        _={_}
+      />
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
         <View style={styles.headerBar}>
           <View style={{ width: 40 }} />
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={styles.headerTitle}>{_("Profile")}</Text>
           <Pressable style={styles.iconBtn}>
             <Ionicons name="settings-outline" size={24} color={palette.muted} />
           </Pressable>
@@ -2031,16 +2044,29 @@ export function ProfileScreen({ user, navigation }: any) {
           </View>
         </View>
 
-        <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>SETTINGS</Text>
+        <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>{_("SETTINGS")}</Text>
 
         <View style={{ gap: 12 }}>
+          {/* Language Preference */}
+          <Pressable 
+            style={[styles.settingItem, { borderColor: palette.accentBlue, borderWidth: 1 }]} 
+            onPress={() => setLang && setLang(lang === 'en' ? 'si' : 'en')}
+          >
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="language" size={20} color={palette.accentBlue} /></View>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={styles.settingItemTitle}>{_("Language Preference")}</Text>
+              <Text style={styles.settingItemSub}>{_("Switch between Sinhala and English")}</Text>
+            </View>
+            <Text style={{ color: palette.accentBlue, fontWeight: "800", fontSize: 13, marginRight: 8 }}>{lang === 'si' ? 'SINHALA' : 'ENGLISH'}</Text>
+            <Ionicons name="chevron-forward" size={18} color={palette.accentBlue} />
+          </Pressable>
+
           {[
-            { icon: "bluetooth" as const,           bg: "rgba(46,168,255,0.15)",  color: palette.accentBlue,  title: "Bluetooth Scale",  sub: "DL-7200 · Connected" },
-            { icon: "location-outline" as const,    bg: "rgba(31,190,87,0.15)",   color: palette.accentGreen, title: "GPS Accuracy",      sub: "High accuracy mode · ON" },
-            { icon: "sync" as const,                bg: "rgba(155,89,182,0.15)",  color: "#9b59b6",           title: "Sync Settings",     sub: "Auto-sync on WiFi · ON" },
-            { icon: "notifications-outline" as const,bg: "rgba(243,156,18,0.15)", color: "#f39c12",           title: "Notifications",     sub: "All alerts enabled" },
-            { icon: "time-outline" as const,        bg: "rgba(231,76,60,0.15)",   color: "#e74c3c",           title: "My Collections",    sub: "View full history" },
-            { icon: "lock-closed-outline" as const, bg: "rgba(231,76,60,0.15)",   color: "#e74c3c",           title: "Change PIN",        sub: "Last changed 30 days ago" },
+            { icon: "bluetooth" as const,           bg: "rgba(46,168,255,0.15)",  color: palette.accentBlue,  title: _("Bluetooth Scale"),  sub: _("DL-7200 · Connected") },
+            { icon: "location-outline" as const,    bg: "rgba(31,190,87,0.15)",   color: palette.accentGreen, title: _("GPS Accuracy"),      sub: _("High accuracy mode · ON") },
+            { icon: "sync" as const,                bg: "rgba(155,89,182,0.15)",  color: "#9b59b6",           title: _("Sync Settings"),     sub: _("Auto-sync on WiFi · ON") },
+            { icon: "notifications-outline" as const,bg: "rgba(243,156,18,0.15)", color: "#f39c12",           title: _("Notifications"),     sub: _("All alerts enabled") },
+            { icon: "time-outline" as const,        bg: "rgba(231,76,60,0.15)",   color: "#e74c3c",           title: _("My Collections"),    sub: _("View full history") },
           ].map((item, i) => (
             <View key={i} style={styles.settingItem}>
               <View style={[styles.settingIconBg, { backgroundColor: item.bg }]}>
@@ -2054,12 +2080,18 @@ export function ProfileScreen({ user, navigation }: any) {
             </View>
           ))}
 
+          <Pressable style={styles.settingItem} onPress={() => setShowPinModal(true)}>
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(231, 76, 60, 0.15)" }]}><Ionicons name="lock-closed-outline" size={20} color="#e74c3c" /></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Change PIN")}</Text><Text style={styles.settingItemSub}>{_("Update security access code")}</Text></View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </Pressable>
+
           <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Login")}>
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
               <Ionicons name="log-out-outline" size={20} color={palette.muted} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.settingItemTitle}>Sign Out</Text>
+              <Text style={styles.settingItemTitle}>{_("Sign Out")}</Text>
               <Text style={styles.settingItemSub}>{user?.fullName} · {user?.employeeId}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
@@ -2090,7 +2122,8 @@ const MOCK_SUPPLIERS = [
 const avatarPalette = ["#3498db","#2ecc71","#9b59b6","#e67e22","#1abc9c","#e74c3c","#f39c12","#2980b9"];
 const getBgColor = (name: string) => avatarPalette[name.charCodeAt(0) % avatarPalette.length];
 
-export function SupplierListScreen({ user, token, navigation }: any) {
+export function SupplierListScreen({ user, token, navigation, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const [search, setSearch] = useState("");
   const [historyItems, setHistoryItems] = useState<ApiCollectionHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2147,8 +2180,8 @@ export function SupplierListScreen({ user, token, navigation }: any) {
             <Ionicons name="chevron-back" size={22} color="#fff" />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>Supplier List</Text>
-            <Text style={{ color: palette.muted, fontSize: 13 }}>{suppliers.length} suppliers · {collected} collected today</Text>
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>{_("Supplier List")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 13 }}>{suppliers.length} {_("suppliers")} · {collected} {_("collected today")}</Text>
           </View>
           <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
             <Ionicons name="filter-outline" size={20} color={palette.muted} />
@@ -2180,11 +2213,11 @@ export function SupplierListScreen({ user, token, navigation }: any) {
           </View>
           <View style={{ flex: 1, backgroundColor: "rgba(243,156,18,0.1)", borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "rgba(243,156,18,0.2)" }}>
             <Text style={{ color: "#f39c12", fontSize: 18, fontWeight: "800" }}>{suppliers.length - collected}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10 }}>Pending</Text>
+            <Text style={{ color: palette.muted, fontSize: 10 }}>{_("Pending")}</Text>
           </View>
           <View style={{ flex: 1, backgroundColor: "rgba(46,168,255,0.1)", borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: "rgba(46,168,255,0.2)" }}>
             <Text style={{ color: palette.accentBlue, fontSize: 18, fontWeight: "800" }}>{suppliers.length}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10 }}>Total</Text>
+            <Text style={{ color: palette.muted, fontSize: 10 }}>{_("Total")}</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -2195,7 +2228,7 @@ export function SupplierListScreen({ user, token, navigation }: any) {
         {!loading && filtered.length === 0 && (
           <View style={{ alignItems: "center", paddingTop: 40 }}>
             <Ionicons name="people-outline" size={40} color={palette.muted} />
-            <Text style={{ color: palette.muted, marginTop: 12, fontSize: 14 }}>No suppliers found</Text>
+            <Text style={{ color: palette.muted, marginTop: 12, fontSize: 14 }}>{_("No suppliers found")}</Text>
           </View>
         )}
 
@@ -2233,13 +2266,13 @@ export function SupplierListScreen({ user, token, navigation }: any) {
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: isSynced ? "rgba(31,190,87,0.12)" : "rgba(243,156,18,0.12)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
                         <Ionicons name={isSynced ? "checkmark" : "time-outline"} size={10} color={isSynced ? "#1fbe57" : "#f39c12"} />
-                        <Text style={{ color: isSynced ? "#1fbe57" : "#f39c12", fontSize: 10, fontWeight: "600" }}>{isSynced ? "Synced" : "Queued"}</Text>
+                        <Text style={{ color: isSynced ? "#1fbe57" : "#f39c12", fontSize: 10, fontWeight: "600" }}>{isSynced ? _("Synced") : _("Queued")}</Text>
                       </View>
                     </>
                   ) : (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(243,156,18,0.12)", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
                       <Ionicons name="time-outline" size={10} color="#f39c12" />
-                      <Text style={{ color: "#f39c12", fontSize: 10, fontWeight: "600" }}>Not yet collected</Text>
+                      <Text style={{ color: "#f39c12", fontSize: 10, fontWeight: "600" }}>{_("Not yet collected")}</Text>
                     </View>
                   )}
                 </View>
@@ -2329,7 +2362,8 @@ export function SupplierListScreen({ user, token, navigation }: any) {
 }
 
 
-export function CollectionDetailScreen({ route, navigation }: any) {
+export function CollectionDetailScreen({ route, navigation, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const { item, token } = route.params;
   const [notes, setNotes] = useState(item.supervisorNotes || "");
   const [isSaving, setIsSaving] = useState(false);
@@ -2512,3 +2546,285 @@ export function CollectionDetailScreen({ route, navigation }: any) {
   );
 }
 
+function PinChangeModal({ visible, onClose, user, token, _ }: any) {
+  const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const reset = () => {
+    setStep(1);
+    setOtp("");
+    setNewPin("");
+    setLoading(false);
+  };
+
+  const handleSendOTP = async () => {
+    setLoading(true);
+    try {
+      // Mocking OTP send
+      await new Promise(r => setTimeout(r, 1500));
+      setStep(2);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length < 4) return Alert.alert("Wait", "Please enter the OTP code");
+    setLoading(true);
+    try {
+      // Mocking OTP verify
+      await new Promise(r => setTimeout(r, 1200));
+      setStep(3);
+    } catch (err: any) {
+      Alert.alert("Error", "Invalid OTP code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePIN = async () => {
+    if (newPin.length !== 4) return Alert.alert("Wait", "PIN must be 4 digits");
+    setLoading(true);
+    try {
+      // Mocking PIN update
+      await new Promise(r => setTimeout(r, 1800));
+      Alert.alert("Success", "Security PIN updated successfully!");
+      onClose();
+      reset();
+    } catch (err: any) {
+      Alert.alert("Error", "Failed to update PIN");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable onPress={e => e.stopPropagation()} style={{ backgroundColor: '#111f38', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Security Center")}</Text>
+                <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold' }}>{_("Update PIN")}</Text>
+              </View>
+              <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </Pressable>
+            </View>
+
+            {/* Step 1: Request OTP */}
+            {step === 1 && (
+              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(46, 168, 255, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Ionicons name="shield-checkmark" size={32} color={palette.accentBlue} />
+                </View>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>{_("Identity Verification")}</Text>
+                <Text style={{ color: palette.muted, fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 30 }}>{_("We will send a one-time verification code to your registered mobile number to confirm it's you.")}</Text>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleSendOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Send Verification Code")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+            {/* Step 2: Verify OTP */}
+            {step === 2 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Enter the 6-digit code sent to your phone")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', letterSpacing: 10, textAlign: 'center' }}
+                    placeholder="000000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otp}
+                    onChangeText={setOtp}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleVerifyOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Verify Code")}</Text>}
+                </Pressable>
+                <Pressable onPress={() => setStep(1)} style={{ marginTop: 20, alignSelf: 'center' }}>
+                  <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: 'bold' }}>{_("Didn't receive code? Resend")}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Step 3: Set New PIN */}
+            {step === 3 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Set your new 4-digit security PIN")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: palette.accentGreen, fontSize: 32, fontWeight: 'bold', letterSpacing: 15, textAlign: 'center' }}
+                    placeholder="0000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    secureTextEntry
+                    value={newPin}
+                    onChangeText={setNewPin}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', backgroundColor: palette.accentGreen, marginBottom: 0 }]} onPress={handleUpdatePIN} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Update Security PIN")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
+  );
+}
+function PinChangeModal({ visible, onClose, user, token, _ }: any) {
+  const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const reset = () => {
+    setStep(1);
+    setOtp("");
+    setNewPin("");
+    setLoading(false);
+  };
+
+  const handleSendOTP = async () => {
+    setLoading(true);
+    try {
+      // Mocking OTP send
+      await new Promise(r => setTimeout(r, 1500));
+      setStep(2);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length < 4) return Alert.alert("Wait", "Please enter the OTP code");
+    setLoading(true);
+    try {
+      // Mocking OTP verify
+      await new Promise(r => setTimeout(r, 1200));
+      setStep(3);
+    } catch (err: any) {
+      Alert.alert("Error", "Invalid OTP code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePIN = async () => {
+    if (newPin.length !== 4) return Alert.alert("Wait", "PIN must be 4 digits");
+    setLoading(true);
+    try {
+      // Mocking PIN update
+      await new Promise(r => setTimeout(r, 1800));
+      Alert.alert("Success", "Security PIN updated successfully!");
+      onClose();
+      reset();
+    } catch (err: any) {
+      Alert.alert("Error", "Failed to update PIN");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable onPress={e => e.stopPropagation()} style={{ backgroundColor: '#111f38', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Security Center")}</Text>
+                <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold' }}>{_("Update PIN")}</Text>
+              </View>
+              <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </Pressable>
+            </View>
+
+            {/* Step 1: Request OTP */}
+            {step === 1 && (
+              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(46, 168, 255, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Ionicons name="shield-checkmark" size={32} color={palette.accentBlue} />
+                </View>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>{_("Identity Verification")}</Text>
+                <Text style={{ color: palette.muted, fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 30 }}>{_("We will send a one-time verification code to your registered mobile number to confirm it's you.")}</Text>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleSendOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Send Verification Code")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+            {/* Step 2: Verify OTP */}
+            {step === 2 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Enter the 6-digit code sent to your phone")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', letterSpacing: 10, textAlign: 'center' }}
+                    placeholder="000000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otp}
+                    onChangeText={setOtp}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleVerifyOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Verify Code")}</Text>}
+                </Pressable>
+                <Pressable onPress={() => setStep(1)} style={{ marginTop: 20, alignSelf: 'center' }}>
+                  <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: 'bold' }}>{_("Didn't receive code? Resend")}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Step 3: Set New PIN */}
+            {step === 3 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Set your new 4-digit security PIN")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: palette.accentGreen, fontSize: 32, fontWeight: 'bold', letterSpacing: 15, textAlign: 'center' }}
+                    placeholder="0000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    secureTextEntry
+                    value={newPin}
+                    onChangeText={setNewPin}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', backgroundColor: palette.accentGreen, marginBottom: 0 }]} onPress={handleUpdatePIN} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Update Security PIN")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
+  );
+}

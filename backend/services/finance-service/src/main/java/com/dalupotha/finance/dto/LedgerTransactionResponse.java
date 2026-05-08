@@ -10,6 +10,7 @@ public record LedgerTransactionResponse(
         UUID transactionId,
         UUID supplierId,
         UUID approverId,
+        UUID requestId,
         LedgerTransactionType transactionType,
         BigDecimal amount,
         BigDecimal grossAmount,

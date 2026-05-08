@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react"
 import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck } from "lucide-react"
 import { FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
 import { useNotifications } from "../../hooks/useNotifications"
+import { useLanguage } from "../../hooks/useLanguage"
 
 const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Transport", "Machine Rent", "Tools", "Advisory", "Leaf Bags"]
 
@@ -44,7 +45,7 @@ async function getCachedUser(id: string) {
   return promise;
 }
 
-const TYPE_META: Record<string, { label: string; color: string }> = {
+const TYPE_META_KEYS: Record<string, { label: string; color: string }> = {
   ADVANCE:       { label: "Advance",       color: "text-green-600 font-semibold" },
   FERTILIZER:    { label: "Fertilizer",    color: "text-green-500 font-semibold" },
   TOOL_RENT:     { label: "Machine Rent",  color: "text-purple-600 font-semibold" },
@@ -60,24 +61,24 @@ const STATUS_STYLE: Record<string, string> = {
   APPROVED_BY_EXT: "bg-green-100 text-green-700",
   REJECTED:        "bg-red-100 text-red-500",
   DISPATCHED:      "bg-purple-100 text-purple-600",
-  CANCELLED:       "bg-slate-100 text-slate-400",
+  CANCELLED:       "bg-slate-100 text-slate-900",
 }
 
-function getAmountQty(req: ServiceRequest): string {
+function getAmountQty(req: ServiceRequest, t: any): string {
   if (req.requestType === "ADVANCE") return `Rs. ${Number(req.requestedAmount || 0).toLocaleString()}`
   if (req.requestType === "FERTILIZER") return `${Number(req.quantity || 0)} kg`
-  if (req.requestType === "LEAF_BAG") return `${Number(req.quantity || 0)} bags`
+  if (req.requestType === "LEAF_BAG") return `${Number(req.quantity || 0)} ${t('bags')}`
   if (req.requestType === "TOOL_RENT") {
     const d = (req as any).days || req.quantity || 0;
-    return `${d} days`;
+    return `${d} ${t('days')}`;
   }
-  if (req.requestType === "ADVISORY") return req.itemType || req.notes || "Soil query"
-  if (req.requestType === "TRANSPORT") return "Provision"
-  return `${Number(req.quantity || 0)} units`
+  if (req.requestType === "ADVISORY") return t(req.itemType || req.notes || "Soil query")
+  if (req.requestType === "TRANSPORT") return t("Provision")
+  return `${Number(req.quantity || 0)} ${t('units')}`
 }
 
-function formatDate(str: string) {
-  return new Date(str).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+function formatDate(str: string, lang: string) {
+  return new Date(str).toLocaleDateString(lang === 'si' ? 'si-LK' : 'en-GB', { day: "2-digit", month: "short", year: "numeric" })
 }
 
 function formatTime(str: string) {
@@ -106,6 +107,7 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
   onAction: (status: RequestStatus, comment: string) => void;
   processing: boolean;
 }) {
+  const { t, lang } = useLanguage();
   const [comment, setComment] = useState("")
   const [customAmount, setCustomAmount] = useState<string>(req.requestedAmount?.toString() || "")
   const [dailyRate, setDailyRate] = useState<string>("")
@@ -116,7 +118,6 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
-    console.log("DEBUG: Request Detail:", { id: req.requestId, type: req.requestType, itemId: req.itemId, qty: req.quantity });
     if (!req.createdById) return
     fetch(`/api/auth/users/${req.createdById}`)
       .then(r => r.ok ? r.json() : null)
@@ -133,23 +134,17 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
   }, [req.approverId])
 
   useEffect(() => {
-    if (!req.itemId || req.requestType === "ADVANCE") {
-      console.log("INFO: Skipping inventory fetch. No itemId or request is an Advance.", { id: req.requestId, itemId: req.itemId });
-      return;
-    }
+    if (!req.itemId || req.requestType === "ADVANCE") return;
     
     setFetchingPrice(true);
     setFetchError(null);
-    console.log("ACTION: Fetching inventory item:", req.itemId);
     
     InventoryAPI.getItem(req.itemId)
       .then(item => {
-        console.log("RESULT: Inventory item fetched:", item);
         if (item) {
           setInventoryItem(item);
           if (req.requestType !== 'TOOL_RENT' && (!req.requestedAmount || Number(req.requestedAmount) === 0)) {
             const calculated = (Number(item.unitCost) || 0) * (Number(req.quantity) || 1);
-            console.log("CALC: Setting custom amount:", calculated);
             setCustomAmount(calculated.toString());
           }
         } else {
@@ -157,7 +152,6 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
         }
       })
       .catch(err => {
-        console.error("ERROR: Failed to fetch inventory item price:", err);
         setFetchError("Connection error to inventory service");
       })
       .finally(() => setFetchingPrice(false));
@@ -168,7 +162,7 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
   const debtVal = debt ?? 0
   const ratio = supplyThisMonth > 0 ? ((debtVal / supplyThisMonth) * 100).toFixed(1) : "0.0"
   const highRatio = Number(ratio) > 40
-  const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
+  const meta = TYPE_META_KEYS[req.requestType] || { label: req.requestType, color: "text-slate-950 font-medium" }
   const isPending = req.status === "PENDING" || req.status === "REVIEW"
   const userRole = sessionStorage.getItem('user_role');
   const isStoreKeeper = userRole === 'store-keeper';
@@ -178,27 +172,27 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()} style={{ fontFamily: "Poppins, sans-serif" }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-          <h2 className="text-sm font-bold text-slate-900">Request Detail - {code}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"><X size={18} /></button>
+          <h2 className="text-sm font-bold text-slate-900">{t('Request Detail')} - {code}</h2>
+          <button onClick={onClose} className="text-slate-900 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"><X size={18} /></button>
         </div>
         <div className={`px-5 py-3 grid gap-3 ${req.requestType === 'ADVISORY' ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              {req.requestType === 'ADVISORY' ? 'Advisory Request Info' : 'Supplier Info'}
+            <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-2">
+              {req.requestType === 'ADVISORY' ? t('Advisory Request Info') : t('Supplier Info')}
             </p>
             {[
-              { label: "Supplier",     value: req.supplierName || "---" },
-              { label: "Passbook ID",  value: req.passbookNo || "---" },
-              { label: "Request Type", value: meta.label },
-              { label: req.requestType === 'ADVISORY' ? "Subject" : "Amount / Qty", value: getAmountQty(req) },
-              { label: "Date",         value: formatDate(req.requestDate) },
-              { label: "Assigned Agent", value: req.assignedAgentName || "Not Assigned" },
+              { label: t("Supplier"),     value: req.supplierName || "---" },
+              { label: t("Passbook ID"),  value: req.passbookNo || "---" },
+              { label: t("Request Type"), value: t(meta.label) },
+              { label: req.requestType === 'ADVISORY' ? t("Subject") : t("Amount / Qty"), value: getAmountQty(req, t) },
+              { label: t("Date"),         value: formatDate(req.requestDate, lang) },
+              { label: t("Assigned Agent"), value: req.assignedAgentName || t("Not Assigned") },
             ].map(row => (
               <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
-                <span className="text-[11px] font-medium text-slate-500">{row.label}</span>
-                <span className={`text-sm font-bold ${row.label === 'Assigned Agent' ? (req.assignedAgentName ? 'text-blue-600' : 'text-slate-400') : 'text-slate-800'}`}>{row.value}</span>
+                <span className="text-[11px] font-medium text-slate-950">{row.label}</span>
+                <span className={`text-sm font-bold ${row.label === t('Assigned Agent') ? (req.assignedAgentName ? 'text-blue-600' : 'text-slate-900') : 'text-slate-800'}`}>{row.value}</span>
               </div>
             ))}
           </div>
@@ -207,21 +201,21 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
             <div className="flex flex-col gap-3">
               {!isStoreKeeper && (
                 <div className="bg-slate-50 rounded-xl p-3 flex-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Financial Standing</p>
+                  <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-2">{t('Financial Standing')}</p>
                   {[
-                    { label: "Outstanding Debt",  value: `Rs. ${debtVal.toLocaleString()}` },
-                    { label: "Supply This Month", value: `${supplyThisMonth.toLocaleString()} kg` },
-                    { label: "Debt/Supply Ratio", value: `${ratio}%` },
+                    { label: t("Outstanding Debt"),  value: `Rs. ${debtVal.toLocaleString()}` },
+                    { label: t("Supply This Month"), value: `${supplyThisMonth.toLocaleString()} kg` },
+                    { label: t("Debt/Supply Ratio"), value: `${ratio}%` },
                   ].map(row => (
                     <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
-                      <span className="text-[11px] font-medium text-slate-500">{row.label}</span>
+                      <span className="text-[11px] font-medium text-slate-950">{row.label}</span>
                       <span className="text-sm font-bold text-slate-800">{row.value}</span>
                     </div>
                   ))}
                   {highRatio && (
                     <div className="mt-2 bg-green-50 border border-green-100 rounded-lg p-2 flex gap-2 items-start">
                       <Lightbulb size={12} className="text-green-600 mt-0.5 shrink-0" />
-                      <p className="text-[11px] text-slate-600 leading-tight font-medium"><span className="font-bold text-green-700">Tip: </span>Review debt ratio carefully</p>
+                      <p className="text-[11px] text-slate-600 leading-tight font-medium"><span className="font-bold text-green-700">{t('Tip')}: </span>{t('Review debt ratio carefully')}</p>
                     </div>
                   )}
                 </div>
@@ -234,15 +228,15 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
                       <Truck size={16} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Transport Service</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">{req.notes || "Standard Transport"}</p>
-                      <p className="text-xs font-semibold text-slate-500">Service Category: Logistic</p>
+                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Transport Service')}</p>
+                      <p className="text-sm font-bold text-slate-800 leading-none">{t(req.notes || "Standard Transport")}</p>
+                      <p className="text-xs font-semibold text-slate-950">{t('Service Category')}: {t('Logistic')}</p>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-blue-100 flex flex-col gap-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transport Fee (Rs.)</p>
+                    <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Transport Fee (Rs.)')}</p>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rs.</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
                       <input 
                         type="number" 
                         value={customAmount}
@@ -260,15 +254,15 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
                       <Clock size={16} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Rental Configuration</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">{inventoryItem?.itemName || "Rental Machine"}</p>
-                      <p className="text-xs font-semibold text-slate-500">Duration: {req.days || req.quantity || 0} Days</p>
+                      <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">{t('Rental Configuration')}</p>
+                      <p className="text-sm font-bold text-slate-800 leading-none">{t(inventoryItem?.itemName || "Rental Machine")}</p>
+                      <p className="text-xs font-semibold text-slate-950">{t('Duration')}: {req.days || req.quantity || 0} {t('Days')}</p>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-purple-100 flex flex-col gap-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Rental Fee (Rs.)</p>
+                    <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Total Rental Fee (Rs.)')}</p>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rs.</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
                       <input 
                         type="number" 
                         value={customAmount}
@@ -286,13 +280,13 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
                       <Package size={16} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Inventory Pricing</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">{inventoryItem.itemName}</p>
-                      <p className="text-xs font-semibold text-slate-500">Rs. {Number(inventoryItem.unitCost).toLocaleString()} / {inventoryItem.unit || 'unit'}</p>
+                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Inventory Pricing')}</p>
+                      <p className="text-sm font-bold text-slate-800 leading-none">{t(inventoryItem.itemName)}</p>
+                      <p className="text-xs font-semibold text-slate-950">Rs. {Number(inventoryItem.unitCost).toLocaleString()} / {t(inventoryItem.unit || 'unit')}</p>
                     </div>
                   </div>
                   <div className="pt-1.5 border-t border-blue-100 flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Calculated Total</span>
+                    <span className="text-[10px] font-bold text-slate-900 uppercase">{t('Calculated Total')}</span>
                     <span className="text-base font-black text-blue-700">Rs. {((Number(inventoryItem.unitCost) || 0) * (Number(req.quantity) || 1)).toLocaleString()}</span>
                   </div>
                 </div>
@@ -305,14 +299,14 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
           <div className="bg-slate-50 rounded-xl px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex flex-col">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source</p>
+                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">{t('Source')}</p>
                 <div className={`mt-0.5 text-[10px] px-2 py-0.5 rounded-full inline-block text-center font-bold uppercase ${isDirect ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
-                  {isDirect ? 'Direct' : 'Agent'}
+                  {isDirect ? t('Direct') : t('Agent')}
                 </div>
               </div>
               <div className="h-8 w-[1px] bg-slate-200" />
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{isDirect ? 'Supplier' : 'Agent'}</p>
+                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight">{isDirect ? t('Supplier') : t('Agent')}</p>
                 <p className="text-sm font-bold text-slate-800 leading-tight">
                   {creatorInfo?.fullName || (isDirect ? req.supplierName : (req.creatorName || "---"))}
                 </p>
@@ -321,16 +315,16 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
             
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{isDirect ? 'Passbook' : 'Emp ID'}</p>
+                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight">{isDirect ? t('Passbook') : t('Emp ID')}</p>
                 <p className="text-sm font-bold text-slate-800 leading-tight">
                   {creatorInfo?.employeeId || (isDirect ? req.passbookNo : (req.creatorId || "---"))}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight text-right">Requested At</p>
+                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight text-right">{t('Requested At')}</p>
                 <div className="flex items-center gap-1.5 justify-end">
-                   <p className="text-sm font-bold text-slate-800">{formatDate(req.requestDate)}</p>
-                   <p className="text-xs text-slate-400 font-bold">{formatTime(req.requestDate)}</p>
+                   <p className="text-sm font-bold text-slate-800">{formatDate(req.requestDate, lang)}</p>
+                   <p className="text-xs text-slate-900 font-bold">{formatTime(req.requestDate)}</p>
                 </div>
               </div>
             </div>
@@ -340,7 +334,7 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
         {req.notes && (
           <div className="px-5 pb-3">
             <div className="bg-green-50/50 border border-green-100 rounded-xl px-4 py-2.5">
-              <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">{isDirect ? 'Supplier Note' : 'Agent Note'}</p>
+              <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">{isDirect ? t('Supplier Note') : t('Agent Note')}</p>
               <p className="text-sm text-slate-900 leading-relaxed font-bold whitespace-pre-wrap break-words">{req.notes}</p>
             </div>
           </div>
@@ -350,33 +344,33 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
           <div className="px-7 pb-4">
              <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 flex flex-col gap-2">
                 <div className="flex justify-between items-center">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Decision Status</p>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{req.status === 'REJECTED' ? 'Rejected At' : 'Approved At'}</p>
+                  <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest">{t('Decision Status')}</p>
+                  <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest">{req.status === 'REJECTED' ? t('Rejected At') : t('Approved At')}</p>
                 </div>
                 <div className="flex justify-between items-center">
                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${req.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
-                     {req.status === 'REJECTED' ? 'REJECTED' : 'APPROVED'}
+                     {req.status === 'REJECTED' ? t('REJECTED') : t('APPROVED')}
                    </span>
                    {approverInfo && (
                      <div className="flex flex-col items-end">
                        <div className="bg-slate-100/80 px-3 py-1.5 rounded-lg border border-slate-200/50 flex flex-col items-end shadow-sm">
                          <p className="text-xs font-bold text-slate-800 leading-none mb-1">{approverInfo.fullName}</p>
-                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight leading-none">
-                           {approverInfo.role === 'EXT' ? 'Extension Officer' : 
+                         <p className="text-[10px] text-slate-950 font-bold uppercase tracking-tight leading-none">
+                           {t(approverInfo.role === 'EXT' ? 'Extension Officer' : 
                             approverInfo.role === 'MG' ? 'Factory Manager' : 
-                            approverInfo.role === 'ADMIN' ? 'Administrator' : approverInfo.role || 'Officer'}
+                            approverInfo.role === 'ADMIN' ? 'Administrator' : approverInfo.role || 'Officer')}
                          </p>
                        </div>
                      </div>
                    )}
                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-slate-800">{formatDate(req.updatedAt)}</p>
-                      <p className="text-[10px] text-slate-400">{formatTime(req.updatedAt)}</p>
+                      <p className="text-sm font-semibold text-slate-800">{formatDate(req.updatedAt, lang)}</p>
+                      <p className="text-[10px] text-slate-900">{formatTime(req.updatedAt)}</p>
                    </div>
                 </div>
                 {(req.approverComment || (req as any).approver_comment) && (
                   <div className="mt-2 pt-2 border-t border-slate-200">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Manager Remarks</p>
+                    <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest mb-1">{t('Manager Remarks')}</p>
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                       <p className="text-[15px] font-bold text-slate-900 leading-relaxed italic whitespace-pre-wrap break-words">"{req.approverComment || (req as any).approver_comment}"</p>
                     </div>
@@ -390,9 +384,9 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
           <div className="px-7 pb-4 grid grid-cols-3 gap-4">
             {req.requestType !== 'ADVISORY' && (
               <div className="col-span-1">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Final Deduction (Rs.)</p>
+                <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest mb-2">{t('Final Deduction (Rs.)')}</p>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rs.</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-sm">Rs.</span>
                   <input 
                     type="number" 
                     value={customAmount} 
@@ -404,13 +398,13 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
               </div>
             )}
             <div className={req.requestType === 'ADVISORY' ? "col-span-3" : "col-span-2"}>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Manager Remark</p>
+              <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest mb-2">{t('Manager Remark')}</p>
               <textarea 
                 value={comment} 
                 onChange={e => setComment(e.target.value)} 
-                placeholder="Add comment (optional)..." 
+                placeholder={t("Add comment (optional)...")} 
                 rows={1}
-                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all resize-none" 
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 placeholder:text-slate-900 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all resize-none" 
               />
             </div>
           </div>
@@ -420,20 +414,20 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
           {isPending ? (
             <>
               <button disabled={processing} onClick={() => onReject(comment)} className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
-                <XCircle size={16} /> {req.requestType === 'ADVISORY' ? 'Dismiss Request' : 'Reject Request'}
+                <XCircle size={16} /> {req.requestType === 'ADVISORY' ? t('Dismiss Request') : t('Reject Request')}
               </button>
               <button disabled={processing} onClick={() => onApprove(comment + "|||" + customAmount)} className="inline-flex items-center gap-2 bg-[#2d6a4f] hover:bg-[#1b4332] text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 shadow-sm">
                 <CheckCircle2 size={16} /> 
-                {req.requestType === 'ADVISORY' ? 'Send Advice' : 
-                 (['FERTILIZER', 'LEAF_BAG', 'TOOL_PURCHASE', 'TOOL_RENT'].includes(req.requestType) ? 'Approve & Send to Store Keeper' : 'Approve Request')}
+                {req.requestType === 'ADVISORY' ? t('Send Advice') : 
+                 (['FERTILIZER', 'LEAF_BAG', 'TOOL_PURCHASE', 'TOOL_RENT'].includes(req.requestType) ? t('Approve & Send to Store Keeper') : t('Approve Request'))}
               </button>
             </>
           ) : canDispatch ? (
             <button disabled={processing} onClick={() => onAction('DISPATCHED', comment)} className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm">
-              <Package size={16} /> Confirm Dispatch
+              <Package size={16} /> {t('Confirm Dispatch')}
             </button>
           ) : (
-            <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Close</button>
+            <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">{t('Close')}</button>
           )}
         </div>
       </div>
@@ -442,6 +436,7 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
 }
 
 export default function ApprovalsPage() {
+  const { t, lang } = useLanguage();
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
@@ -524,7 +519,6 @@ export default function ApprovalsPage() {
 
   useEffect(() => { loadRequests() }, [loadRequests])
 
-  // Real-time update: Refresh list when a new service_request notification arrives
   useEffect(() => {
     const latest = notifications[0];
     if (latest && latest.type === 'service_request' && !latest.read) {
@@ -547,7 +541,9 @@ export default function ApprovalsPage() {
       await FinanceAPI.updateStatus(requestId, status, sessionStorage.getItem("current_user_id") || "", remark, amount)
       setViewReq(null)
       loadRequests()
-    } catch (err: any) { alert(err?.message || "Action failed.") }
+      // Notify layout to refresh global alert counts
+      window.dispatchEvent(new CustomEvent('refresh-alerts'));
+    } catch (err: any) { alert(err?.message || t("Action failed.")) }
     finally { setProcessingId(null) }
   }
 
@@ -587,8 +583,7 @@ export default function ApprovalsPage() {
     (!search || (r.supplierName || "").toLowerCase().includes(search.toLowerCase()) || (r.requestId || "").toLowerCase().includes(search.toLowerCase()))
   )
 
-  const code = (i: number) => `REQ-${String(i + 1).padStart(3, "0")}`
-  const TH = "px-4 py-2.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider text-left"
+  const TH = "px-4 py-2.5 text-[10px] font-medium text-slate-900 uppercase tracking-wider text-left"
   const TD = "px-4 py-2.5"
 
   const StatusSummary = ({ label, count, color }: { label: string, count: number, color: 'amber' | 'emerald' | 'rose' }) => {
@@ -599,14 +594,14 @@ export default function ApprovalsPage() {
     };
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${colors[color]}`}>
-        {count} {label}
+        {count} {t(label)}
       </span>
     );
   };
 
   const TabButton = ({ active, onClick, label, count }: { active: boolean, onClick: () => void, label: string, count?: number }) => (
-    <button onClick={onClick} className={`flex items-center gap-2 text-sm font-bold pb-3 transition-all border-b-2 -mb-[1px] ${active ? "text-slate-900 border-[#2d6a4f]" : "text-slate-400 border-transparent hover:text-slate-600"}`}>
-      <span className="whitespace-nowrap">{label}</span>
+    <button onClick={onClick} className={`flex items-center gap-2 text-sm font-bold pb-3 transition-all border-b-2 -mb-[1px] ${active ? "text-slate-900 border-[#2d6a4f]" : "text-slate-900 border-transparent hover:text-slate-600"}`}>
+      <span className="whitespace-nowrap">{t(label)}</span>
       {count !== undefined && count > 0 && (
         <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full border border-white/20 shadow-sm">
           {count}
@@ -616,7 +611,7 @@ export default function ApprovalsPage() {
   );
 
   return (
-    <div className="space-y-4" style={{ fontFamily: "Poppins, sans-serif" }}>
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <StatusSummary 
@@ -636,11 +631,11 @@ export default function ApprovalsPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={loadRequests} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+          <button onClick={loadRequests} className="p-1.5 text-slate-900 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           </button>
           <button className="inline-flex items-center gap-1.5 border border-slate-200 bg-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm">
-            <Download size={12} /> Export List
+            <Download size={12} /> {t('Export List')}
           </button>
         </div>
       </div>
@@ -669,14 +664,14 @@ export default function ApprovalsPage() {
         <div className="px-5 py-3">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Search by name or ID..." value={search} onChange={e => setSearch(e.target.value)}
-                className="pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 placeholder:text-slate-400 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all w-48" />
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-900" />
+              <input type="text" placeholder={t("Search by name or ID...")} value={search} onChange={e => setSearch(e.target.value)}
+                className="pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 placeholder:text-slate-900 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 transition-all w-48" />
             </div>
             {availableFilters.map(f => (
               <button key={f} onClick={() => setTypeFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${typeFilter === f ? "bg-[#2d6a4f] text-white border-[#2d6a4f]" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
-                {f}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${typeFilter === f ? "bg-[#2d6a4f] text-white border-[#2d6a4f]" : "bg-white text-slate-950 border-slate-200 hover:border-slate-300"}`}>
+                {t(f)}
               </button>
             ))}
           </div>
@@ -685,15 +680,15 @@ export default function ApprovalsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-y border-slate-100">
-                <th className={TH}>Request ID</th>
-                <th className={TH}>Supplier</th>
-                <th className={TH}>Type</th>
-                <th className={TH}>Amount / Qty</th>
-                {userRole === 'store-keeper' && <th className={TH}>Available</th>}
-                <th className={TH}>Date</th>
-                <th className={TH}>Debt</th>
-                <th className={TH}>Status</th>
-                <th className={`${TH} text-right`}>Actions</th>
+                <th className={TH}>{t('Request ID')}</th>
+                <th className={TH}>{t('Supplier')}</th>
+                <th className={TH}>{t('Type')}</th>
+                <th className={TH}>{t('Amount / Qty')}</th>
+                {userRole === 'store-keeper' && <th className={TH}>{t('Available')}</th>}
+                <th className={TH}>{t('Date')}</th>
+                <th className={TH}>{t('Debt')}</th>
+                <th className={TH}>{t('Status')}</th>
+                <th className={`${TH} text-right`}>{t('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -704,10 +699,10 @@ export default function ApprovalsPage() {
                   </tr>
                 ))
               ) : applyFilters(statusFilter === "PENDING" ? pending : statusFilter === "APPROVED" ? recentApproved : recentRejected).length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-xs">No {statusFilter.toLowerCase()} requests</td></tr>
+                <tr><td colSpan={userRole === 'store-keeper' ? 9 : 8} className="text-center py-10 text-slate-900 text-xs">{t('No requests found')}</td></tr>
               ) : (
                 applyFilters(statusFilter === "PENDING" ? pending : statusFilter === "APPROVED" ? recentApproved : recentRejected).map((req, i) => {
-                  const meta = TYPE_META[req.requestType] || { label: req.requestType, color: "text-slate-500 font-medium" }
+                  const meta = TYPE_META_KEYS[req.requestType] || { label: req.requestType, color: "text-slate-950 font-medium" }
                   const debt = debtMap[req.supplierId] ?? null
                   const isProcessing = processingId === req.requestId
                   return (
@@ -719,10 +714,9 @@ export default function ApprovalsPage() {
                       </td>
                       <td className={TD}>
                         <p className="text-sm font-semibold text-slate-800 leading-tight">{req.supplierName || "---"}</p>
-                        <p className="text-[10px] text-slate-400">{req.supplierId?.slice(-7)?.toUpperCase()}</p>
                       </td>
-                      <td className={TD}><span className={`text-sm ${meta.color}`}>{meta.label}</span></td>
-                      <td className={TD}><span className="text-sm font-semibold text-slate-800">{getAmountQty(req)}</span></td>
+                      <td className={TD}><span className={`text-sm ${meta.color}`}>{t(meta.label)}</span></td>
+                      <td className={TD}><span className="text-sm font-semibold text-slate-800">{getAmountQty(req, t)}</span></td>
                       {userRole === 'store-keeper' && (
                         <td className={TD}>
                           {req.itemId && inventoryMap[req.itemId] ? (
@@ -730,53 +724,53 @@ export default function ApprovalsPage() {
                               <span className={`text-sm font-bold ${inventoryMap[req.itemId].stock < (req.quantity || 0) ? 'text-red-600' : 'text-blue-600'}`}>
                                 {inventoryMap[req.itemId].stock}
                               </span>
-                              <span className="text-[10px] text-slate-400 font-medium uppercase">{inventoryMap[req.itemId].unit}</span>
+                              <span className="text-[10px] text-slate-900 font-medium uppercase">{t(inventoryMap[req.itemId].unit)}</span>
                               {inventoryMap[req.itemId].stock < (req.quantity || 0) && (
                                 <AlertTriangle size={12} className="text-red-500" />
                               )}
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-300">---</span>
+                            <span className="text-xs text-slate-950">---</span>
                           )}
                         </td>
                       )}
                       <td className={TD}>
-                        <span className="text-xs text-slate-500 block">{formatDate(req.requestDate)}</span>
-                        <span className="text-[10px] text-slate-400">{formatTime(req.requestDate)}</span>
+                        <span className="text-xs text-slate-950 block">{formatDate(req.requestDate, lang)}</span>
+                        <span className="text-[10px] text-slate-900">{formatTime(req.requestDate)}</span>
                       </td>
                       <td className={TD}>
-                        <span className={`text-sm font-semibold ${debt && debt > 0 ? "text-slate-800" : "text-slate-500"}`}>
+                        <span className={`text-sm font-semibold ${debt && debt > 0 ? "text-slate-800" : "text-slate-950"}`}>
                           {debt === null ? "..." : `Rs. ${debt.toLocaleString()}`}
                         </span>
                       </td>
                       <td className={TD}>
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-400"}`}>
-                          {req.status.replace(/_/g, ' ')}
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-900"}`}>
+                          {t(req.status.replace(/_/g, ' '))}
                         </span>
                       </td>
                       <td className={`${TD} text-right`}>
                         <div className="inline-flex items-center gap-1">
                           <button onClick={() => setViewReq({ req, code: `REQ-${String(i + 1).padStart(3, "0")}` })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                            <Eye size={14} /> View
+                            <Eye size={14} /> {t('View')}
                           </button>
                           
                           {userRole === 'store-keeper' ? (
                             req.status === "APPROVED_BY_EXT" && (
                               <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "DISPATCHED")} className="inline-flex items-center gap-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                <Package size={14} /> Dispatch
+                                <Package size={14} /> {t('Dispatch')}
                               </button>
                             )
                           ) : (
                             statusFilter === "PENDING" && (
                               req.requestType === 'ADVISORY' ? (
-                                <span className="text-[10px] text-slate-400 italic mr-2">Open to respond</span>
+                                <span className="text-[10px] text-slate-900 italic mr-2">{t('Open to respond')}</span>
                               ) : (
                                 <>
                                   <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "APPROVED_BY_EXT")} className="inline-flex items-center gap-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                    <CheckCircle2 size={14} /> Approve
+                                    <CheckCircle2 size={14} /> {t('Approve')}
                                   </button>
                                   <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "REJECTED")} className="inline-flex items-center gap-1.5 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                    <XCircle size={14} /> Reject
+                                    <XCircle size={14} /> {t('Reject')}
                                   </button>
                                 </>
                               )
