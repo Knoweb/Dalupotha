@@ -55,10 +55,14 @@ export const FinanceAPI = {
     const res = await fetch(`${API_BASE}/finance/ledger/${supplierId}`);
     if (!res.ok) throw new Error('Failed to fetch supplier ledger');
     return res.json() as Promise<{
+      supplierId: string;
       currentDebt: number;
       advanceTaken: number;
       payoutTotal: number;
       estimatedBalance: number;
+      totalNetWeight: number;
+      leafPrice: number;
+      grossEarnings: number;
     }>;
   },
 
@@ -120,6 +124,7 @@ export const CollectionAPI = {
 export interface UserSummary {
   id: string;
   userId: string;
+  supplierId?: string;
   name: string;
   role: string;
   status: string;

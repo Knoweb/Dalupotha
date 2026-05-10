@@ -591,10 +591,11 @@ public class AuthService {
         } else {
             users = userRepository.findAll();
         }
-        java.util.Map<UUID, String> shPassbooks = new java.util.HashMap<>();
+        java.util.Map<UUID, String> supplierIds = new java.util.HashMap<>();
         smallHolderRepository.findAll().forEach(sh -> {
             if (sh.getUser() != null) {
                 shPassbooks.put(sh.getUser().getUserId(), sh.getPassbookNo());
+                supplierIds.put(sh.getUser().getUserId(), sh.getSupplierId().toString());
             }
         });
 
@@ -613,6 +614,7 @@ public class AuthService {
                 return new AuthDtos.UserSummaryListResponse(
                     displayId,
                     u.getUserId().toString(),
+                    u.getRole() == UserRole.SH ? supplierIds.get(u.getUserId()) : null,
                     u.getFullName(),
                     u.getRole().name(),
                     u.getStatus().name(),

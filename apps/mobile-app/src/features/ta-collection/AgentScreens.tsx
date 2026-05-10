@@ -2409,11 +2409,21 @@ export function CollectionDetailScreen({ route, navigation, lang }: any) {
     return name.substring(0, 1).toUpperCase();
   };
 
-  // Deduction derived from actual netWeight set by factory staff
-  const actualNetWeight = item.netWeight !== undefined && item.netWeight !== null ? Number(item.netWeight) : null;
-  const deductionKg = actualNetWeight !== null ? (item.grossWeight - actualNetWeight) : null;
-  const deductionDisplay = deductionKg !== null && deductionKg > 0 ? `-${deductionKg} kg` : "—";
-  const netWeightDisplay = actualNetWeight !== null ? `${actualNetWeight} kg` : "—";
+  // A collection is only "processed" when factory staff has set a real netWeight (> 0)
+  // OR explicitly set processedByName. netWeight=0 or null means it's still pending.
+  const isProcessed = (
+    item.processedByName != null ||
+    (item.netWeight != null && Number(item.netWeight) > 0)
+  );
+
+  const actualNetWeight = isProcessed ? Number(item.netWeight) : null;
+  const deductionKg = isProcessed && actualNetWeight !== null
+    ? Math.max(0, Number(item.grossWeight) - actualNetWeight)
+    : null;
+  const deductionDisplay = deductionKg !== null && deductionKg > 0
+    ? `-${deductionKg.toFixed(2)} kg`
+    : deductionKg === 0 ? "None" : "Pending";
+  const netWeightDisplay = actualNetWeight !== null ? `${actualNetWeight.toFixed(2)} kg` : "Pending";
 
   return (
     <View style={styles.dashboardWrap}>
@@ -2469,6 +2479,26 @@ export function CollectionDetailScreen({ route, navigation, lang }: any) {
           </View>
         </View>
 
+        {/* Factory Processing Status Banner */}
+        {!isProcessed && (
+          <View style={{ backgroundColor: 'rgba(243,156,18,0.1)', borderRadius: 14, padding: 14, marginBottom: 15, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(243,156,18,0.3)' }}>
+            <Ionicons name="time-outline" size={20} color="#f39c12" />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={{ color: '#f39c12', fontSize: 13, fontWeight: '700' }}>Awaiting Factory Processing</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>Net weight and deductions will be set by factory staff after quality assessment.</Text>
+            </View>
+          </View>
+        )}
+        {isProcessed && item.processedByName && (
+          <View style={{ backgroundColor: 'rgba(31,190,87,0.08)', borderRadius: 14, padding: 14, marginBottom: 15, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(31,190,87,0.25)' }}>
+            <Ionicons name="checkmark-circle-outline" size={20} color={palette.accentGreen} />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={{ color: palette.accentGreen, fontSize: 13, fontWeight: '700' }}>Processed</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>Quality assessed by {item.processedByName}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Info Grid */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 15 }}>
           
@@ -2479,12 +2509,18 @@ export function CollectionDetailScreen({ route, navigation, lang }: any) {
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
              <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>DEDUCTION</Text>
-             <Text style={{ color: deductionDisplay === "—" ? palette.muted : "#ff6b6b", fontSize: 18, fontWeight: "800" }}>{deductionDisplay}</Text>
+             <Text style={{ 
+               color: !isProcessed ? '#f39c12' : (deductionDisplay === "None" ? palette.muted : "#ff6b6b"), 
+               fontSize: 18, fontWeight: "800" 
+             }}>{deductionDisplay}</Text>
           </View>
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
              <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>NET WEIGHT</Text>
-             <Text style={{ color: netWeightDisplay === "—" ? palette.muted : palette.accentGreen, fontSize: 18, fontWeight: "800" }}>{netWeightDisplay}</Text>
+             <Text style={{ 
+               color: !isProcessed ? '#f39c12' : palette.accentGreen, 
+               fontSize: 18, fontWeight: "800" 
+             }}>{netWeightDisplay}</Text>
           </View>
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
@@ -2546,147 +2582,6 @@ export function CollectionDetailScreen({ route, navigation, lang }: any) {
   );
 }
 
-function PinChangeModal({ visible, onClose, user, token, _ }: any) {
-  const [step, setStep] = useState(1);
-  const [otp, setOtp] = useState("");
-  const [newPin, setNewPin] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const reset = () => {
-    setStep(1);
-    setOtp("");
-    setNewPin("");
-    setLoading(false);
-  };
-
-  const handleSendOTP = async () => {
-    setLoading(true);
-    try {
-      // Mocking OTP send
-      await new Promise(r => setTimeout(r, 1500));
-      setStep(2);
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to send OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (otp.length < 4) return Alert.alert("Wait", "Please enter the OTP code");
-    setLoading(true);
-    try {
-      // Mocking OTP verify
-      await new Promise(r => setTimeout(r, 1200));
-      setStep(3);
-    } catch (err: any) {
-      Alert.alert("Error", "Invalid OTP code");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePIN = async () => {
-    if (newPin.length !== 4) return Alert.alert("Wait", "PIN must be 4 digits");
-    setLoading(true);
-    try {
-      // Mocking PIN update
-      await new Promise(r => setTimeout(r, 1800));
-      Alert.alert("Success", "Security PIN updated successfully!");
-      onClose();
-      reset();
-    } catch (err: any) {
-      Alert.alert("Error", "Failed to update PIN");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Pressable onPress={e => e.stopPropagation()} style={{ backgroundColor: '#111f38', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-            
-            {/* Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
-              <View>
-                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Security Center")}</Text>
-                <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold' }}>{_("Update PIN")}</Text>
-              </View>
-              <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
-                <Ionicons name="close" size={24} color="#fff" />
-              </Pressable>
-            </View>
-
-            {/* Step 1: Request OTP */}
-            {step === 1 && (
-              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(46, 168, 255, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                  <Ionicons name="shield-checkmark" size={32} color={palette.accentBlue} />
-                </View>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>{_("Identity Verification")}</Text>
-                <Text style={{ color: palette.muted, fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 30 }}>{_("We will send a one-time verification code to your registered mobile number to confirm it's you.")}</Text>
-                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleSendOTP} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Send Verification Code")}</Text>}
-                </Pressable>
-              </View>
-            )}
-
-            {/* Step 2: Verify OTP */}
-            {step === 2 && (
-              <View>
-                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Enter the 6-digit code sent to your phone")}</Text>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                  <TextInput 
-                    style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', letterSpacing: 10, textAlign: 'center' }}
-                    placeholder="000000"
-                    placeholderTextColor="rgba(255,255,255,0.1)"
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    value={otp}
-                    onChangeText={setOtp}
-                    autoFocus
-                  />
-                </View>
-                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleVerifyOTP} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Verify Code")}</Text>}
-                </Pressable>
-                <Pressable onPress={() => setStep(1)} style={{ marginTop: 20, alignSelf: 'center' }}>
-                  <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: 'bold' }}>{_("Didn't receive code? Resend")}</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {/* Step 3: Set New PIN */}
-            {step === 3 && (
-              <View>
-                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Set your new 4-digit security PIN")}</Text>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                  <TextInput 
-                    style={{ color: palette.accentGreen, fontSize: 32, fontWeight: 'bold', letterSpacing: 15, textAlign: 'center' }}
-                    placeholder="0000"
-                    placeholderTextColor="rgba(255,255,255,0.1)"
-                    keyboardType="number-pad"
-                    maxLength={4}
-                    secureTextEntry
-                    value={newPin}
-                    onChangeText={setNewPin}
-                    autoFocus
-                  />
-                </View>
-                <Pressable style={[styles.mainBtn, { width: '100%', backgroundColor: palette.accentGreen, marginBottom: 0 }]} onPress={handleUpdatePIN} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Update Security PIN")}</Text>}
-                </Pressable>
-              </View>
-            )}
-
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
-    </Modal>
-  );
-}
 function PinChangeModal({ visible, onClose, user, token, _ }: any) {
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState("");

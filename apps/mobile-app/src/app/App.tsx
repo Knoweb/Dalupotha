@@ -46,6 +46,14 @@ function MainTabNavigator({ route, navigation }: any) {
   };
   const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
 
+  // Memoize screen components to keep stable references — prevents infinite
+  // useFocusEffect loops caused by new arrow functions on every parent render.
+  const HomeScreen   = React.useMemo(() => () => <SupplierHomeScreen     user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
+  const SupplyScreen = React.useMemo(() => () => <SupplierSupplyScreen   user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
+  const SupReqScreen = React.useMemo(() => () => <RequestsScreen         navigation={navigation} user={user} token={token} role={role} lang={lang} />, [user, token, navigation, role, lang]);
+  const PayScreen    = React.useMemo(() => () => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
+  const DebtScreen   = React.useMemo(() => () => <SupplierDebtsScreen    user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
+  const SupProfScreen= React.useMemo(() => () => <SupplierProfileScreen  user={user} navigation={navigation} lang={lang} setLang={setLang} />, [user, navigation, lang]);
 
   return (
     <Tab.Navigator
@@ -83,12 +91,12 @@ function MainTabNavigator({ route, navigation }: any) {
     >
       {role === "supplier" ? (
         <>
-          <Tab.Screen name="Home" children={() => <SupplierHomeScreen user={user} token={token} navigation={navigation} lang={lang} />} />
-          <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} lang={lang} />} />
-          <Tab.Screen name="Requests" children={() => <RequestsScreen navigation={navigation} user={user} token={token} role={role} lang={lang} />} />
-          <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
-          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
-          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} lang={lang} setLang={setLang} />} />
+          <Tab.Screen name="Home"     component={HomeScreen} />
+          <Tab.Screen name="Supply"   component={SupplyScreen} />
+          <Tab.Screen name="Requests" component={SupReqScreen} />
+          <Tab.Screen name="Payments" component={PayScreen} />
+          <Tab.Screen name="Debts"    component={DebtScreen} />
+          <Tab.Screen name="Profile"  component={SupProfScreen} />
         </>
       ) : (
         <>

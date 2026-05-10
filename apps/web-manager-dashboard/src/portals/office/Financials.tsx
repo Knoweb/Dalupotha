@@ -63,19 +63,22 @@ export default function FinancialsPage() {
       // 3. Get ledger for each
       const data: PayoutData[] = await Promise.all(suppliers.map(async (s) => {
         try {
-          const ledger = await FinanceAPI.getSupplierLedger(s.userId);
-          const req = requests.find(r => r.supplierId === s.userId);
+          const targetId = s.supplierId || s.userId;
+          const ledger = await FinanceAPI.getSupplierLedger(targetId);
+          const req = requests.find(r => r.supplierId === targetId || r.supplierId === s.userId);
           
           return {
-            id: s.userId,
+            id: targetId,
             name: s.name,
-            sid: s.id, // This is the passbookNo (PB-0xxx)
-            gross: ledger.estimatedBalance + ledger.advanceTaken + ledger.currentDebt, // Simple mock calc for display
-            adv: ledger.advanceTaken,
-            debt: ledger.currentDebt,
-            qual: 0, // Mock quality ded for now
-            netPay: ledger.estimatedBalance,
-            status: req ? req.status : (ledger.estimatedBalance > 0 ? 'PENDING' : 'SETTLED'),
+            sid: s.id || targetId.substring(0, 8),
+            gross: ledger.grossEarnings || 0,
+            adv: ledger.advanceTaken || 0,
+            debt: ledger.currentDebt || 0,
+            qual: 500, // Mock quality ded for now
+            netPay: ledger.estimatedBalance || 0,
+            leafKg: ledger.totalNetWeight || 0,
+            rate: ledger.leafPrice || 0,
+            status: req ? req.status : (ledger.estimatedBalance > 0 ? 'PENDING' : 'PAID'),
             date: req ? new Date(req.requestDate).toLocaleDateString() : 'Active'
           };
         } catch (e) {
@@ -217,13 +220,13 @@ export default function FinancialsPage() {
             <select 
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 bg-white border-2 border-slate-300 rounded-xl text-sm font-bold text-black focus:border-emerald-600 outline-none"
+              className="px-4 py-2 bg-white border-2 border-slate-300 rounded-xl text-sm font-medium text-black focus:border-emerald-600 outline-none"
             >
               {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => (
                 <option key={m} value={m}>{m} 2026</option>
               ))}
             </select>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 hover:bg-slate-50">
+            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 hover:bg-slate-50">
               <Download size={14} /> {t('Export Excel')}
             </button>
           </div>
@@ -232,7 +235,7 @@ export default function FinancialsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-100 border-b-2 border-slate-200 text-[10px] font-bold text-black uppercase tracking-widest">
+              <tr className="bg-slate-100 border-b-2 border-slate-200 text-[10px] font-medium text-black uppercase tracking-widest">
                 <th className="px-6 py-4">{t('PAYMENT ID')}</th>
                 <th className="px-6 py-4">{t('SUPPLIER')}</th>
                 <th className="px-6 py-4 text-right">{t('GROSS (RS.)')}</th>
@@ -255,7 +258,6 @@ export default function FinancialsPage() {
               ) : filteredPayouts.length > 0 ? (
                 filteredPayouts.map((p) => (
                   <PayoutItem 
-                    key={p.id}
                     {...p}
                     t={t}
                     month={selectedMonth}
@@ -285,20 +287,20 @@ export default function FinancialsPage() {
           sx: { borderRadius: '24px', padding: '12px', width: '100%', maxWidth: '400px' }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 900, fontSize: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#0f172a' }}>
-          {isManager ? t('Confirm Payout') : t('Request Payout')}
+        <DialogTitle sx={{ p: 3, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" sx={{ fontWeight: 500, color: '#000000' }}>{isManager ? t('Confirm Payout') : t('Request Payout')}</Typography>
           <IconButton onClick={() => setModalOpen(false)} disabled={loading} size="small">
             <X size={20} />
           </IconButton>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 3 }}>
           <Box sx={{ py: 2 }}>
-            <Typography variant="body2" sx={{ mb: 2, fontWeight: 900, color: '#0f172a' }}>
+            <Typography variant="body2" sx={{ mb: 2, fontWeight: 500, color: '#0f172a' }}>
               {t('Processing payment for')} <span className="text-emerald-600 underline">{selectedPayout?.name}</span>
             </Typography>
             
             <Box sx={{ mt: 3, p: 2, borderRadius: '16px', bgcolor: 'slate.50', border: '1px solid', borderColor: 'slate.200' }}>
-              <Typography variant="caption" sx={{ fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <Typography variant="caption" sx={{ fontWeight: 500, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {t('Payout Amount (Rs.)')}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
@@ -311,7 +313,7 @@ export default function FinancialsPage() {
                   disabled={!isEditable || loading}
                   InputProps={{
                     disableUnderline: !isEditable,
-                    sx: { fontSize: '1.5rem', fontWeight: 700, color: isEditable ? 'primary.main' : '#000000' }
+                    sx: { fontSize: '1.5rem', fontWeight: 500, color: isEditable ? 'primary.main' : '#000000' }
                   }}
                 />
                 <IconButton 
@@ -327,7 +329,7 @@ export default function FinancialsPage() {
                 </IconButton>
               </Box>
               {!isEditable && (
-                <Typography variant="caption" sx={{ color: '#000000', fontStyle: 'italic', display: 'flex', itemsCenter: 'center', gap: 0.5, mt: 1, fontWeight: 700 }}>
+                <Typography variant="caption" sx={{ color: '#000000', fontStyle: 'italic', display: 'flex', itemsCenter: 'center', gap: 0.5, mt: 1, fontWeight: 500 }}>
                   <Lock size={12} /> {t('Amount is locked. Click pen to edit.')}
                 </Typography>
               )}
@@ -343,12 +345,12 @@ export default function FinancialsPage() {
             sx={{ 
               borderRadius: '16px', 
               py: 1.5, 
-              fontWeight: 700, 
+              fontWeight: 500, 
               bgcolor: isManager ? '#059669' : '#000000',
               '&:hover': { bgcolor: isManager ? '#047857' : '#111111' }
             }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : (isManager ? t('Confirm & Issue Payment') : t('Submit Request'))}
+            {loading ? <CircularProgress size={24} color="inherit" /> : (isManager ? t('CONFIRM & ISSUE PAYMENT') : t('SUBMIT REQUEST'))}
           </Button>
         </DialogActions>
       </Dialog>
@@ -373,53 +375,66 @@ function StatCard({ icon, value, label, sub, color }: any) {
   );
 }
 
-function PayoutItem({ id, name, sid, gross, adv, debt, status, date, t, onAction, loading, isManager, month }: any) {
+function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, date, t, onAction, loading, isManager, month }: any) {
   const statusColors: any = {
-    PENDING: 'bg-amber-50 text-amber-700 font-bold',
-    AWAITING_APPROVAL: 'bg-amber-100 text-amber-900 font-bold',
-    PAID: 'bg-emerald-100 text-emerald-900 font-bold',
-    APPROVED: 'bg-emerald-100 text-emerald-900 font-bold',
-    SETTLED: 'bg-blue-50 text-blue-900 font-bold',
+    PENDING: 'bg-[#FEF3C7] text-[#B45309] font-bold',
+    AWAITING_APPROVAL: 'bg-[#FEF3C7] text-[#B45309] font-bold',
+    PAID: 'bg-[#D1FAE5] text-[#065F46] font-bold',
+    APPROVED: 'bg-[#D1FAE5] text-[#065F46] font-bold',
+    SETTLED: 'bg-[#D1FAE5] text-[#065F46] font-bold',
+    DISPATCHED: 'bg-[#D1FAE5] text-[#065F46] font-bold',
+    CALCULATED: 'bg-[#ECFDF5] text-[#047857] font-bold',
+    APPROVED_BY_EXT: 'bg-[#F1F5F9] text-[#475569] font-bold',
   };
 
-  const paymentId = `BP-${month}-${(Math.floor(Math.random() * 900) + 100)}`;
-  const qualityDed = 500; // Mock quality deduction
-  const net = gross - adv - debt - qualityDed;
+  // Generate a stable numeric suffix from the ID string (simple hash)
+  const idHash = id ? id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 900 + 100 : '000';
+  const paymentId = `BP-${month}-${idHash}`;
+  const qualityDed = qual || 0;
+  const net = netPay;
   
   const getActionLabel = () => {
     if (status === 'AWAITING_APPROVAL') return isManager ? t('APPROVE & PAY') : t('SENT');
     if (status === 'PENDING') return isManager ? t('PAY NOW') : t('REQUEST');
+    if (status === 'DISPATCHED') return t('VIEW');
     return null;
   }
 
   return (
     <tr className="hover:bg-slate-50/50 transition-colors group">
       <td className="px-6 py-4">
-        <p className="text-sm font-bold text-slate-800">{paymentId}</p>
+        <p className="text-sm font-medium text-slate-800">{paymentId}</p>
       </td>
       <td className="px-6 py-4">
-        <p className="text-sm font-bold text-slate-900 leading-none">{name}</p>
+        <p className="text-sm font-medium text-slate-900 leading-none">{name}</p>
         <p className="text-[12px] font-medium text-slate-500 mt-2 uppercase tracking-wider">{sid}</p>
       </td>
-      <td className="px-6 py-4 text-right text-[13px] font-bold text-slate-700">Rs. {gross.toLocaleString()}</td>
-      <td className="px-6 py-4 text-right text-[13px] font-bold text-slate-700">-Rs. {adv.toLocaleString()}</td>
-      <td className="px-6 py-4 text-right text-[13px] font-bold text-slate-700">-Rs. {debt.toLocaleString()}</td>
-      <td className="px-6 py-4 text-right text-[13px] font-bold text-slate-700">-Rs. {qualityDed.toLocaleString()}</td>
-      <td className="px-6 py-4 text-right text-[14px] font-bold text-slate-900">Rs. {net.toLocaleString()}</td>
+      <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">Rs. {gross.toLocaleString()}</td>
+      <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">-Rs. {adv.toLocaleString()}</td>
+      <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">-Rs. {debt.toLocaleString()}</td>
+      <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">-Rs. {qualityDed.toLocaleString()}</td>
+      <td className="px-6 py-4 text-right text-[14px] font-medium text-slate-900">Rs. {net.toLocaleString()}</td>
       <td className="px-6 py-4 text-center">
-        <span className={`px-2.5 py-1 rounded-lg text-[9px] uppercase tracking-widest shadow-sm ${statusColors[status] || 'bg-slate-100'}`}>
-          {t(status)}
-        </span>
+        {(() => {
+          const isPaid = ['PAID', 'APPROVED', 'SETTLED', 'DISPATCHED', 'CALCULATED', 'APPROVED_BY_EXT'].includes(status);
+          const displayLabel = isPaid ? 'PAID' : 'PENDING';
+          const colorClass = isPaid ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#B45309]';
+          return (
+            <span className={`px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold ${colorClass}`}>
+              {t(displayLabel)}
+            </span>
+          );
+        })()}
       </td>
       <td className="px-6 py-4 text-center">
-        <span className="text-xs font-bold text-slate-600">{date || `28 ${month} 2026`}</span>
+        <span className="text-xs font-medium text-slate-600">{date || `28 ${month} 2026`}</span>
       </td>
       <td className="px-6 py-4 text-right">
-        {status !== 'PAID' && status !== 'SETTLED' ? (
+        {status !== 'PAID' && status !== 'SETTLED' && getActionLabel() ? (
           <button 
             onClick={onAction}
             disabled={loading || (status === 'AWAITING_APPROVAL' && !isManager)}
-            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-md
+            className={`px-3 py-1.5 rounded-xl text-[10px] font-medium uppercase tracking-widest transition-all shadow-md
               ${status === 'AWAITING_APPROVAL' 
                 ? 'bg-amber-600 text-white hover:bg-amber-700 disabled:bg-slate-100 disabled:text-slate-400' 
                 : 'bg-black text-white hover:bg-slate-900'
@@ -427,12 +442,12 @@ function PayoutItem({ id, name, sid, gross, adv, debt, status, date, t, onAction
           >
             {loading ? <RefreshCw className="animate-spin" size={10} /> : getActionLabel()}
           </button>
-        ) : (
+        ) : (status === 'PAID' || status === 'SETTLED') ? (
           <div className="flex items-center justify-end gap-1 text-emerald-600">
             <CheckCircle2 size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">{t('SETTLED')}</span>
+            <span className="text-[10px] font-medium uppercase tracking-widest">{t('SETTLED')}</span>
           </div>
-        )}
+        ) : null}
       </td>
     </tr>
   );

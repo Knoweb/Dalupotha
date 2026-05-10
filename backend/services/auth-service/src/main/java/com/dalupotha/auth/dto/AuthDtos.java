@@ -196,6 +196,7 @@ public class AuthDtos {
     public static class UserSummaryListResponse {
         private String id; // employeeId
         private String userId; // UUID string
+        private String supplierId; // UUID string for financial mapping
         private String name;
         private String role;
         private String status;

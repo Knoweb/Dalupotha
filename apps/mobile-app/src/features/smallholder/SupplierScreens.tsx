@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet, Alert } from "react-native";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, TextInput } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
@@ -53,7 +53,7 @@ export const dictionary: any = {
     "Processing": "ක්‍රියාත්මක වෙමින් පවතී",
     "Completed": "සම්පූර්ණයි",
     "Cancelled": "අවලංගුයි",
-
+    
     // Agent Dashboard
     "Quick Actions": "ඉක්මන් පියවර",
     "Gross Green Leaf": "මුළු අමු තේ දළු",
@@ -144,14 +144,11 @@ export const dictionary: any = {
     "READY TO FULFILL": "සම්පූර්ණ කිරීමට සූදානම්",
     "RECEIVED": "ලැබී ඇත",
     "Tap for more info": "වැඩි විස්තර සඳහා තට්ටු කරන්න",
-    "Amount": "මුදල",
-    "Type": "වර්ගය",
     "Total Quantity": "මුළු ප්‍රමාණය",
     "Item": "භාණ්ඩය",
     "Rent Days": "කුලියට ගන්නා දින ගණන",
     "Units": "ඒකක",
     "Bag Type": "බෑග් වර්ගය",
-    "Quantity": "ප්‍රමාණය",
     "Topic": "මාතෘකාව",
     "Note": "සටහන",
     "Remove Request": "ඉල්ලීම ඉවත් කරන්න",
@@ -165,13 +162,53 @@ export const dictionary: any = {
     "Awaiting Review": "සලකා බලමින් පවතී",
     "Specification": "විස්තරය",
     "Manager Remarks": "කළමනාකරුගේ සටහන්",
-    "Status": "තත්ත්වය",
     "Close Details": "විස්තර වසා දමන්න",
     "Search Supplier": "සැපයුම්කරු සොයන්න",
     "No suppliers found": "සැපයුම්කරුවන් හමු නොවීය",
     "Standard": "සාමාන්‍ය",
     "General Advisory": "සාමාන්‍ය උපදෙස්",
-    "Standard Transport": "සාමාන්‍ය ප්‍රවාහනය"
+    "Standard Transport": "සාමාන්‍ය ප්‍රවාහනය",
+    "Financial Overview": "මුල්‍ය දළ විශ්ලේෂණය",
+    "Services & Support": "සේවාවන් සහ සහාය",
+    "Online Status": "සබැඳි තත්ත්වය",
+    "Recent History": "මෑත ඉතිහාසය",
+    "View All →": "සියල්ල පෙන්වන්න →",
+    "Loading history...": "පූරණය වෙමින්...",
+    "No delivery history yet": "තවමත් බෙදාහැරීමේ ඉතිහාසයක් නොමැත",
+    "Delivered": "ලබාදුන්",
+    "Net:": "ශුද්ධ:",
+    "Supply History": "සැපයුම් ඉතිහාසය",
+    "TOTAL GROSS": "මුළු දළ",
+    "TOTAL NET": "මුළු ශුද්ධ",
+    "DELIVERIES": "බෙදාහැරීම්",
+    "Today": "අද",
+    "Week": "සතිය",
+    "Month": "මාසය",
+    "Balance Payments": "ශේෂ ගෙවීම්",
+    "Next Pay:": "මීළඟ ගෙවීම:",
+    "Est.": "ඇස්තමේන්තු",
+    "available": "ලබා ගත හැකිය",
+    "Gross Earnings": "දළ ආදායම",
+    "Deductions": "අඩු කිරීම්",
+    "Net Amount": "ශුද්ධ මුදල",
+    "Upcoming": "ඉදිරි",
+    "Paid": "ගෙවන ලදී",
+    "Debts & Deductions": "ණය සහ අඩු කිරීම්",
+    "Current Outstanding": "දැනට ගෙවිය යුතු",
+    "Estimated for next payout": "ඊළඟ ගෙවීම සඳහා ඇස්තමේන්තු කර ඇත",
+    "How it works": "එය ක්‍රියා කරන ආකාරය",
+    "Debts for services (fertilizer, tools) are deducted automatically.": "සේවාවන් සඳහා වූ ණය (පොහොර, මෙවලම්) නිරායාසයෙන්ම අඩු කරනු ලැබේ.",
+    "Detailed Breakdown": "සවිස්තරාත්මක සාරාංශය",
+    "Security Center": "ආරක්ෂක මධ්‍යස්ථානය",
+    "Update PIN": "PIN අංකය වෙනස් කරන්න",
+    "Identity Verification": "හඳුනාගැනීමේ තහවුරු කිරීම",
+    "We will send a one-time verification code to your registered mobile number to confirm it's you.": "එය ඔබම බව තහවුරු කිරීමට අපි ඔබේ ලියාපදිංචි ජංගම දුරකථන අංකයට එක් වරක් පමණක් භාවිතා කළ හැකි කේතයක් එවන්නෙමු.",
+    "Send Verification Code": "තහවුරු කිරීමේ කේතය එවන්න",
+    "Enter the 6-digit code sent to your phone": "ඔබේ දුරකථනයට එවූ ඉලක්කම් 6ක කේතය ඇතුළත් කරන්න",
+    "Verify Code": "කේතය තහවුරු කරන්න",
+    "Didn't receive code? Resend": "කේතය ලැබුණේ නැද්ද? නැවත එවන්න",
+    "Set your new 4-digit security PIN": "ඔබේ නව ඉලක්කම් 4ක ආරක්ෂිත PIN අංකය ඇතුළත් කරන්න",
+    "Update Security PIN": "ආරක්ෂිත PIN අංකය යාවත්කාලීන කරන්න"
   }
 };
 
@@ -193,12 +230,15 @@ type SupplierHistoryItem = {
   syncStatus: string;
   gpsStatus: string;
   manualOverride: boolean;
+  transportAgentName?: string;
+  processedByName?: string;
 };
 
 type SupplierLedger = {
   currentDebt: number;
   estimatedBalance: number;
   advanceTaken: number;
+  grossEarnings?: number;
 };
 
 type SupplierIdentity = {
@@ -215,9 +255,17 @@ function CollectionDetailModal({ visible, item, onClose, _ }: any) {
   const dateStr = d.toLocaleDateString(undefined, { weekday: 'long', day: "2-digit", month: "long", year: "numeric" });
   const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const isSynced = String(item.syncStatus).toUpperCase() === "SYNCED";
+
+  // A collection is only processed when factory staff sets a real netWeight (> 0)
+  // OR processedByName is set. netWeight=0 or null = still pending at the factory.
+  const isProcessed = (
+    item.processedByName != null ||
+    (item.netWeight != null && Number(item.netWeight) > 0)
+  );
+
   const gross = Number(Number(item.grossWeight || 0).toFixed(2));
-  const net = Number(Number(item.netWeight ?? item.grossWeight ?? 0).toFixed(2));
-  const deduction = Number(Math.max(0, gross - net).toFixed(2));
+  const net = isProcessed ? Number(Number(item.netWeight).toFixed(2)) : null;
+  const deduction = isProcessed && net !== null ? Number(Math.max(0, gross - net).toFixed(2)) : null;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -236,6 +284,17 @@ function CollectionDetailModal({ visible, item, onClose, _ }: any) {
             </Pressable>
           </View>
 
+          {/* Processing Status Banner */}
+          {!isProcessed && (
+            <View style={{ backgroundColor: 'rgba(243,156,18,0.1)', borderRadius: 16, padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(243,156,18,0.3)' }}>
+              <Ionicons name="time-outline" size={18} color="#f39c12" />
+              <View style={{ marginLeft: 10, flex: 1 }}>
+                <Text style={{ color: '#f39c12', fontSize: 12, fontWeight: '700' }}>Awaiting Factory Processing</Text>
+                <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>Net weight and deductions will appear after quality assessment.</Text>
+              </View>
+            </View>
+          )}
+
           {/* Main Weight Stats */}
           <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 20, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
             <View style={{ flex: 1, alignItems: 'center', borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.05)' }}>
@@ -243,8 +302,14 @@ function CollectionDetailModal({ visible, item, onClose, _ }: any) {
               <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>{gross.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
             </View>
             <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>{_("NET YIELD")}</Text>
-              <Text style={{ color: palette.accentGreen, fontSize: 22, fontWeight: '900' }}>{net.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
+              <Text style={{ color: isProcessed ? palette.accentGreen : '#f39c12', fontSize: 10, fontWeight: 'bold', marginBottom: 5 }}>
+                {isProcessed ? _("NET YIELD") : "NET YIELD"}
+              </Text>
+              {isProcessed && net !== null ? (
+                <Text style={{ color: palette.accentGreen, fontSize: 22, fontWeight: '900' }}>{net.toFixed(2)}<Text style={{ fontSize: 12, fontWeight: '600' }}> kg</Text></Text>
+              ) : (
+                <Text style={{ color: '#f39c12', fontSize: 14, fontWeight: '700', marginTop: 4 }}>Pending</Text>
+              )}
             </View>
           </View>
 
@@ -254,8 +319,14 @@ function CollectionDetailModal({ visible, item, onClose, _ }: any) {
             <DetailRow label={_("Transport Agent")} value={item.transportAgentName || _("Assigned Agent")} icon="bus-outline" />
             <DetailRow 
               label={_("Quality Deduction")} 
-              value={deduction > 0.001 ? `-${deduction.toFixed(2)} kg` : _("No deductions")} 
-              valueColor={deduction > 0.001 ? '#ff8a8a' : '#fff'} 
+              value={
+                !isProcessed
+                  ? "Awaiting processing"
+                  : deduction != null && deduction > 0.001
+                    ? `-${deduction.toFixed(2)} kg`
+                    : _("No deductions")
+              } 
+              valueColor={!isProcessed ? '#f39c12' : deduction != null && deduction > 0.001 ? '#ff8a8a' : '#fff'} 
               icon="analytics-outline" 
             />
             {item.processedByName && (
@@ -288,7 +359,6 @@ function DetailRow({ label, value, icon, valueColor = 'white' }: any) {
   );
 }
 
-
 const toNumber = (value: any): number => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -309,6 +379,7 @@ const normalizeLedger = (raw: any): SupplierLedger => {
     currentDebt: toNumber(raw.currentDebt ?? raw.totalDebt ?? raw.outstanding ?? raw.deductions),
     estimatedBalance: toNumber(raw.estimatedBalance ?? raw.netBalance ?? raw.availableBalance ?? raw.netAmount),
     advanceTaken: toNumber(raw.advanceTaken ?? raw.totalAdvance ?? raw.advances),
+    grossEarnings: toNumber(raw.grossEarnings)
   };
 };
 
@@ -342,86 +413,6 @@ const resolveSupplierIdentity = async (token: string, user: any): Promise<Suppli
   };
 };
 
-export const getTranslationOld = (key: string, lang: 'en' | 'si' | string) => {
-  const dict: any = {
-    si: {
-      "Hello": "ආයුබෝවන්",
-      "Weekly Supply": "සතියේ දළු සැපයුම",
-      "Current Debt": "දැනට ණය",
-      "Advance": "ඇත්තිකාරම්",
-      "Advances": "අත්තිකාරම්",
-      "Estimated Balance": "ඇස්තමේන්තු ගත ඉතිරිය",
-      "Fertilizer": "පොහොර",
-      "Leaf Bags": "දළු බෑග්",
-      "Tools": "මෙවලම්",
-      "Transport": "ප්‍රවාහන",
-      "Advisory": "උපදේශන",
-      "Financial Overview": "මුල්‍ය දළ විශ්ලේෂණය",
-      "Services & Support": "සේවාවන් සහ සහාය",
-      "Online Status": "සබැඳි තත්ත්වය",
-      "Recent History": "මෑත ඉතිහාසය",
-      "View All →": "සියල්ල පෙන්වන්න →",
-      "Loading history...": "පූරණය වෙමින්...",
-      "No delivery history yet": "තවමත් බෙදාහැරීමේ ඉතිහාසයක් නොමැත",
-      "Delivered": "ලබාදුන්",
-      "Synced": "සමමුහුර්තයි",
-      "Pending": "පොරොත්තු",
-      "Net:": "ශුද්ධ:",
-      "Supply History": "සැපයුම් ඉතිහාසය",
-      "TOTAL GROSS": "මුළු දළ",
-      "TOTAL NET": "මුළු ශුද්ධ",
-      "DELIVERIES": "බෙදාහැරීම්",
-      "Today": "අද",
-      "Week": "සතිය",
-      "Month": "මාසය",
-      "All": "සියල්ල",
-      "Payments": "ගෙවීම්",
-      "Balance Payments": "ශේෂ ගෙවීම්",
-      "Next Pay:": "මීළඟ ගෙවීම:",
-      "Est.": "ඇස්තමේන්තු",
-      "available": "ලබා ගත හැකිය",
-      "Gross Earnings": "දළ ආදායම",
-      "Deductions": "අඩු කිරීම්",
-      "Net Amount": "ශුද්ධ මුදල",
-      "Upcoming": "ඉදිරි",
-      "Paid": "ගෙවන ලදී",
-      "Debts & Deductions": "ණය සහ අඩු කිරීම්",
-      "Current Outstanding": "දැනට ගෙවිය යුතු",
-      "Estimated for next payout": "ඊළඟ ගෙවීම සඳහා ඇස්තමේන්තු කර ඇත",
-      "How it works": "එය ක්‍රියා කරන ආකාරය",
-      "Debts for services (fertilizer, tools) are deducted automatically.": "සේවාවන් සඳහා වූ ණය (පොහොර, මෙවලම්) නිරායාසයෙන්ම අඩු කරනු ලැබේ.",
-      "DETAILED BREAKDOWN": "සවිස්තරාත්මක සාරාංශය",
-      "Need clarification?": "පැහැදිලි කිරීමක් අවශ්‍යද?",
-      "Speak to your Extension Officer about these charges.": "මෙම ගාස්තු පිළිබඳව ඔබේ ව්‍යාප්ති නිලධාරියා අමතන්න.",
-      "My Profile": "මගේ ගිණුම",
-      "Verified Supplier": "තහවුරු කළ සැපයුම්කරු",
-      "Land Name": "ඉඩමෙහි නම",
-      "In-Charge": "භාරකරු",
-      "Pending Assignment": "පැවරීමට නියමිතයි",
-      "Passbook No.": "පාස්බුක් නම්බර්",
-      "Supplier ID": "සැපයුම්කරු අංකය",
-      "ACCOUNT": "ගිණුම",
-      "Language Preference": "භාෂා තේරීම",
-      "Switch between Sinhala and English": "සිංහල සහ ඉංග්‍රීසි අතර මාරු වන්න",
-      "Change PIN": "PIN අංකය වෙනස් කරන්න",
-      "Update security access code": "ආරක්ෂිත PIN අංකය යාවත්කාලීන කරන්න",
-      "Direct Requests": "සෘජු ඉල්ලීම්",
-      "Logistics & Requests": "ප්‍රවාහන සහ ඉල්ලීම්",
-      "REQUEST CATEGORY": "ඉල්ලුම් වර්ගය",
-      "Add new request": "නව ඉල්ලීමක්",
-      "APPROVED": "අනුමතයි",
-      "Amount": "මුදල",
-      "Submitted": "ඉදිරිපත් කළා",
-      "Supplier Note": "සැපයුම්කරුගේ සටහන",
-      "Last changed 45 days ago": "අවසන් වරට වෙනස් කළේ දින 45 කට පෙර",
-      "Contact Support": "සහාය අමතන්න",
-      "Extension Officer": "ව්‍යාප්ති නිලධාරී",
-      "Sign Out": "ඉවත් වන්න"
-    }
-  };
-  return (lang === 'si' && dict.si[key]) ? dict.si[key] : key;
-};
-
 export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
   const getPassbook = (u: any) => u?.passbookNo || u?.passbook_no || "N/A";
   const initials = user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "SH";
@@ -438,6 +429,8 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
 
   const _ = (key: string) => getTranslation(key, lang);
 
+  // Use stable primitives in deps to prevent infinite loops
+  const userFullName = user?.fullName as string | undefined;
 
   const load = useCallback(async () => {
     if (!token || !passbookNo) {
@@ -450,7 +443,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
     setError(null);
 
     try {
-      const identity = await resolveSupplierIdentity(token, user).catch(() => null);
+      const identity = await resolveSupplierIdentity(token, { passbookNo, fullName: userFullName, supplierId: fallbackSupplierId }).catch(() => null);
       const supplierId = identity?.supplierId || fallbackSupplierId;
 
       if (!supplierId) {
@@ -460,7 +453,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
       }
 
       setResolvedSupplierId(supplierId);
-      setResolvedLabel(identity?.fullName || user?.fullName || null);
+      setResolvedLabel(identity?.fullName || userFullName || null);
 
       const historyData = await fetchSupplierHistory(token, supplierId);
       setHistory(historyData);
@@ -477,7 +470,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
     } finally {
       setLoading(false);
     }
-  }, [fallbackSupplierId, passbookNo, token, user]);
+  }, [fallbackSupplierId, passbookNo, token, userFullName]);
 
   useFocusEffect(
     useCallback(() => {
@@ -699,6 +692,9 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
   const [resolvedSupplierId, setResolvedSupplierId] = useState<string | null>(fallbackSupplierId || null);
   const [selectedItem, setSelectedItem] = useState<SupplierHistoryItem | null>(null);
 
+  // Stable primitive derived from user to prevent infinite loops
+  const userFullNameSupply = user?.fullName as string | undefined;
+
   useEffect(() => {
     const load = async () => {
       if (!token || !passbookNo) {
@@ -710,7 +706,7 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
       setLoading(true);
       setError(null);
       try {
-        const identity = await resolveSupplierIdentity(token, user).catch(() => null);
+        const identity = await resolveSupplierIdentity(token, { passbookNo, fullName: userFullNameSupply, supplierId: fallbackSupplierId }).catch(() => null);
         const supplierId = identity?.supplierId || fallbackSupplierId;
 
         if (!supplierId) {
@@ -732,7 +728,7 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
     };
 
     load();
-  }, [fallbackSupplierId, passbookNo, token, user]);
+  }, [fallbackSupplierId, passbookNo, token, userFullNameSupply]);
 
   const filteredHistory = useMemo(() => {
     const now = new Date();
@@ -942,7 +938,6 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
               </View>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* PENDING PAYOUT CARD (MATCHING MOCKUP) */}
               {!loading && payouts.length === 0 && ledger && (
                 <View style={styles.paymentCard}>
                   <View style={styles.payCardHeader}>
@@ -1050,14 +1045,26 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
   const [loading, setLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
+  const getCategoryInfo = (desc: string) => {
+    const d = desc?.toUpperCase() || '';
+    if (d.includes('FERTILIZER')) return { label: _("Fertilizer"), icon: 'leaf', color: '#2ecc71', sub: desc };
+    if (d.includes('BAG')) return { label: _("Leaf Bags"), icon: 'bag-handle-outline', color: '#3498db', sub: desc };
+    if (d.includes('ADVANCE')) return { label: _("Advance"), icon: 'wallet-outline', color: '#f39c12', sub: desc };
+    if (d.includes('TOOL') || d.includes('MACHINE')) return { label: _("Tools"), icon: 'construct-outline', color: '#9b59b6', sub: desc };
+    if (d.includes('TRANSPORT')) return { label: _("Transport"), icon: 'car-outline', color: '#e67e22', sub: desc };
+    return { label: desc || _("Other"), icon: 'receipt-outline', color: '#95a5a6', sub: desc };
+  };
+
+  // Stable primitive from user to prevent infinite loops
+  const debtPassbookNo = user?.passbookNo || user?.passbook_no as string | undefined;
+
   const loadDebts = useCallback(async () => {
     if (!supplierId || !token) return;
     setLoading(true);
     try {
-      const passbookNo = user?.passbookNo || user?.passbook_no;
       const qp = new URLSearchParams();
       if (supplierId) qp.set("supplierId", String(supplierId));
-      if (passbookNo) qp.set("passbookNo", passbookNo);
+      if (debtPassbookNo) qp.set("passbookNo", debtPassbookNo);
       qp.set("size", "120");
 
       const [ledgerData, txData, reqData] = await Promise.all([
@@ -1067,14 +1074,12 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
       ]);
       setLedger(ledgerData);
 
-      // 1. Process Ledger Debts
       const ledgerDebts = (txData || []).filter((t: any) => 
         (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
         t.amount > 0 && 
         !t.description?.toUpperCase().includes('ADVISORY')
       );
 
-      // 2. Process Approved/Dispatched Requests
       const pendingReqs = (reqData || []).filter((r: any) => 
         (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED' || r.status === 'PENDING') &&
         r.requestType !== 'ADVISORY'
@@ -1087,22 +1092,17 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
         requestId: r.requestId
       }));
 
-      // 3. Robust Deduplication
       const finalItems: any[] = [];
       const seenRequestIds = new Set<string>();
       
-      // Step A: Load Ledger items and record their requestIds
       ledgerDebts.forEach(ld => {
         if (ld.requestId) seenRequestIds.add(String(ld.requestId));
         finalItems.push(ld);
       });
 
-      // Step B: Add requests only if they aren't already in the ledger
       pendingReqs.forEach(req => {
-        // Match by ID if available (definitive)
         if (req.requestId && seenRequestIds.has(String(req.requestId))) return;
 
-        // Fallback for older data: category + amount match
         const cat = getCategoryInfo(req.description).label;
         const alreadyInLedger = ledgerDebts.some(ld => 
           getCategoryInfo(ld.description).label === cat && 
@@ -1120,32 +1120,13 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
     } finally {
       setLoading(false);
     }
-  }, [supplierId, token, user]);
+  }, [supplierId, token, debtPassbookNo]);
 
   useFocusEffect(
     useCallback(() => {
       loadDebts();
     }, [loadDebts])
   );
-
-  const debtIconMap: Record<string, string> = {
-    FERTILIZER: 'leaf', LEAF_BAG: 'bag-handle-outline', ADVANCE: 'wallet-outline',
-    TRANSPORT: 'car-outline', TOOL_RENT: 'construct-outline', TOOL_PURCHASE: 'construct-outline',
-  };
-  const debtColorMap: Record<string, string> = {
-    FERTILIZER: palette.accentGreen, LEAF_BAG: palette.accentBlue, ADVANCE: '#f39c12',
-    TRANSPORT: '#607b96', TOOL_RENT: '#9b59b6', TOOL_PURCHASE: '#9b59b6',
-  };
-
-  const getCategoryInfo = (desc: string) => {
-    const d = desc?.toUpperCase() || '';
-    if (d.includes('FERTILIZER')) return { label: _("Fertilizer"), icon: 'leaf', color: '#2ecc71', sub: desc };
-    if (d.includes('BAG')) return { label: _("Leaf Bags"), icon: 'bag-handle-outline', color: '#3498db', sub: desc };
-    if (d.includes('ADVANCE')) return { label: _("Advance"), icon: 'wallet-outline', color: '#f39c12', sub: desc };
-    if (d.includes('TOOL') || d.includes('MACHINE')) return { label: _("Tools"), icon: 'construct-outline', color: '#9b59b6', sub: desc };
-    if (d.includes('TRANSPORT')) return { label: _("Transport"), icon: 'car-outline', color: '#e67e22', sub: desc };
-    return { label: desc || _("Other"), icon: 'receipt-outline', color: '#95a5a6', sub: desc };
-  };
 
   const totalOutstanding = debtItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -1161,14 +1142,12 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
         </View>
       </SafeAreaView>
       <ScrollView contentContainerStyle={{ padding: 20 }}>
-        {/* OUTSTANDING CARD (MOCKUP STYLE) */}
         <View style={localStyles.debtSummaryCard}>
           <Text style={localStyles.debtTitle}>{_("Current Outstanding")}</Text>
           <Text style={localStyles.debtAmount}>{loading ? '...' : `Rs. ${totalOutstanding.toLocaleString()}`}</Text>
           <Text style={localStyles.debtSubTitle}>{_("Estimated for next payout")}</Text>
         </View>
 
-        {/* HOW IT WORKS (MOCKUP STYLE) */}
         <View style={localStyles.infoBox}>
           <Ionicons name="information-circle" size={24} color={palette.accentBlue} />
           <View style={{ marginLeft: 15, flex: 1 }}>
@@ -1187,7 +1166,6 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
           </View>
         ) : (
           (() => {
-            // Group and sum debts
             const groups: Record<string, { label: string, icon: string, color: string, amount: number, date: Date, items: any[] }> = {};
             
             debtItems.forEach(item => {
@@ -1198,7 +1176,6 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
               }
               groups[key].amount += Number(item.amount || 0);
               groups[key].items.push(item);
-              // Keep the latest date
               const itemDate = new Date(item.transactionDate);
               if (itemDate > groups[key].date) groups[key].date = itemDate;
             });
@@ -1252,7 +1229,6 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
           })()
         )}
 
-        {/* CLARIFICATION BOX (MOCKUP STYLE) */}
         <View style={localStyles.clarifyBox}>
           <Ionicons name="chatbubble-ellipses" size={24} color={palette.accentGreen} />
           <View style={{ marginLeft: 15, flex: 1 }}>
@@ -1264,6 +1240,228 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
         <View style={{height: 100}} />
       </ScrollView>
     </View>
+  );
+}
+
+export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) {
+  const getPassbook = (u: any) => u?.passbookNo || u?.passbook_no || "N/A";
+  const initials = user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "SH";
+  const _ = (key: string) => getTranslation(key, lang);
+
+  const [showPinModal, setShowPinModal] = useState(false);
+
+  return (
+    <View style={styles.dashboardWrap}>
+      <PinChangeModal 
+        visible={showPinModal} 
+        onClose={() => setShowPinModal(false)} 
+        user={user}
+        _={_}
+      />
+      <SafeAreaView style={{ backgroundColor: "#111f38" }}>
+        <View style={styles.headerBar}>
+          <View style={{width: 40}} />
+          <Text style={styles.headerTitle}>{_("My Profile")}</Text>
+          <Pressable style={styles.iconBtn}>
+            <Ionicons name="settings-outline" size={24} color={palette.muted} />
+          </Pressable>
+        </View>
+      </SafeAreaView>
+
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <View style={styles.profileHeader}>
+          <View style={styles.profileAvatarBig}>
+            <Text style={styles.profileAvatarBigText}>{initials}</Text>
+          </View>
+          <Text style={styles.profileName}>{user?.fullName || "Supplier"}</Text>
+          <View style={styles.supplierBadge}>
+            <Ionicons name="checkmark-circle-outline" size={14} color={palette.accentBlue} />
+            <Text style={styles.supplierBadgeText}> {_("Verified Supplier")}</Text>
+          </View>
+          <View style={styles.supProfileIdBadge}>
+            <Text style={styles.supProfileIdText}>SH-{user?.userId?.slice(-4) || "0000"} · {getPassbook(user)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.supDetailsBox}>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("Land Name")}</Text><Text style={styles.supDetailVal}>{user?.estateName || "Not Assigned"}</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("In-Charge")}</Text><Text style={styles.supDetailVal}>{user?.inChargeName || _("Pending Assignment")}</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("Passbook No.")}</Text><Text style={styles.supDetailVal}>{getPassbook(user)}</Text></View>
+          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("Supplier ID")}</Text><Text style={styles.supDetailVal}>SH-{user?.userId?.slice(-4) || "0000"}</Text></View>
+        </View>
+
+        <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>{_("ACCOUNT")}</Text>
+        
+        <View style={{ gap: 12 }}>
+          {lang !== undefined && (
+            <Pressable 
+              style={[styles.settingItem, { borderColor: palette.accentBlue, borderWidth: 1 }]} 
+              onPress={() => setLang(lang === 'en' ? 'si' : 'en')}
+            >
+              <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="language" size={20} color={palette.accentBlue} /></View>
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.settingItemTitle}>{_("Language Preference")}</Text>
+                <Text style={styles.settingItemSub}>{_("Switch between Sinhala and English")}</Text>
+              </View>
+              <Text style={{ color: palette.accentBlue, fontWeight: "800", fontSize: 13, marginRight: 8 }}>{lang === 'en' ? 'ENGLISH' : 'SINHALA'}</Text>
+              <Ionicons name="chevron-forward" size={18} color={palette.accentBlue} />
+            </Pressable>
+          )}
+
+          <Pressable style={styles.settingItem} onPress={() => setShowPinModal(true)}>
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(231, 76, 60, 0.15)" }]}><Ionicons name="lock-closed-outline" size={20} color="#e74c3c" /></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Change PIN")}</Text><Text style={styles.settingItemSub}>{_("Update security access code")}</Text></View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </Pressable>
+          <View style={styles.settingItem}>
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="chatbox-ellipses-outline" size={20} color={palette.accentBlue} /></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Contact Support")}</Text><Text style={styles.settingItemSub}>{_("Extension Officer")}</Text></View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </View>
+          <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Login")}>
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}><Ionicons name="log-out-outline" size={20} color={palette.muted} /></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Sign Out")}</Text><Text style={styles.settingItemSub}>{user?.fullName} · SH-{user?.userId?.slice(-4)}</Text></View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </Pressable>
+        </View>
+        <View style={{height: 100}} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function PinChangeModal({ visible, onClose, user, _ }: any) {
+  const [step, setStep] = useState(1);
+  const [otp, setOtp] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const reset = () => {
+    setStep(1);
+    setOtp("");
+    setNewPin("");
+    setLoading(false);
+  };
+
+  const handleSendOTP = async () => {
+    setLoading(true);
+    try {
+      await new Promise(r => setTimeout(r, 1500));
+      setStep(2);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length < 4) return Alert.alert("Wait", "Please enter the OTP code");
+    setLoading(true);
+    try {
+      await new Promise(r => setTimeout(r, 1200));
+      setStep(3);
+    } catch (err: any) {
+      Alert.alert("Error", "Invalid OTP code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePIN = async () => {
+    if (newPin.length !== 4) return Alert.alert("Wait", "PIN must be 4 digits");
+    setLoading(true);
+    try {
+      await new Promise(r => setTimeout(r, 1800));
+      Alert.alert("Success", "Security PIN updated successfully!");
+      onClose();
+      reset();
+    } catch (err: any) {
+      Alert.alert("Error", "Failed to update PIN");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Pressable onPress={e => e.stopPropagation()} style={{ backgroundColor: '#111f38', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Security Center")}</Text>
+                <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold' }}>{_("Update PIN")}</Text>
+              </View>
+              <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </Pressable>
+            </View>
+
+            {step === 1 && (
+              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(46, 168, 255, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                  <Ionicons name="shield-checkmark" size={32} color={palette.accentBlue} />
+                </View>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>{_("Identity Verification")}</Text>
+                <Text style={{ color: palette.muted, fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 30 }}>{_("We will send a one-time verification code to your registered mobile number to confirm it's you.")}</Text>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleSendOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Send Verification Code")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+            {step === 2 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Enter the 6-digit code sent to your phone")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', letterSpacing: 10, textAlign: 'center' }}
+                    placeholder="000000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otp}
+                    onChangeText={setOtp}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleVerifyOTP} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Verify Code")}</Text>}
+                </Pressable>
+                <Pressable onPress={() => setStep(1)} style={{ marginTop: 20, alignSelf: 'center' }}>
+                  <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: 'bold' }}>{_("Didn't receive code? Resend")}</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {step === 3 && (
+              <View>
+                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Set your new 4-digit security PIN")}</Text>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                  <TextInput 
+                    style={{ color: palette.accentGreen, fontSize: 32, fontWeight: 'bold', letterSpacing: 15, textAlign: 'center' }}
+                    placeholder="0000"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    secureTextEntry
+                    value={newPin}
+                    onChangeText={setNewPin}
+                    autoFocus
+                  />
+                </View>
+                <Pressable style={[styles.mainBtn, { width: '100%', backgroundColor: palette.accentGreen, marginBottom: 0 }]} onPress={handleUpdatePIN} disabled={loading}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Update Security PIN")}</Text>}
+                </Pressable>
+              </View>
+            )}
+
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -1383,231 +1581,3 @@ const localStyles = StyleSheet.create({
   clarifyTitle: { color: "#2ecc71", fontSize: 16, fontWeight: "900", marginBottom: 4 },
   clarifyText: { color: "#ffffff", fontSize: 13, lineHeight: 20, fontWeight: '700' },
 });
-
-export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) {
-  const getPassbook = (u: any) => u?.passbookNo || u?.passbook_no || "N/A";
-  const initials = user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "SH";
-  const _ = (key: string) => getTranslation(key, lang);
-
-  const [showPinModal, setShowPinModal] = useState(false);
-
-  return (
-    <View style={styles.dashboardWrap}>
-      <PinChangeModal 
-        visible={showPinModal} 
-        onClose={() => setShowPinModal(false)} 
-        user={user}
-        _={_}
-      />
-      <SafeAreaView style={{ backgroundColor: "#111f38" }}>
-        <View style={styles.headerBar}>
-          <View style={{width: 40}} />
-          <Text style={styles.headerTitle}>{_("My Profile")}</Text>
-          <Pressable style={styles.iconBtn}>
-            <Ionicons name="settings-outline" size={24} color={palette.muted} />
-          </Pressable>
-        </View>
-      </SafeAreaView>
-
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <View style={styles.profileHeader}>
-          <View style={styles.profileAvatarBig}>
-            <Text style={styles.profileAvatarBigText}>{initials}</Text>
-          </View>
-          <Text style={styles.profileName}>{user?.fullName || "Supplier"}</Text>
-          <View style={styles.supplierBadge}>
-            <Ionicons name="checkmark-circle-outline" size={14} color={palette.accentBlue} />
-            <Text style={styles.supplierBadgeText}> {_("Verified Supplier")}</Text>
-          </View>
-          <View style={styles.supProfileIdBadge}>
-            <Text style={styles.supProfileIdText}>SH-{user?.userId?.slice(-4) || "0000"} · {getPassbook(user)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.supDetailsBox}>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("Land Name")}</Text><Text style={styles.supDetailVal}>{user?.estateName || "Not Assigned"}</Text></View>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("In-Charge")}</Text><Text style={styles.supDetailVal}>{user?.inChargeName || _("Pending Assignment")}</Text></View>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("Passbook No.")}</Text><Text style={styles.supDetailVal}>{getPassbook(user)}</Text></View>
-          <View style={styles.supDetailRow}><Text style={styles.supDetailKey}>{_("Supplier ID")}</Text><Text style={styles.supDetailVal}>SH-{user?.userId?.slice(-4) || "0000"}</Text></View>
-        </View>
-
-        <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>{_("ACCOUNT")}</Text>
-        
-        <View style={{ gap: 12 }}>
-          {lang !== undefined && (
-            <Pressable 
-              style={[styles.settingItem, { borderColor: palette.accentBlue, borderWidth: 1 }]} 
-              onPress={() => setLang(lang === 'en' ? 'si' : 'en')}
-            >
-              <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="language" size={20} color={palette.accentBlue} /></View>
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <Text style={styles.settingItemTitle}>{_("Language Preference")}</Text>
-                <Text style={styles.settingItemSub}>{_("Switch between Sinhala and English")}</Text>
-              </View>
-              <Text style={{ color: palette.accentBlue, fontWeight: "800", fontSize: 13, marginRight: 8 }}>{lang === 'en' ? 'ENGLISH' : 'SINHALA'}</Text>
-              <Ionicons name="chevron-forward" size={18} color={palette.accentBlue} />
-            </Pressable>
-          )}
-
-          <Pressable style={styles.settingItem} onPress={() => setShowPinModal(true)}>
-            <View style={[styles.settingIconBg, { backgroundColor: "rgba(231, 76, 60, 0.15)" }]}><Ionicons name="lock-closed-outline" size={20} color="#e74c3c" /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Change PIN")}</Text><Text style={styles.settingItemSub}>{_("Update security access code")}</Text></View>
-            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
-          </Pressable>
-          <View style={styles.settingItem}>
-            <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="chatbox-ellipses-outline" size={20} color={palette.accentBlue} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Contact Support")}</Text><Text style={styles.settingItemSub}>{_("Extension Officer")}</Text></View>
-            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
-          </View>
-          <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Login")}>
-            <View style={[styles.settingIconBg, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}><Ionicons name="log-out-outline" size={20} color={palette.muted} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Sign Out")}</Text><Text style={styles.settingItemSub}>{user?.fullName} · SH-{user?.userId?.slice(-4)}</Text></View>
-            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
-          </Pressable>
-        </View>
-        <View style={{height: 100}} />
-      </ScrollView>
-    </View>
-  );
-}
-function PinChangeModal({ visible, onClose, user, token, _ }: any) {
-  const [step, setStep] = useState(1);
-  const [otp, setOtp] = useState("");
-  const [newPin, setNewPin] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const reset = () => {
-    setStep(1);
-    setOtp("");
-    setNewPin("");
-    setLoading(false);
-  };
-
-  const handleSendOTP = async () => {
-    setLoading(true);
-    try {
-      // Mocking OTP send
-      await new Promise(r => setTimeout(r, 1500));
-      setStep(2);
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to send OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (otp.length < 4) return Alert.alert("Wait", "Please enter the OTP code");
-    setLoading(true);
-    try {
-      // Mocking OTP verify
-      await new Promise(r => setTimeout(r, 1200));
-      setStep(3);
-    } catch (err: any) {
-      Alert.alert("Error", "Invalid OTP code");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePIN = async () => {
-    if (newPin.length !== 4) return Alert.alert("Wait", "PIN must be 4 digits");
-    setLoading(true);
-    try {
-      // Mocking PIN update
-      await new Promise(r => setTimeout(r, 1800));
-      Alert.alert("Success", "Security PIN updated successfully!");
-      onClose();
-      reset();
-    } catch (err: any) {
-      Alert.alert("Error", "Failed to update PIN");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <Pressable onPress={e => e.stopPropagation()} style={{ backgroundColor: '#111f38', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-            
-            {/* Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
-              <View>
-                <Text style={{ color: palette.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>{_("Security Center")}</Text>
-                <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold' }}>{_("Update PIN")}</Text>
-              </View>
-              <Pressable onPress={onClose} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14 }}>
-                <Ionicons name="close" size={24} color="#fff" />
-              </Pressable>
-            </View>
-
-            {/* Step 1: Request OTP */}
-            {step === 1 && (
-              <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(46, 168, 255, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                  <Ionicons name="shield-checkmark" size={32} color={palette.accentBlue} />
-                </View>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>{_("Identity Verification")}</Text>
-                <Text style={{ color: palette.muted, fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 30 }}>{_("We will send a one-time verification code to your registered mobile number to confirm it's you.")}</Text>
-                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleSendOTP} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Send Verification Code")}</Text>}
-                </Pressable>
-              </View>
-            )}
-
-            {/* Step 2: Verify OTP */}
-            {step === 2 && (
-              <View>
-                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Enter the 6-digit code sent to your phone")}</Text>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                  <TextInput 
-                    style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', letterSpacing: 10, textAlign: 'center' }}
-                    placeholder="000000"
-                    placeholderTextColor="rgba(255,255,255,0.1)"
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    value={otp}
-                    onChangeText={setOtp}
-                    autoFocus
-                  />
-                </View>
-                <Pressable style={[styles.mainBtn, { width: '100%', marginBottom: 0 }]} onPress={handleVerifyOTP} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Verify Code")}</Text>}
-                </Pressable>
-                <Pressable onPress={() => setStep(1)} style={{ marginTop: 20, alignSelf: 'center' }}>
-                  <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: 'bold' }}>{_("Didn't receive code? Resend")}</Text>
-                </Pressable>
-              </View>
-            )}
-
-            {/* Step 3: Set New PIN */}
-            {step === 3 && (
-              <View>
-                <Text style={{ color: palette.muted, fontSize: 14, marginBottom: 15 }}>{_("Set your new 4-digit security PIN")}</Text>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 15, marginBottom: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                  <TextInput 
-                    style={{ color: palette.accentGreen, fontSize: 32, fontWeight: 'bold', letterSpacing: 15, textAlign: 'center' }}
-                    placeholder="0000"
-                    placeholderTextColor="rgba(255,255,255,0.1)"
-                    keyboardType="number-pad"
-                    maxLength={4}
-                    secureTextEntry
-                    value={newPin}
-                    onChangeText={setNewPin}
-                    autoFocus
-                  />
-                </View>
-                <Pressable style={[styles.mainBtn, { width: '100%', backgroundColor: palette.accentGreen, marginBottom: 0 }]} onPress={handleUpdatePIN} disabled={loading}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.mainBtnText}>{_("Update Security PIN")}</Text>}
-                </Pressable>
-              </View>
-            )}
-
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
-    </Modal>
-  );
-}

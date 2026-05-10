@@ -86,4 +86,25 @@ public class FinanceController {
     ) {
         return financeService.updateRequestStatus(requestId, request);
     }
+    @GetMapping("/api/finance/leaf-price")
+    public java.util.Map<String, Object> getCurrentLeafPrice() {
+        return financeService.getCurrentLeafPrice();
+    }
+
+    @PostMapping("/api/finance/leaf-price")
+    public java.util.Map<String, Object> setLeafPrice(@RequestBody java.util.Map<String, Object> body) {
+        BigDecimal price = new BigDecimal(body.get("pricePerKg").toString());
+        return financeService.setLeafPrice(price);
+    }
+
+    @GetMapping("/api/finance/advance-limit")
+    public java.util.Map<String, Object> getAdvanceLimit() {
+        return financeService.getAdvanceLimit();
+    }
+
+    @PostMapping("/api/finance/advance-limit")
+    public java.util.Map<String, Object> setAdvanceLimit(@RequestBody java.util.Map<String, Object> body) {
+        BigDecimal limit = new BigDecimal(body.get("advanceLimit").toString());
+        return financeService.setAdvanceLimit(limit);
+    }
 }
