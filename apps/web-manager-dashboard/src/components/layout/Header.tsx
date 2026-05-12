@@ -13,11 +13,13 @@ interface HeaderProps {
   onMarkRead: (id: string) => void;
   onClearAll: () => void;
   pendingRequestCount?: number;
+  pendingCollectionCount?: number;
 }
 
 export default function Header({ 
   activeTab, userInfo, onLogout, unreadCount, notifications, 
-  onMarkAllRead, onMarkRead, onClearAll, pendingRequestCount = 0 
+  onMarkAllRead, onMarkRead, onClearAll, pendingRequestCount = 0,
+  pendingCollectionCount = 0
 }: HeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -25,6 +27,9 @@ export default function Header({
 
   const role = userInfo.role || '';
   const showNotifBell = true;
+  
+  // Use collection count for factory-staff, otherwise request count
+  const alertCount = role === 'factory-staff' ? pendingCollectionCount : pendingRequestCount;
 
   const ROLE_LABELS: Record<string, string> = {
     'manager':           t('Manager'),
@@ -64,10 +69,10 @@ export default function Header({
                 onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false); }}
                 className="relative text-slate-950 hover:text-slate-800 transition-colors"
               >
-                <Bell size={20} className={(pendingRequestCount > 0) ? 'animate-wiggle' : ''} />
-                {(pendingRequestCount > 0) && (
+                <Bell size={20} className={(alertCount > 0) ? 'animate-wiggle' : ''} />
+                {(alertCount > 0) && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    {pendingRequestCount > 9 ? '9+' : pendingRequestCount}
+                    {alertCount > 9 ? '9+' : alertCount}
                   </span>
                 )}
               </button>
@@ -134,7 +139,7 @@ export default function Header({
                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                    <div className="px-4 py-3 border-b border-slate-50 mb-1">
                       <p className="text-xs font-bold text-slate-900">{userInfo.fullName}</p>
-                      <p className="text-[10px] text-slate-900 font-bold">{userInfo.estateName}</p>
+                      <p className="text-[10px] text-slate-900 font-bold">{sessionStorage.getItem('estate_name') || userInfo.estateName}</p>
                    </div>
                    <DropdownItem icon={<UserIcon size={14}/>} label={t("My Profile")} />
                    <DropdownItem icon={<Settings size={14}/>} label={t("Account Settings")} />

@@ -66,6 +66,12 @@ export const FinanceAPI = {
     }>;
   },
 
+  getLedgerTransactions: async (supplierId: string) => {
+    const res = await fetch(`${API_BASE}/finance/ledger/${supplierId}/transactions`);
+    if (!res.ok) throw new Error('Failed to fetch ledger transactions');
+    return res.json() as Promise<any[]>;
+  },
+
   processPayout: async (data: { supplierId: string, amount: number, requesterId: string, description?: string, immediate?: boolean }) => {
     const res = await fetch(`${API_BASE}/finance/payout`, {
       method: 'POST',
@@ -118,6 +124,17 @@ export const CollectionAPI = {
        return [] as CollectionItem[];
     }
     return res.json() as Promise<CollectionItem[]>;
+  },
+  getSupplierSummary: async (supplierId: string) => {
+    const res = await fetch(`${API_BASE}/collection/summary/${supplierId}`);
+    if (!res.ok) throw new Error('Failed to fetch supplier summary');
+    return res.json() as Promise<{
+      totalGrossWeight: number;
+      totalNetWeight: number;
+      collectionCount: number;
+      processedCount: number;
+      pendingCount: number;
+    }>;
   }
 };
 

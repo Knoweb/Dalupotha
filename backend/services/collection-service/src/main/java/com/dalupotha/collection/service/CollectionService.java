@@ -271,18 +271,31 @@ public class CollectionService {
 
     public Map<String, Object> getSupplierSummary(UUID supplierId) {
         List<LeafCollection> history = leafCollectionRepository.findBySupplierHistory(supplierId, PageRequest.of(0, 1000));
+
+        // ALL-TIME gross weight (including unprocessed) — used for display only
         BigDecimal totalGross = history.stream()
                 .map(LeafCollection::getGrossWeight)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // ── CRITICAL FIX ──────────────────────────────────────────────────────────
+        // Only sum netWeight for collections that have ACTUALLY been processed
+        // by factory staff (netWeight IS NOT NULL). Unprocessed collections must
+        // NOT fall back to grossWeight — they should be excluded from earnings.
         BigDecimal totalNet = history.stream()
-                .map(lc -> lc.getNetWeight() != null ? lc.getNetWeight() : lc.getGrossWeight())
+                .filter(lc -> lc.getNetWeight() != null)   // processed only
+                .map(LeafCollection::getNetWeight)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
+        long processedCount = history.stream().filter(lc -> lc.getNetWeight() != null).count();
+        long pendingCount   = history.size() - processedCount;
+
         Map<String, Object> summary = new HashMap<>();
         summary.put("supplierId", supplierId);
         summary.put("totalGrossWeight", totalGross);
-        summary.put("totalNetWeight", totalNet);
+        summary.put("totalNetWeight", totalNet);          // <-- only processed net
         summary.put("collectionCount", history.size());
+        summary.put("processedCount", processedCount);
+        summary.put("pendingCount", pendingCount);
         return summary;
     }
 

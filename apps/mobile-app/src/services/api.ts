@@ -50,17 +50,19 @@ const isLocal = (h?: string) => h === "localhost" || h === "127.0.0.1";
 
 const DEV_HOST =
   Platform.OS === "web"
-    ? webHost || process.env.EXPO_PUBLIC_API_HOST || "localhost"
+    ? webHost || process.env.EXPO_PUBLIC_API_HOST || "127.0.0.1"
     : runtimeHost && !isLocal(runtimeHost)
       ? runtimeHost
       : Platform.OS === "android"
         ? "10.0.2.2"
-        : process.env.EXPO_PUBLIC_API_HOST || "localhost";
+        : process.env.EXPO_PUBLIC_API_HOST || "127.0.0.1";
 
 const API_HOST = process.env.EXPO_PUBLIC_API_HOST || DEV_HOST;
 
 // CRITICAL: All requests MUST go through the Gateway (8080)
-export const API_BASE = `http://${API_HOST}:8080`;
+// For Web, ensure we use 127.0.0.1 instead of localhost to bypass IPv6 connection errors
+const finalHost = API_HOST === "localhost" ? "127.0.0.1" : API_HOST;
+export const API_BASE = `http://${finalHost}:8080`;
 
 // ── 2. Authentication & Registration ─────────────────────────────────────────
 export const AuthAPI = {
@@ -81,6 +83,8 @@ export const CollectionAPI = {
                `${API_BASE}/collection/history/agent/${transportAgentId}`,
   history:     (supplierId: string) =>
                `${API_BASE}/collection/history/${supplierId}`, // GET — supply history
+  summary:     (supplierId: string) =>
+               `${API_BASE}/collection/summary/${supplierId}`, // GET — collection summary (gross/net weight)
   updateNotes: (collectionId: string) =>
                `${API_BASE}/collection/${collectionId}/notes`, // PATCH - update notes
 };

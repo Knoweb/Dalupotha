@@ -281,11 +281,11 @@ export default function UsersPage() {
                 </td>
                 <td className="px-8 py-5 text-slate-900 text-xs font-medium">{user.active}</td>
                  <td className="px-8 py-5 text-right flex items-center justify-end gap-2">
-                    <button 
+                     <button 
                       onClick={() => handleViewProfile(user.userId)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black text-slate-950 uppercase tracking-widest hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all">
                        <Edit2 size={12} />
-                       Profile
+                       {t('Profile')}
                     </button>
                     <button 
                       onClick={() => handleToggleStatus(user)}
@@ -295,7 +295,7 @@ export default function UsersPage() {
                          : 'text-green-600 hover:bg-green-50 hover:border-green-100'
                       }`}>
                        <ShieldAlert size={12} />
-                       {(user.status === 'ACTIVE' || user.status === 'Active') ? 'Deactivate' : 'Activate'}
+                       {(user.status === 'ACTIVE' || user.status === 'Active') ? t('Deactivate') : t('Activate')}
                     </button>
                  </td>
               </tr>

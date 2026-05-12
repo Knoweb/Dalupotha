@@ -13,6 +13,41 @@ export function RegisterScreen({ route, navigation }: any) {
   const { width, height } = useWindowDimensions();
   const compact = width < 390 || height < 780;
 
+  const [lang] = useState<"en" | "si">(route.params?.lang ?? "en");
+  const dict: any = {
+    si: {
+      "Account Registration": "ගිණුම් ලියාපදිංචිය",
+      "Agent": "නියෝජිත",
+      "Supplier": "සැපයුම්කරු",
+      "FULL NAME *": "සම්පූර්ණ නම *",
+      "Sumana Weerasinghe": "සුමනා වීරසිංහ",
+      "CONTACT NUMBER *": "දුරකථන අංකය *",
+      "ESTATE / DIVISION *": "වත්ත / අංශය *",
+      "Loading estates...": "වතු පූරණය වෙමින්...",
+      "Select Estate...": "වත්ත තෝරන්න...",
+      "PASSBOOK NUMBER *": "පාස්පොත් අංකය *",
+      "LAND NAME": "ඉඩමේ නම",
+      "Green View Land": "හරිත දර්ශන ඉඩම",
+      "FIELD IN-CHARGE (TRANSPORT AGENT) *": "ක්ෂේත්‍ර භාරකරු (ප්‍රවාහන නියෝජිත) *",
+      "Loading agents...": "නියෝජිතයින් පූරණය වෙමින්...",
+      "No agents in this estate": "මෙම වත්තේ නියෝජිතයින් නොමැත",
+      "Select Transport Agent": "ප්‍රවාහන නියෝජිත තෝරන්න",
+      "CREATE LOGIN PIN *": "ප්‍රවේශ PIN අංකය සාදන්න *",
+      "4-digit PIN": "අංක 4 ක PIN අංකය",
+      "CONFIRM PIN *": "PIN අංකය තහවුරු කරන්න *",
+      "Re-enter PIN": "PIN අංකය නැවත ඇතුළත් කරන්න",
+      "PINs do not match": "PIN අංක නොගැලපේ",
+      "EMPLOYEE ID (TA) *": "සේවක හැඳුනුම්පත (TA) *",
+      "Register & Verify OTP →": "ලියාපදිංචි වී OTP තහවුරු කරන්න →",
+      "← Back to Login": "← ආපසු පිවිසුමට",
+      "Select Estate": "වත්ත තෝරන්න",
+      "No estates found.": "වතු හමු නොවීය.",
+      "Retry": "නැවත උත්සාහ කරන්න",
+      "Select Field In-Charge": "ක්ෂේත්‍ර භාරකරු තෝරන්න"
+    }
+  };
+  const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
+
   const [role, setRole] = useState<"supplier" | "agent">(route.params?.initialRole ?? "supplier");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -145,11 +180,13 @@ export function RegisterScreen({ route, navigation }: any) {
       }
 
       // Early uniqueness check: pass contact and passbook to sendOtp for backend validation
+      console.log("👉 [DEBUG] Calling sendOtp with:", contact.trim());
       await apiPost(AuthAPI.sendOtp, { 
         contact: contact.trim(),
         purpose: "REGISTRATION",
         passbookNo: role === "supplier" ? passbookNo.trim() : undefined
       });
+      console.log("👉 [DEBUG] sendOtp success!");
 
       // Build registration payload
       const registerData: any = {
@@ -181,6 +218,7 @@ export function RegisterScreen({ route, navigation }: any) {
         contact: contact.trim(),
         isRegistering: true,
         registerData,
+        lang,
       });
     } catch (err: any) {
       setErrorMsg(err.message ?? "Could not send OTP. Please check your phone number and try again.");
@@ -209,24 +247,24 @@ export function RegisterScreen({ route, navigation }: any) {
                   color={palette.accentBlue} 
                 />
               </View>
-              <Text style={[styles.cardTitle, styles.centered]}>Account Registration</Text>
+              <Text style={[styles.cardTitle, styles.centered]}>{_("Account Registration")}</Text>
               
               <View style={[styles.roleTabs, { marginTop: 20, marginBottom: 25 }]}>
                 <Pressable 
                   style={[styles.tab, role === "agent" && styles.tabActive]} 
                   onPress={() => setRole("agent")}
                 >
-                  <Text style={[styles.tabText, role === "agent" && { color: "#fff" }]}>Agent</Text>
+                  <Text style={[styles.tabText, role === "agent" && { color: "#fff" }]}>{_("Agent")}</Text>
                 </Pressable>
                 <Pressable 
                   style={[styles.tab, role === "supplier" && styles.tabActive]} 
                   onPress={() => setRole("supplier")}
                 >
-                  <Text style={[styles.tabText, role === "supplier" && { color: "#fff" }]}>Supplier</Text>
+                  <Text style={[styles.tabText, role === "supplier" && { color: "#fff" }]}>{_("Supplier")}</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.label}>FULL NAME *</Text>
+              <Text style={styles.label}>{_("FULL NAME *")}</Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   value={fullName}
@@ -237,7 +275,7 @@ export function RegisterScreen({ route, navigation }: any) {
                 />
               </View>
 
-              <Text style={styles.label}>CONTACT NUMBER *</Text>
+              <Text style={styles.label}>{_("CONTACT NUMBER *")}</Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   value={contact}
@@ -249,7 +287,7 @@ export function RegisterScreen({ route, navigation }: any) {
                 />
               </View>
 
-              <Text style={styles.label}>ESTATE / DIVISION *</Text>
+              <Text style={styles.label}>{_("ESTATE / DIVISION *")}</Text>
               <Pressable
                 style={styles.inputContainer}
                 onPress={() => !estatesLoading && setShowEstateModal(true)}
@@ -257,7 +295,7 @@ export function RegisterScreen({ route, navigation }: any) {
               >
                 <Ionicons name="business-outline" size={20} color={palette.muted} />
                 <Text style={{ flex: 1, color: selectedEstate ? "white" : palette.muted, marginLeft: 10 }}>
-                  {estatesLoading ? "Loading estates..." : selectedEstate ? selectedEstate.name : "Select Estate..."}
+                  {estatesLoading ? _("Loading estates...") : selectedEstate ? selectedEstate.name : _("Select Estate...")}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color={palette.muted} />
               </Pressable>
@@ -272,7 +310,7 @@ export function RegisterScreen({ route, navigation }: any) {
 
               {role === "supplier" ? (
                 <>
-                  <Text style={styles.label}>PASSBOOK NUMBER *</Text>
+                  <Text style={styles.label}>{_("PASSBOOK NUMBER *")}</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={passbookNo}
@@ -283,7 +321,7 @@ export function RegisterScreen({ route, navigation }: any) {
                       autoCapitalize="characters"
                     />
                   </View>
-                  <Text style={styles.label}>LAND NAME</Text>
+                  <Text style={styles.label}>{_("LAND NAME")}</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={landName}
@@ -294,7 +332,7 @@ export function RegisterScreen({ route, navigation }: any) {
                     />
                   </View>
 
-                  <Text style={styles.label}>FIELD IN-CHARGE (TRANSPORT AGENT) *</Text>
+                  <Text style={styles.label}>{_("FIELD IN-CHARGE (TRANSPORT AGENT) *")}</Text>
                   <Pressable
                     style={styles.inputContainer}
                     onPress={() => agents.length > 0 && setShowAgentModal(true)}
@@ -303,26 +341,26 @@ export function RegisterScreen({ route, navigation }: any) {
                     <Ionicons name="person-outline" size={20} color={palette.muted} />
                     <Text style={{ flex: 1, color: selectedAgent ? "white" : palette.muted, marginLeft: 10 }}>
                       {agentsLoading
-                        ? "Loading agents..."
+                        ? _("Loading agents...")
                         : selectedAgent
                           ? selectedAgent.fullName
                           : agents.length === 0
-                            ? "No agents in this estate"
-                            : "Select Transport Agent"}
+                            ? _("No agents in this estate")
+                            : _("Select Transport Agent")}
                     </Text>
                     {selectedAgent
                       ? <Pressable onPress={() => setSelectedAgent(null)}><Ionicons name="close-circle" size={18} color={palette.muted} /></Pressable>
                       : <Ionicons name="chevron-down" size={20} color={palette.muted} />}
                   </Pressable>
 
-                  <Text style={styles.label}>CREATE LOGIN PIN *</Text>
+                  <Text style={styles.label}>{_("CREATE LOGIN PIN *")}</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={pin}
                       onChangeText={setPin}
                       style={styles.inputField}
                       secureTextEntry={!showPin}
-                      placeholder="4-digit PIN"
+                      placeholder={_("4-digit PIN")}
                       placeholderTextColor="#7d93b4"
                       keyboardType="number-pad"
                       maxLength={6}
@@ -335,14 +373,14 @@ export function RegisterScreen({ route, navigation }: any) {
                       />
                     </Pressable>
                   </View>
-                  <Text style={styles.label}>CONFIRM PIN *</Text>
+                  <Text style={styles.label}>{_("CONFIRM PIN *")}</Text>
                   <View style={[styles.inputContainer, confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" }]}>
                     <TextInput
                       value={confirmPin}
                       onChangeText={setConfirmPin}
                       style={styles.inputField}
                       secureTextEntry={!showConfirmPin}
-                      placeholder="Re-enter PIN"
+                      placeholder={_("Re-enter PIN")}
                       placeholderTextColor="#7d93b4"
                       keyboardType="number-pad"
                       maxLength={6}
@@ -356,12 +394,12 @@ export function RegisterScreen({ route, navigation }: any) {
                     </Pressable>
                   </View>
                   {confirmPin.length > 0 && pin !== confirmPin && (
-                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>PINs do not match</Text>
+                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>{_("PINs do not match")}</Text>
                   )}
                 </>
               ) : (
                 <>
-                  <Text style={styles.label}>EMPLOYEE ID (TA) *</Text>
+                  <Text style={styles.label}>{_("EMPLOYEE ID (TA) *")}</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={employeeId}
@@ -373,14 +411,14 @@ export function RegisterScreen({ route, navigation }: any) {
                     />
                   </View>
 
-                  <Text style={styles.label}>CREATE PIN *</Text>
+                  <Text style={styles.label}>{_("CREATE LOGIN PIN *")}</Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={pin}
                       onChangeText={setPin}
                       style={styles.inputField}
                       secureTextEntry={!showPin}
-                      placeholder="4-digit PIN"
+                      placeholder={_("4-digit PIN")}
                       placeholderTextColor="#7d93b4"
                       keyboardType="number-pad"
                       maxLength={6}
@@ -394,14 +432,14 @@ export function RegisterScreen({ route, navigation }: any) {
                     </Pressable>
                   </View>
 
-                  <Text style={styles.label}>CONFIRM PIN *</Text>
+                  <Text style={styles.label}>{_("CONFIRM PIN *")}</Text>
                   <View style={[styles.inputContainer, confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" }]}>
                     <TextInput
                       value={confirmPin}
                       onChangeText={setConfirmPin}
                       style={styles.inputField}
                       secureTextEntry={!showConfirmPin}
-                      placeholder="Re-enter PIN"
+                      placeholder={_("Re-enter PIN")}
                       placeholderTextColor="#7d93b4"
                       keyboardType="number-pad"
                       maxLength={6}
@@ -415,7 +453,7 @@ export function RegisterScreen({ route, navigation }: any) {
                     </Pressable>
                   </View>
                   {confirmPin.length > 0 && pin !== confirmPin && (
-                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>PINs do not match</Text>
+                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>{_("PINs do not match")}</Text>
                   )}
                 </>
               )}
@@ -442,13 +480,13 @@ export function RegisterScreen({ route, navigation }: any) {
                 {loading
                   ? <ActivityIndicator color="#fff" />
                   : <Text style={[styles.primaryBtnText, compact && styles.primaryBtnTextCompact]}>
-                      Register {"&"} Verify OTP →
+                      {_("Register & Verify OTP →")}
                     </Text>
                 }
               </Pressable>
 
               <Pressable onPress={() => navigation.goBack()} style={{ marginTop: 25, alignItems: 'center' }}>
-                <Text style={styles.cancelText}>← Back to Login</Text>
+                <Text style={styles.cancelText}>{_("← Back to Login")}</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -460,7 +498,7 @@ export function RegisterScreen({ route, navigation }: any) {
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 }}>
           <View style={[styles.authCard, { maxHeight: "70%" }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <Text style={styles.cardTitle}>Select Estate</Text>
+              <Text style={styles.cardTitle}>{_("Select Estate")}</Text>
               <Pressable onPress={() => setShowEstateModal(false)}>
                 <Ionicons name="close" size={24} color={palette.muted} />
               </Pressable>
@@ -469,13 +507,13 @@ export function RegisterScreen({ route, navigation }: any) {
               {estatesLoading ? (
                 <View style={{ paddingVertical: 24, alignItems: "center" }}>
                   <ActivityIndicator color={palette.accentBlue} />
-                  <Text style={{ color: palette.muted, marginTop: 10 }}>Loading estates...</Text>
+                  <Text style={{ color: palette.muted, marginTop: 10 }}>{_("Loading estates...")}</Text>
                 </View>
               ) : estates.length === 0 ? (
                 <View style={{ paddingVertical: 24, alignItems: "center" }}>
-                  <Text style={{ color: "#ffb4b4", textAlign: "center" }}>No estates found.</Text>
+                  <Text style={{ color: "#ffb4b4", textAlign: "center" }}>{_("No estates found.")}</Text>
                   <Pressable onPress={fetchEstates} style={{ marginTop: 10 }}>
-                    <Text style={{ color: palette.accentBlue }}>Retry</Text>
+                    <Text style={{ color: palette.accentBlue }}>{_("Retry")}</Text>
                   </Pressable>
                 </View>
               ) : (
@@ -503,7 +541,7 @@ export function RegisterScreen({ route, navigation }: any) {
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 }}>
           <View style={[styles.authCard, { maxHeight: "70%" }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <Text style={styles.cardTitle}>Select Field In-Charge</Text>
+              <Text style={styles.cardTitle}>{_("Select Field In-Charge")}</Text>
               <Pressable onPress={() => setShowAgentModal(false)}>
                 <Ionicons name="close" size={24} color={palette.muted} />
               </Pressable>

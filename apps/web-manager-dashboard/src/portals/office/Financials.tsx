@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import React from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
-import { FinanceAPI, AuthAPI, UserSummary } from '../../services/api'
+import { FinanceAPI, AuthAPI, CollectionAPI, UserSummary } from '../../services/api'
 
 // MUI Imports
 import { 
@@ -31,22 +31,34 @@ interface PayoutData {
 
 export default function FinancialsPage() {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'balance' | 'advances'>('balance');
+  const [activeTab, setActiveTab] = useState<'balance' | 'advances' | 'approvals'>('balance');
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('en-GB', { month: 'short' }));
+  const [globalDueDate, setGlobalDueDate] = useState<string>('2026-05-28');
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [payouts, setPayouts] = useState<PayoutData[]>([]);
+  const [trendData, setTrendData] = useState<any[]>([]);
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<any>(null);
   const [editedAmount, setEditedAmount] = useState<number>(0);
   const [isEditable, setIsEditable] = useState(false);
+  const [remark, setRemark] = useState<string>('');
+  const [fallbackManagerId, setFallbackManagerId] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Statement Modal State
+  const [statementOpen, setStatementOpen] = useState(false);
+  const [selectedSupplierForStatement, setSelectedSupplierForStatement] = useState<any>(null);
+  const [statements, setStatements] = useState<any[]>([]);
+  const [statementLoading, setStatementLoading] = useState(false);
 
   // Role detection
   const userRole = sessionStorage.getItem('user_role') || 'office-staff';
   const isManager = userRole === 'manager' || userRole === 'admin';
+  const requesterId = sessionStorage.getItem('current_user_id') || sessionStorage.getItem('user_id') || fallbackManagerId || '00000000-0000-0000-0000-000000000000';
 
   const fetchData = useCallback(async () => {
     try {
@@ -57,57 +69,156 @@ export default function FinancialsPage() {
       const allUsers = await AuthAPI.getUsers(estateId || undefined);
       const suppliers = allUsers.filter(u => u.role === 'SH' || u.role === 'SMALL_HOLDER' || u.role === 'SUPPLIER');
       
+      // Find a valid manager/admin to use as fallback ID if session is missing it
+      const manager = allUsers.find(u => u.role === 'MANAGER' || u.role === 'ADMIN');
+      if (manager) setFallbackManagerId(manager.userId || manager.id);
+      
       // 2. Get requests to see what is AWAITING_APPROVAL
       const requests = await FinanceAPI.getRequests();
 
-      // 3. Get ledger for each
+      // 3. Get ledger and summary for each
       const data: PayoutData[] = await Promise.all(suppliers.map(async (s) => {
         try {
           const targetId = s.supplierId || s.userId;
-          const ledger = await FinanceAPI.getSupplierLedger(targetId);
+          const [ledger, history, transactions] = await Promise.all([
+            FinanceAPI.getSupplierLedger(targetId),
+            fetch(`http://127.0.0.1:8080/collection/history/${targetId}`)
+              .then(r => r.ok ? r.json() : [])
+              .catch(() => []),
+            FinanceAPI.getLedgerTransactions(targetId)
+              .catch(() => [])
+          ]);
           const req = requests.find(r => r.supplierId === targetId || r.supplierId === s.userId);
           
+          // Calculate Net Weight for the selected month (e.g., "Apr 2026")
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          // selectedMonth might be just "May" or "Apr" based on line 247
+          const monthIdx = monthNames.findIndex(m => selectedMonth.includes(m));
+          const year = 2026; // Defaulting to 2026 as per the dropdown options
+          
+          const startOfMonth = new Date(year, monthIdx, 1).getTime();
+          const endOfMonth = new Date(year, monthIdx + 1, 1).getTime();
+          
+          const currentMonthNet = (history as any[])
+              .filter((item: any) => {
+                 const t = new Date(item.collectedAt).getTime();
+                 return item.netWeight != null && t >= startOfMonth && t < endOfMonth;
+              })
+              .reduce((sum: number, item: any) => sum + Number(item.netWeight), 0);
+
+          const leafPrice = ledger.leafPrice || 0;
+          // User requested month-wise Gross Earnings based strictly on Net Weight
+          const trueGross = currentMonthNet * leafPrice;
+          const qualityDed = 0;
+
+          const currentDebt = ledger.currentDebt || 0;
+          const advanceTaken = ledger.advanceTaken || 0;
+          const calculatedNetPay = trueGross - (currentDebt + advanceTaken);
+
+          const hasPaidPayout = transactions.find((t: any) => {
+            if (t.transactionType !== 'PAYOUT' || !['APPROVED', 'PAID', 'CLEARED'].includes(t.status)) return false;
+            const date = new Date(t.transactionDate);
+            const monthName = date.toLocaleString('en-GB', { month: 'short' });
+            return selectedMonth.includes(monthName);
+          });
+          
+          const pendingPayout = transactions.find((t: any) => t.transactionType === 'PAYOUT' && t.status === 'AWAITING_APPROVAL');
+          
+          const status = hasPaidPayout ? 'APPROVED' : (pendingPayout ? 'AWAITING_APPROVAL' : 'PENDING');
+
           return {
             id: targetId,
             name: s.name,
             sid: s.id || targetId.substring(0, 8),
-            gross: ledger.grossEarnings || 0,
-            adv: ledger.advanceTaken || 0,
-            debt: ledger.currentDebt || 0,
-            qual: 500, // Mock quality ded for now
-            netPay: ledger.estimatedBalance || 0,
-            leafKg: ledger.totalNetWeight || 0,
-            rate: ledger.leafPrice || 0,
-            status: req ? req.status : (ledger.estimatedBalance > 0 ? 'PENDING' : 'PAID'),
-            date: req ? new Date(req.requestDate).toLocaleDateString() : 'Active'
+            gross: trueGross,
+            adv: advanceTaken,
+            debt: currentDebt,
+            qual: qualityDed,
+            netPay: calculatedNetPay,
+            leafKg: currentMonthNet,
+            rate: leafPrice,
+            status: status,
+            date: req ? new Date(req.requestDate).toLocaleDateString() : 'Active',
+            trend: transactions // Save transactions for trend calculation
           };
         } catch (e) {
           return null;
         }
       })).then(results => results.filter(r => r !== null) as PayoutData[]);
 
+      // Calculate trend data for the last 6 months based on selected month
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthIdx = monthNames.findIndex(m => selectedMonth.includes(m));
+      const year = 2026; // Defaulting to 2026
+      
+      const last6Months = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(year, monthIdx - i, 1);
+        last6Months.push(d.toLocaleString('en-US', { month: 'short' }));
+      }
+      
+      const trend = last6Months.map(month => {
+        let adv = 0;
+        let pay = 0;
+        
+        data.forEach((supplier: any) => {
+          supplier.trend?.forEach((t: any) => {
+            const date = new Date(t.transactionDate);
+            const m = date.toLocaleString('en-US', { month: 'short' });
+            if (m === month) {
+              if (t.transactionType === 'ADVANCE') adv += Number(t.amount);
+              if (t.transactionType === 'PAYOUT' && ['APPROVED', 'PAID', 'CLEARED'].includes(t.status)) pay += Number(t.amount);
+            }
+          });
+        });
+        
+        return { month, adv, pay };
+      }).filter(d => d.adv > 0 || d.pay > 0); // Filter out empty months
+      
+      setTrendData(trend);
       setPayouts(data);
     } catch (err) {
       console.error("Failed to fetch financial data", err);
     } finally {
       setFetchLoading(false);
     }
-  }, []);
+  }, [selectedMonth]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
   const openPayoutModal = (item: any) => {
     setSelectedPayout(item);
     setEditedAmount(item.netPay);
     setIsEditable(false);
+    setRemark('');
     setModalOpen(true);
+  };
+
+  const openStatement = async (supplier: any) => {
+    setSelectedSupplierForStatement(supplier);
+    setStatementOpen(true);
+    setStatementLoading(true);
+    try {
+      const data = await FinanceAPI.getLedgerTransactions(supplier.id);
+      setStatements(data);
+    } catch (err) {
+      console.error("Failed to fetch statement", err);
+    } finally {
+      setStatementLoading(false);
+    }
   };
 
   const handleConfirmPayout = async () => {
     if (!selectedPayout) return;
-    const requesterId = sessionStorage.getItem('user_id') || "00000000-0000-0000-0000-000000000000";
     
     try {
       setLoading(true);
@@ -115,13 +226,13 @@ export default function FinancialsPage() {
         supplierId: selectedPayout.id,
         amount: editedAmount,
         requesterId,
-        description: `Balance payment: ${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
+        description: `STATEMENT_SUMMARY|Gross:${selectedPayout.gross}|Adv:${selectedPayout.adv}|Debt:${selectedPayout.debt}|Net:${selectedPayout.netPay}|Month:${selectedMonth}|Remark:${remark || ''}`,
         immediate: isManager 
       });
       
       setModalOpen(false);
       fetchData(); // Refresh list
-      alert(isManager ? t('Payout processed successfully') : t('Payout request submitted to Manager'));
+      setSuccessMessage(isManager ? t('Payout processed successfully') : t('Payout request submitted to Manager'));
     } catch (err) {
       alert("Error: " + (err as Error).message);
     } finally {
@@ -129,62 +240,130 @@ export default function FinancialsPage() {
     }
   };
 
-  const filteredPayouts = payouts.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    p.sid.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredPayouts = payouts.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sid.toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    
+    if (activeTab === 'approvals') {
+      return p.status === 'AWAITING_APPROVAL';
+    } else if (activeTab === 'advances') {
+      return p.adv > 0;
+    } else {
+      return true;
+    }
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
+      {successMessage && (
+        <Box sx={{ p: 2, borderRadius: '16px', bgcolor: '#E6F4EA', border: '1px solid #CEEAD6', color: '#137333', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CheckCircle2 size={20} />
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>{successMessage}</Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setSuccessMessage(null)} sx={{ color: '#137333' }}>
+            <X size={16} />
+          </IconButton>
+        </Box>
+      )}
+      {/* ── Global Due Date Selector ────────────────────────── */}
+      <div className="flex justify-between items-center bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm">
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-slate-900">{t('Next Payout Date')}</span>
+          <span className="text-xs font-medium text-slate-500 mt-1">{t('This date will be applied to all pending suppliers for the current cycle.')}</span>
+        </div>
+        <input 
+          type="date" 
+          value={globalDueDate}
+          onChange={(e) => setGlobalDueDate(e.target.value)}
+          className="px-4 py-2 bg-white border-2 border-slate-300 rounded-xl text-sm font-medium text-black focus:border-emerald-600 outline-none"
+        />
+      </div>
+
       {/* ── Top Summary Cards ─────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           icon={<Wallet className="text-emerald-500" />} 
           value={`Rs. ${payouts.filter(p => p.status === 'PENDING').reduce((s, p) => s + p.netPay, 0).toLocaleString()}`} 
           label={t("BALANCE PAYMENTS PENDING")} 
-          sub={`${payouts.filter(p => p.status === 'PENDING').length} suppliers`} 
+          sub={`${payouts.filter(p => p.status === 'PENDING').length} ${t('suppliers')}`} 
           color="emerald"
         />
         <StatCard 
-          icon={<Clock className="text-amber-500" />} 
-          value={`Rs. ${payouts.filter(p => p.status === 'AWAITING_APPROVAL').reduce((s, p) => s + p.netPay, 0).toLocaleString()}`} 
-          label={t("AWAITING APPROVAL")} 
-          sub={`${payouts.filter(p => p.status === 'AWAITING_APPROVAL').length} requests`} 
-          color="amber"
+          icon={<CheckCircle2 className="text-emerald-500" />} 
+          value={`Rs. ${payouts.filter(p => p.status === 'APPROVED').reduce((s, p) => s + p.netPay, 0).toLocaleString()}`} 
+          label={t("PAID THIS WEEK")} 
+          sub={`${payouts.filter(p => p.status === 'APPROVED').length} ${t('payments')}`} 
+          color="emerald"
         />
         <StatCard 
-          icon={<CreditCard className="text-indigo-500" />} 
+          icon={<CreditCard className="text-amber-500" />} 
           value={`Rs. ${payouts.reduce((s, p) => s + p.adv, 0).toLocaleString()}`} 
           label={t("TOTAL ADVANCES OUT")} 
-          sub="Current Cycle" 
-          color="indigo"
+          sub={t("Current Cycle")} 
+          color="amber"
         />
         <StatCard 
           icon={<AlertCircle className="text-rose-500" />} 
           value={`Rs. ${payouts.reduce((s, p) => s + p.debt, 0).toLocaleString()}`} 
           label={t("TOTAL DEBT PORTFOLIO")} 
-          sub="All Holders" 
+          sub={t("All Holders")} 
           color="rose"
         />
       </div>
 
-      {/* ── Approval Alert for Managers ──────────────────────── */}
-      {isManager && payouts.some(p => p.status === 'AWAITING_APPROVAL') && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
-              <ShieldCheck size={20} />
+      {/* ── Financial Trend Chart ────────────────────────────── */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mt-6 mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">{t('Financial Trend (6 Months)')}</h3>
+            <p className="text-xs text-slate-500 mt-1">{t('Advances vs Balance Payments (Rs.)')}</p>
+          </div>
+          <div className="flex gap-4 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-sm"></div>
+              <span>{t('Advances')}</span>
             </div>
-            <div>
-              <p className="text-sm font-bold text-amber-900">{t('Pending Payout Approvals')}</p>
-              <p className="text-xs text-amber-900 font-bold">{t('There are requests awaiting your final authorization.')}</p>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+              <span>{t('Payments')}</span>
             </div>
           </div>
-          <button className="px-4 py-2 bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-amber-700 transition-all">
-            {t('Review All')}
-          </button>
         </div>
-      )}
+        
+        <div className="relative h-64 flex items-end justify-center gap-16 pb-2">
+          {/* Grid Lines */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            <div className="border-t border-slate-100 w-full h-0"></div>
+            <div className="border-t border-slate-100 w-full h-0"></div>
+            <div className="border-t border-slate-100 w-full h-0"></div>
+            <div className="border-t border-slate-100 w-full h-0"></div>
+            <div className="border-t border-slate-100 w-full h-0"></div>
+          </div>
+          
+          {/* Bars */}
+          {trendData.map((data, idx) => {
+            const maxVal = Math.max(...trendData.map(d => Math.max(d.adv, d.pay)), 100000);
+            return (
+              <div key={idx} className="flex flex-col items-center gap-2 w-20 z-10">
+                <div className="flex items-end gap-2 h-48 w-full justify-center">
+                  <div 
+                    className="bg-gradient-to-t from-blue-600 to-blue-400 w-8 rounded-t-md transition-all duration-500 hover:from-blue-700 hover:to-blue-500 shadow-sm" 
+                    style={{ height: `${(data.adv / maxVal) * 100}%` }}
+                    title={`Advances: Rs. ${data.adv.toLocaleString()}`}
+                  ></div>
+                  <div 
+                    className="bg-gradient-to-t from-emerald-600 to-emerald-400 w-8 rounded-t-md transition-all duration-500 hover:from-emerald-700 hover:to-emerald-500 shadow-sm" 
+                    style={{ height: `${(data.pay / maxVal) * 100}%` }}
+                    title={`Payments: Rs. ${data.pay.toLocaleString()}`}
+                  ></div>
+                </div>
+                <span className="text-xs font-medium text-slate-500">{data.month}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── Main Ledger Table ───────────────────────────────── */}
       <div className="bg-white rounded-[24px] border border-slate-200 shadow-sm overflow-hidden">
@@ -192,15 +371,25 @@ export default function FinancialsPage() {
           <div className="flex">
             <button 
               onClick={() => setActiveTab('balance')}
-              className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all border-b-2 ${activeTab === 'balance' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all rounded-t-lg ${activeTab === 'balance' ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
             >
               <Wallet size={14} /> {t('Balance Payments')}
             </button>
             <button 
               onClick={() => setActiveTab('advances')}
-              className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all border-b-2 ${activeTab === 'advances' ? 'border-emerald-500 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all rounded-t-lg ${activeTab === 'advances' ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
             >
               <CreditCard size={14} /> {t('Advances')}
+            </button>
+            <button 
+              onClick={() => setActiveTab('approvals')}
+              className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all rounded-t-lg ${activeTab === 'approvals' ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+            >
+              <ShieldCheck size={14} /> {t('Approvals')} {payouts.filter(p => p.status === 'AWAITING_APPROVAL').length > 0 && (
+                <span className="ml-1 bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {payouts.filter(p => p.status === 'AWAITING_APPROVAL').length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -241,7 +430,6 @@ export default function FinancialsPage() {
                 <th className="px-6 py-4 text-right">{t('GROSS (RS.)')}</th>
                 <th className="px-6 py-4 text-right">{t('ADVANCE DED.')}</th>
                 <th className="px-6 py-4 text-right">{t('DEBT DED.')}</th>
-                <th className="px-6 py-4 text-right">{t('QUALITY DED.')}</th>
                 <th className="px-6 py-4 text-right">{t('NET PAY')}</th>
                 <th className="px-6 py-4 text-center">{t('STATUS')}</th>
                 <th className="px-6 py-4 text-center">{t('DUE/PAID')}</th>
@@ -252,23 +440,26 @@ export default function FinancialsPage() {
               {fetchLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={8} className="px-6 py-4"><Skeleton variant="text" /></td>
+                    <td colSpan={9} className="px-6 py-4"><Skeleton variant="text" /></td>
                   </tr>
                 ))
               ) : filteredPayouts.length > 0 ? (
                 filteredPayouts.map((p) => (
                   <PayoutItem 
+                    key={p.id}
                     {...p}
                     t={t}
                     month={selectedMonth}
+                    globalDueDate={globalDueDate}
                     onAction={() => openPayoutModal(p)}
+                    onViewStatement={() => openStatement(p)}
                     loading={loading}
                     isManager={isManager}
                   />
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-900 font-bold uppercase tracking-widest text-xs">
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-900 font-bold uppercase tracking-widest text-xs">
                     {t('No pending payouts found')}
                   </td>
                 </tr>
@@ -282,77 +473,227 @@ export default function FinancialsPage() {
       <Dialog 
         open={modalOpen} 
         onClose={() => !loading && setModalOpen(false)}
-        TransitionComponent={Fade}
-        PaperProps={{
-          sx: { borderRadius: '24px', padding: '12px', width: '100%', maxWidth: '400px' }
+        sx={{ 
+          '& .MuiDialog-paper': { borderRadius: '24px', padding: '12px', width: '100%', maxWidth: '400px' }
         }}
       >
         <DialogTitle sx={{ p: 3, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 500, color: '#000000' }}>{isManager ? t('Confirm Payout') : t('Request Payout')}</Typography>
+          <Typography variant="h5" component="div" sx={{ fontWeight: 500, color: '#000000' }}>
+            {selectedPayout && ['APPROVED', 'PAID', 'CLEARED'].includes(selectedPayout.status) ? t('Payment Receipt') : (isManager ? t('Confirm Payout') : t('Request Payout'))}
+          </Typography>
           <IconButton onClick={() => setModalOpen(false)} disabled={loading} size="small">
             <X size={20} />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
-          <Box sx={{ py: 2 }}>
-            <Typography variant="body2" sx={{ mb: 2, fontWeight: 500, color: '#0f172a' }}>
-              {t('Processing payment for')} <span className="text-emerald-600 underline">{selectedPayout?.name}</span>
-            </Typography>
-            
-            <Box sx={{ mt: 3, p: 2, borderRadius: '16px', bgcolor: 'slate.50', border: '1px solid', borderColor: 'slate.200' }}>
-              <Typography variant="caption" sx={{ fontWeight: 500, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                {t('Payout Amount (Rs.)')}
+         <>
+          {selectedPayout && ['APPROVED', 'PAID', 'CLEARED'].includes(selectedPayout.status) ? (
+            <Box sx={{ py: 1 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 500, color: '#0f172a' }}>
+                {t('Payment completed for')} <span className="text-emerald-600 underline">{selectedPayout?.name}</span>
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Box sx={{ mb: 3, p: 2, borderRadius: '16px', bgcolor: 'slate.50', border: '1px solid', borderColor: 'slate.200' }}>
+                <Typography variant="caption" sx={{ fontWeight: 500, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  {t('Amount Paid')}
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 1, fontWeight: 700, color: '#059669' }}>
+                  Rs. {selectedPayout?.netPay.toLocaleString()}
+                </Typography>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ py: 2 }}>
+              <Typography variant="body2" sx={{ mb: 2, fontWeight: 500, color: '#0f172a' }}>
+                {t('Processing payment for')} <span className="text-emerald-600 underline">{selectedPayout?.name}</span>
+              </Typography>
+              
+              <Box sx={{ mt: 3, p: 2, borderRadius: '16px', bgcolor: 'slate.50', border: '1px solid', borderColor: 'slate.200' }}>
+                <Typography variant="caption" sx={{ fontWeight: 500, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  {t('Payout Amount (Rs.)')}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                  <TextField
+                    fullWidth
+                    variant="standard"
+                    type="number"
+                    value={editedAmount}
+                    onChange={(e) => setEditedAmount(Number(e.target.value))}
+                    disabled={!isEditable || loading}
+                    sx={{ 
+                      '& .MuiInput-underline:before': { display: !isEditable ? 'none' : 'block' },
+                      '& .MuiInput-underline:after': { display: !isEditable ? 'none' : 'block' },
+                      '& input': { fontSize: '1.5rem', fontWeight: 500, color: isEditable ? '#1976d2' : '#000000' }
+                    }}
+                  />
+                  <IconButton 
+                    onClick={() => setIsEditable(!isEditable)} 
+                    disabled={loading}
+                    sx={{ 
+                      bgcolor: isEditable ? 'primary.main' : 'slate.100', 
+                      color: isEditable ? 'white' : 'slate.500',
+                      '&:hover': { bgcolor: isEditable ? 'primary.dark' : 'slate.200' }
+                    }}
+                  >
+                    {isEditable ? <Unlock size={18} /> : <Pencil size={18} />}
+                  </IconButton>
+                </Box>
+                {!isEditable && (
+                  <Typography variant="caption" sx={{ color: '#000000', fontStyle: 'italic', display: 'flex', itemsCenter: 'center', gap: 0.5, mt: 1, fontWeight: 500 }}>
+                    <Lock size={12} /> {t('Amount is locked. Click pen to edit.')}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Remark Field */}
+              <Box sx={{ mt: 2, p: 2, borderRadius: '16px', bgcolor: 'slate.50', border: '1px solid', borderColor: 'slate.200' }}>
+                <Typography variant="caption" sx={{ fontWeight: 500, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  {t('Remarks')}
+                </Typography>
                 <TextField
                   fullWidth
                   variant="standard"
-                  type="number"
-                  value={editedAmount}
-                  onChange={(e) => setEditedAmount(Number(e.target.value))}
-                  disabled={!isEditable || loading}
-                  InputProps={{
-                    disableUnderline: !isEditable,
-                    sx: { fontSize: '1.5rem', fontWeight: 500, color: isEditable ? 'primary.main' : '#000000' }
+                  placeholder={t('Add remarks (optional)...')}
+                  value={remark}
+                  onChange={(e) => setRemark(e.target.value)}
+                  disabled={loading}
+                  multiline
+                  rows={2}
+                  sx={{ 
+                    '& .MuiInput-underline:before': { borderBottom: 'none' },
+                    '& .MuiInput-underline:after': { borderBottom: 'none' },
+                    '& .MuiInput-underline:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
+                    fontSize: '0.875rem', 
+                    fontWeight: 500, 
+                    color: '#000000', 
+                    mt: 1 
                   }}
                 />
-                <IconButton 
-                  onClick={() => setIsEditable(!isEditable)} 
-                  disabled={loading}
-                  sx={{ 
-                    bgcolor: isEditable ? 'primary.main' : 'slate.100', 
-                    color: isEditable ? 'white' : 'slate.500',
-                    '&:hover': { bgcolor: isEditable ? 'primary.dark' : 'slate.200' }
-                  }}
-                >
-                  {isEditable ? <Unlock size={18} /> : <Pencil size={18} />}
-                </IconButton>
               </Box>
-              {!isEditable && (
-                <Typography variant="caption" sx={{ color: '#000000', fontStyle: 'italic', display: 'flex', itemsCenter: 'center', gap: 0.5, mt: 1, fontWeight: 500 }}>
-                  <Lock size={12} /> {t('Amount is locked. Click pen to edit.')}
-                </Typography>
-              )}
             </Box>
-          </Box>
+          )}
+
+            {/* Official Statement Summary */}
+            <Typography variant="subtitle2" sx={{ mt: 3, mb: 1.5, fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>
+              {t('OFFICIAL STATEMENT SUMMARY')} ({selectedMonth} 2026)
+            </Typography>
+            <Box sx={{ p: 2.5, borderRadius: '16px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>{t('Gross Earnings')}</Typography>
+                <Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 700 }}>Rs. {selectedPayout?.gross.toLocaleString()}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>{t('Advances Deducted')}</Typography>
+                <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 700 }}>- Rs. {selectedPayout?.adv.toLocaleString()}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>{t('Other Deductions (Debt)')}</Typography>
+                <Typography variant="body2" sx={{ color: '#ef4444', fontWeight: 700 }}>- Rs. {selectedPayout?.debt.toLocaleString()}</Typography>
+              </Box>
+              <Box sx={{ borderTop: '1px dashed #cbd5e1', my: 1.5 }}></Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle2" sx={{ color: '#0f172a', fontWeight: 800 }}>{t('Net Payable')}</Typography>
+                <Typography variant="subtitle2" sx={{ color: '#059669', fontWeight: 800 }}>Rs. {selectedPayout?.netPay.toLocaleString()}</Typography>
+              </Box>
+            </Box>
+
+            {/* Session Warning */}
+            {requesterId === '00000000-0000-0000-0000-000000000000' && (
+              <Box sx={{ mt: 2, p: 1.5, borderRadius: '12px', bgcolor: '#FEF2F2', border: '1px solid #FECACA' }}>
+                <Typography variant="caption" sx={{ color: '#DC2626', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AlertCircle size={14} /> {t('Warning: Your session user ID is missing. The request might fail on the server.')}
+                </Typography>
+              </Box>
+            )}
+         </>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button 
-            fullWidth 
-            onClick={handleConfirmPayout}
-            variant="contained" 
-            disabled={loading}
-            sx={{ 
-              borderRadius: '16px', 
-              py: 1.5, 
-              fontWeight: 500, 
-              bgcolor: isManager ? '#059669' : '#000000',
-              '&:hover': { bgcolor: isManager ? '#047857' : '#111111' }
-            }}
-          >
-            {loading ? <CircularProgress size={24} color="inherit" /> : (isManager ? t('CONFIRM & ISSUE PAYMENT') : t('SUBMIT REQUEST'))}
-          </Button>
+          {selectedPayout && ['APPROVED', 'PAID', 'CLEARED'].includes(selectedPayout.status) ? (
+            <Button 
+              fullWidth 
+              onClick={() => setModalOpen(false)}
+              variant="contained" 
+              sx={{ 
+                borderRadius: '16px', 
+                py: 1.5, 
+                fontWeight: 500, 
+                bgcolor: '#64748b',
+                '&:hover': { bgcolor: '#475569' }
+              }}
+            >
+              {t('CLOSE')}
+            </Button>
+          ) : (
+            <Button 
+              fullWidth 
+              onClick={handleConfirmPayout}
+              variant="contained" 
+              disabled={loading}
+              sx={{ 
+                borderRadius: '16px', 
+                py: 1.5, 
+                fontWeight: 500, 
+                bgcolor: isManager ? '#059669' : '#000000',
+                '&:hover': { bgcolor: isManager ? '#047857' : '#111111' }
+              }}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : (isManager ? t('CONFIRM & ISSUE PAYMENT') : t('SUBMIT REQUEST'))}
+            </Button>
+          )}
         </DialogActions>
+      </Dialog>
+
+      {/* ── Statement Dialog ───────────────────── */}
+      <Dialog 
+        open={statementOpen} 
+        onClose={() => setStatementOpen(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{ '& .MuiDialog-paper': { borderRadius: '24px', padding: '12px' } }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" sx={{ fontWeight: 500 }}>{t('Account Statement')} - {selectedSupplierForStatement?.name}</Typography>
+          <IconButton onClick={() => setStatementOpen(false)} size="small">
+            <X size={20} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {statementLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+          ) : statements.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-100 text-[10px] font-medium text-black uppercase tracking-widest">
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {statements.map((s: any) => (
+                    <tr key={s.transactionId} className="text-sm">
+                      <td className="px-4 py-3">{new Date(s.transactionDate).toLocaleDateString()}</td>
+                      <td className="px-4 py-3">{s.description}</td>
+                      <td className="px-4 py-3 font-medium">{s.transactionType}</td>
+                      <td className="px-4 py-3 text-right font-bold">Rs. {s.amount.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded-lg text-[10px] uppercase font-bold ${s.status === 'APPROVED' || s.status === 'CLEARED' ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#B45309]'}`}>
+                          {s.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Typography variant="body2" sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+              No transactions found for this supplier.
+            </Typography>
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   );
@@ -375,7 +716,7 @@ function StatCard({ icon, value, label, sub, color }: any) {
   );
 }
 
-function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, date, t, onAction, loading, isManager, month }: any) {
+function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, date, t, onAction, onViewStatement, loading, isManager, month, globalDueDate }: any) {
   const statusColors: any = {
     PENDING: 'bg-[#FEF3C7] text-[#B45309] font-bold',
     AWAITING_APPROVAL: 'bg-[#FEF3C7] text-[#B45309] font-bold',
@@ -394,9 +735,9 @@ function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, dat
   const net = netPay;
   
   const getActionLabel = () => {
-    if (status === 'AWAITING_APPROVAL') return isManager ? t('APPROVE & PAY') : t('SENT');
-    if (status === 'PENDING') return isManager ? t('PAY NOW') : t('REQUEST');
-    if (status === 'DISPATCHED') return t('VIEW');
+    if (status === 'AWAITING_APPROVAL') return isManager ? t('VIEW & APPROVE') : t('SENT');
+    if (status === 'PENDING') return t('PAY');
+    if (status === 'DISPATCHED' || status === 'APPROVED' || status === 'PAID' || status === 'CLEARED') return t('VIEW');
     return null;
   }
 
@@ -406,18 +747,22 @@ function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, dat
         <p className="text-sm font-medium text-slate-800">{paymentId}</p>
       </td>
       <td className="px-6 py-4">
-        <p className="text-sm font-medium text-slate-900 leading-none">{name}</p>
+        <p className="text-sm font-medium text-slate-900 leading-none flex items-center gap-2">
+          {name}
+          <IconButton size="small" onClick={onViewStatement} title={t('View Statement')} sx={{ p: 0.5 }}>
+            <FileText size={14} className="text-slate-400 hover:text-emerald-600" />
+          </IconButton>
+        </p>
         <p className="text-[12px] font-medium text-slate-500 mt-2 uppercase tracking-wider">{sid}</p>
       </td>
       <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">Rs. {gross.toLocaleString()}</td>
       <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">-Rs. {adv.toLocaleString()}</td>
       <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">-Rs. {debt.toLocaleString()}</td>
-      <td className="px-6 py-4 text-right text-[13px] font-medium text-slate-700">-Rs. {qualityDed.toLocaleString()}</td>
       <td className="px-6 py-4 text-right text-[14px] font-medium text-slate-900">Rs. {net.toLocaleString()}</td>
       <td className="px-6 py-4 text-center">
         {(() => {
           const isPaid = ['PAID', 'APPROVED', 'SETTLED', 'DISPATCHED', 'CALCULATED', 'APPROVED_BY_EXT'].includes(status);
-          const displayLabel = isPaid ? 'PAID' : 'PENDING';
+          const displayLabel = status === 'AWAITING_APPROVAL' ? 'AWAITING APPROVAL' : (isPaid ? 'PAID' : 'PENDING');
           const colorClass = isPaid ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#B45309]';
           return (
             <span className={`px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold ${colorClass}`}>
@@ -427,17 +772,21 @@ function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, dat
         })()}
       </td>
       <td className="px-6 py-4 text-center">
-        <span className="text-xs font-medium text-slate-600">{date || `28 ${month} 2026`}</span>
+        <span className="text-xs font-medium text-slate-600">
+          {new Date(globalDueDate).toLocaleDateString('en-GB')}
+        </span>
       </td>
       <td className="px-6 py-4 text-right">
         {status !== 'PAID' && status !== 'SETTLED' && getActionLabel() ? (
           <button 
             onClick={onAction}
-            disabled={loading || (status === 'AWAITING_APPROVAL' && !isManager)}
+            disabled={loading || net <= 0 || (status === 'AWAITING_APPROVAL' && !isManager)}
             className={`px-3 py-1.5 rounded-xl text-[10px] font-medium uppercase tracking-widest transition-all shadow-md
               ${status === 'AWAITING_APPROVAL' 
                 ? 'bg-amber-600 text-white hover:bg-amber-700 disabled:bg-slate-100 disabled:text-slate-400' 
-                : 'bg-black text-white hover:bg-slate-900'
+                : net <= 0 
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-black text-white hover:bg-slate-900'
               }`}
           >
             {loading ? <RefreshCw className="animate-spin" size={10} /> : getActionLabel()}

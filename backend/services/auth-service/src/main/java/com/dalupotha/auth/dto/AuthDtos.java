@@ -180,6 +180,7 @@ public class AuthDtos {
         private String estateName;
         private String nic;
         private java.time.LocalDate birthdate;
+        private String password;
         
         // Supplier specific
         private String passbookNo;

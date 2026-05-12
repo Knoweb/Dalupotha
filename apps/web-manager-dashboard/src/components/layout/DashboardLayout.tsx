@@ -34,6 +34,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
   // ── Fetch actual pending (unprocessed) collections from API on mount ──────
   const [apiPending, setApiPending] = useState<PendingApiCollection[]>([]);
   const [pendingRequestCount, setPendingRequestCount] = useState<number>(0);
+  const [pendingPayoutCount, setPendingPayoutCount] = useState<number>(0);
   const isAlertRole = ['manager', 'factory-staff', 'extension-officer', 'store-keeper'].includes(userRole || '');
 
   const fetchPending = useCallback(async () => {
@@ -42,12 +43,8 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
       const res = await fetch('/api/collection/recent?limit=200');
       if (!res.ok) return;
       const data: any[] = await res.json();
-      // A collection is "pending" if netWeight is null OR netWeight === grossWeight
-      const pending = data.filter(c =>
-        c.netWeight === null ||
-        c.netWeight === undefined ||
-        parseFloat(c.netWeight) >= parseFloat(c.grossWeight)
-      );
+      // A collection is "pending" if netWeight is null
+      const pending = data.filter(c => c.netWeight === null || c.netWeight === undefined);
       setApiPending(pending.map(c => ({
         collectionId: c.collectionId,
         supplierName: c.supplierName || 'Unknown',
@@ -67,9 +64,10 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
         });
       });
       
-      // 2. Fetch pending service requests count
-      const reqStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
-      const reqRes = await fetch(`/api/services/request?status=${reqStatus}&limit=200`);
+      // 2. Fetch pending service requests count (ONLY for roles that handle requests)
+      if (['manager', 'extension-officer', 'store-keeper'].includes(userRole || '')) {
+        const reqStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
+        const reqRes = await fetch(`/api/services/request?status=${reqStatus}&limit=200`);
       if (reqRes.ok) {
          const reqData: any[] = await reqRes.json();
          
@@ -86,6 +84,30 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
          const count = filtered.length;
          console.log(`[AlertSync] Role: ${userRole}, Status: ${reqStatus}, Filtered Count: ${count}`);
          setPendingRequestCount(count);
+
+         // 3. Fetch pending payouts count
+         try {
+           const estateId = sessionStorage.getItem('estate_id');
+           const usersRes = await fetch(`/api/auth/users${estateId ? `?estateId=${estateId}` : ''}`);
+           if (usersRes.ok) {
+             const allUsers: any[] = await usersRes.json();
+             const suppliers = allUsers.filter((u: any) => u.role === 'SH' || u.role === 'SMALL_HOLDER' || u.role === 'SUPPLIER');
+             
+             let pendingPayoutsCount = 0;
+             await Promise.all(suppliers.map(async (s: any) => {
+               try {
+                 const targetId = s.supplierId || s.userId;
+                 const txRes = await fetch(`/api/finance/ledger/${targetId}/transactions`);
+                 if (txRes.ok) {
+                   const transactions: any[] = await txRes.json();
+                   const hasPending = transactions.some((t: any) => t.transactionType === 'PAYOUT' && t.status === 'AWAITING_APPROVAL');
+                   if (hasPending) pendingPayoutsCount++;
+                 }
+               } catch (e) { /* ignore */ }
+             }));
+             setPendingPayoutCount(pendingPayoutsCount);
+           }
+         } catch (e) { console.error("[AlertSync] Payout fetch error:", e); }
          
          // Sync persisted alerts
          const activeIds = new Set(filtered.map(r => r.requestId));
@@ -99,7 +121,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
          });
 
          // Seed notifications for CURRENT items only
-         filtered.forEach(r => {
+         filtered.forEach((r: any) => {
            addRequestFromApi({
              requestId: r.requestId,
              supplierName: r.supplierName || 'Supplier',
@@ -109,8 +131,32 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
            });
          });
       }
+      } else {
+        setPendingRequestCount(0);
+      }
     } catch (err) { console.error("[AlertSync] Fetch error:", err); }
   }, [isAlertRole, addFromApi, userRole, pendingRequestAlerts, dismissAlert, addRequestFromApi]);
+
+  // ── Auto-sync Estate Name from Backend ───────────────────────────────────
+  useEffect(() => {
+    const syncEstateName = async () => {
+      try {
+        const estateId = sessionStorage.getItem('estate_id');
+        const res = await fetch('/api/auth/estates');
+        if (res.ok) {
+          const estates: any[] = await res.json();
+          const current = estates.find(e => e.estateId === estateId);
+          if (current && current.name !== userInfo.estateName) {
+            sessionStorage.setItem('estate_name', current.name);
+            // We can't easily update the parent state here, but the reload next time will fix it.
+            // For immediate effect, we'll use a local override if we were in a stateful store,
+            // but since we are reloading on save, this is mainly for other users/tabs.
+          }
+        }
+      } catch (e) { /* ignore */ }
+    };
+    syncEstateName();
+  }, [userInfo.estateName]);
 
   useEffect(() => {
     if (!isAlertRole) return;
@@ -118,7 +164,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
     // Re-check every 60 seconds to catch any new collections that arrive
     const interval = setInterval(fetchPending, 60_000);
     return () => clearInterval(interval);
-  }, [isAlertRole, fetchPending]);
+  }, [isAlertRole]);
 
   // Listen for manual refresh requests from other components (e.g. Approvals page)
   useEffect(() => {
@@ -128,6 +174,24 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
     window.addEventListener('refresh-alerts', handleRefresh);
     return () => window.removeEventListener('refresh-alerts', handleRefresh);
   }, [fetchPending]);
+
+  // ── Auto-sync Estate Name from Backend ───────────────────────────────────
+  useEffect(() => {
+    const syncEstateName = async () => {
+      try {
+        const estateId = sessionStorage.getItem('estate_id');
+        const res = await fetch('/api/auth/estates');
+        if (res.ok) {
+          const estates: any[] = await res.json();
+          const current = estates.find(e => e.estateId === estateId);
+          if (current && current.name !== sessionStorage.getItem('estate_name')) {
+            sessionStorage.setItem('estate_name', current.name);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    };
+    syncEstateName();
+  }, []);
 
   // Re-fetch counts when a new notification arrives (Real-time update)
   useEffect(() => {
@@ -155,6 +219,8 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
         onMarkAllRead={markAllRead}
         onMarkRead={markRead}
         pendingRequestCount={pendingRequestCount}
+        pendingPayoutCount={pendingPayoutCount}
+        pendingCollectionCount={apiPending.length}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
@@ -167,10 +233,11 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
           onMarkRead={markRead}
           onClearAll={clearAll}
           pendingRequestCount={pendingRequestCount}
+          pendingCollectionCount={apiPending.length}
         />
 
         {/* ── Persistent Service Request Alert Banner (Summarized) ─────────────────── */}
-        {pendingRequestCount > 0 && (
+        {['manager', 'extension-officer', 'store-keeper'].includes(userRole || '') && pendingRequestCount > 0 && (
           <div className="flex-shrink-0 bg-indigo-50 border-b-2 border-indigo-200 px-6 py-2.5 flex items-center gap-3 shadow-sm">
             <span className="relative flex-shrink-0">
               <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-indigo-400 opacity-75"></span>

@@ -29,6 +29,7 @@ export function LoginScreen({ navigation }: any) {
       .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, "-")
       .replace(/\s+/g, "");
 
+  const [lang, setLang]               = useState<"en" | "si">("en");
   const [role, setRole]               = useState<Role>("supplier");
   const [id, setId]                   = useState("");
   const [pin, setPin]                 = useState("");
@@ -74,11 +75,34 @@ export function LoginScreen({ navigation }: any) {
     return { field: "both", display: `Incorrect ${idLabel} or PIN. Please try again.` };
   };
 
-  const cardTitle    = useMemo(() => (role === "supplier" ? "Supplier Portal" : "Agent Portal"), [role]);
+  const dict: any = {
+    si: {
+      "Agent Portal": "නියෝජිත පෝටලය",
+      "Supplier Portal": "සැපයුම්කරු පෝටලය",
+      "Agent": "නියෝජිත",
+      "Supplier": "සැපයුම්කරු",
+      "Access your supply history, debts and payments": "ඔබගේ සැපයුම් ඉතිහාසය, ණය සහ ගෙවීම් බලන්න",
+      "Access field collections and sync status": "ක්ෂේත්‍ර එකතු කිරීම් සහ සමමුහුර්ත තත්ත්වය බලන්න",
+      "SUPPLIER ID / PASSBOOK": "සැපයුම්කරු හැඳුනුම්පත / පාස්පොත",
+      "AGENT ID": "නියෝජිත හැඳුනුම්පත",
+      "Login →": "ඇතුල් වන්න →",
+      "New supplier?": "නව සැපයුම්කරුවෙක්ද?",
+      "Register your Land": "ඔබගේ ඉඩම ලියාපදිංචි කරන්න",
+      "New agent?": "නව නියෝජිතයෙක්ද?",
+      "Register as Agent": "නියෝජිතයෙකු ලෙස ලියාපදිංචි වන්න",
+      "Trouble logging in?": "ඇතුල් වීමේ ගැටලුවක්ද?",
+      "Help Center": "උදව් මධ්‍යස්ථානය",
+      "PIN": "PIN අංකය",
+      "Enter your PIN": "ඔබගේ PIN අංකය ඇතුලත් කරන්න"
+    }
+  };
+  const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
+
+  const cardTitle    = useMemo(() => (role === "supplier" ? _("Supplier Portal") : _("Agent Portal")), [role, lang]);
   const portalSubtitle = role === "supplier"
-    ? "Access your supply history, debts and payments"
-    : "Access field collections and sync status";
-  const idLabel       = role === "supplier" ? "SUPPLIER ID / PASSBOOK" : "AGENT ID";
+    ? _("Access your supply history, debts and payments")
+    : _("Access field collections and sync status");
+  const idLabel       = role === "supplier" ? _("SUPPLIER ID / PASSBOOK") : _("AGENT ID");
   const idPlaceholder = role === "supplier" ? "e.g. PB-0934" : "TA-XXXX";
 
   // ── Supplier: PIN login ───────────────────────────────────────────────────
@@ -166,6 +190,24 @@ export function LoginScreen({ navigation }: any) {
       style={styles.root}
     >
       <SafeAreaView style={styles.safe}>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingRight: 20, paddingTop: 10, zIndex: 10 }}>
+          <Pressable
+            onPress={() => setLang(lang === "en" ? "si" : "en")}
+            style={{
+              backgroundColor: "rgba(255,255,255,0.1)",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+              flexDirection: "row",
+              alignItems: "center"
+            }}
+          >
+            <Ionicons name="language" size={16} color="#fff" style={{ marginRight: 6 }} />
+            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
+              {lang === "en" ? "සිංහල" : "English"}
+            </Text>
+          </Pressable>
+        </View>
         <KeyboardAvoidingView 
           style={{ flex: 1 }} 
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -185,8 +227,8 @@ export function LoginScreen({ navigation }: any) {
 
           <View style={[styles.authCard, compact && styles.authCardCompact]}>
             <View style={styles.roleTabs}>
-              <RoleTab icon="car-outline"    label="Agent"    active={role === "agent"}    onPress={() => handleRoleSwitch("agent")} />
-              <RoleTab icon="person-outline" label="Supplier" active={role === "supplier"} onPress={() => handleRoleSwitch("supplier")} />
+              <RoleTab icon="car-outline"    label={_("Agent")}    active={role === "agent"}    onPress={() => handleRoleSwitch("agent")} />
+              <RoleTab icon="person-outline" label={_("Supplier")} active={role === "supplier"} onPress={() => handleRoleSwitch("supplier")} />
             </View>
             <Text style={[styles.cardTitle, compact && styles.cardTitleCompact]}>{cardTitle}</Text>
             <Text style={styles.cardSubtitle}>{portalSubtitle}</Text>
@@ -217,7 +259,7 @@ export function LoginScreen({ navigation }: any) {
 
             {/* PIN field — shown for both roles */}
             <Text style={[styles.label, (errorField === "pin" || errorField === "both") && { color: "#ff6b6b" }]}>
-              PIN{(errorField === "pin" || errorField === "both") ? " ✗" : ""}
+              {_("PIN")}{(errorField === "pin" || errorField === "both") ? " ✗" : ""}
             </Text>
             <View style={[styles.inputContainer, (errorField === "pin" || errorField === "both") && { borderColor: "#ff6b6b", borderWidth: 1.5 }]}>
               <TextInput
@@ -225,7 +267,7 @@ export function LoginScreen({ navigation }: any) {
                 onChangeText={handlePinChange}
                 style={styles.inputField}
                 secureTextEntry={!showPin}
-                placeholder="Enter your PIN"
+                placeholder={_("Enter your PIN")}
                 placeholderTextColor="#7d93b4"
                 keyboardType="number-pad"
                 maxLength={6}
@@ -273,29 +315,23 @@ export function LoginScreen({ navigation }: any) {
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={[styles.primaryBtnText, compact && styles.primaryBtnTextCompact]}>
-                    Login →
+                    {_("Login →")}
                   </Text>
               }
             </Pressable>
 
             <Pressable
-              onPress={() => navigation.navigate("Register", { initialRole: role })}
+              onPress={() => navigation.navigate("Register", { initialRole: role, lang })}
               style={{ marginTop: 25, alignItems: "center" }}
             >
               <Text style={styles.helpCenterText}>
-                {role === "supplier" ? "New supplier?" : "New agent?"}{" "}
+                {role === "supplier" ? _("New supplier?") : _("New agent?")}{" "}
                 <Text style={[styles.helpCenterLink, { color: palette.accentGreen }]}>
-                  {role === "supplier" ? "Register your Land" : "Register as Agent"}
+                  {role === "supplier" ? _("Register your Land") : _("Register as Agent")}
                 </Text>
               </Text>
             </Pressable>
 
-            <View style={styles.helpCenterWrap}>
-              <Text style={styles.helpCenterText}>
-                Trouble logging in?{" "}
-                <Text style={styles.helpCenterLink}>Help Center</Text>
-              </Text>
-            </View>
           </View>
           <Text style={styles.footer}>Secured by දළුපොත Gateway · v3.0</Text>
         </View>
@@ -307,11 +343,29 @@ export function LoginScreen({ navigation }: any) {
 
 // ── OTP Screen ─────────────────────────────────────────────────────────────────
 export function OtpScreen({ route, navigation }: any) {
-  const { role, contact } = route.params;
+  const { role, contact, lang = "en" } = route.params;
   const [otp, setOtp]       = useState("");
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const dict: any = {
+    si: {
+      "Verify Identity": "අනන්‍යතාවය තහවුරු කරන්න",
+      "Enter the 6-digit code sent to": "වෙත එවන ලද ඉලක්කම් 6ක කේතය ඇතුලත් කරන්න",
+      "Verify & Access": "තහවුරු කර ඇතුල් වන්න",
+      "Didn't receive code?": "කේතය ලැබුණේ නැද්ද?",
+      "Resend": "නැවත එවන්න",
+      "← Back to Login": "← නැවත පුරනය වීමට",
+      "Please enter the 6-digit code.": "කරුණාකර ඉලක්කම් 6ක කේතය ඇතුලත් කරන්න.",
+      "Invalid or expired OTP.": "වලංගු නොවන හෝ කල් ඉකුත් වූ OTP.",
+      "OTP Resent": "OTP නැවත යවන ලදී",
+      "A new code has been sent to your number.": "ඔබගේ අංකයට නව කේතයක් යවා ඇත.",
+      "Error": "දෝෂයකි",
+      "Could not resend OTP.": "OTP නැවත යැවීමට නොහැකි විය."
+    }
+  };
+  const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
 
   // Countdown timer
   React.useEffect(() => {
@@ -377,16 +431,25 @@ export function OtpScreen({ route, navigation }: any) {
             <View style={{ alignItems: "center", marginBottom: 15 }}>
               <Ionicons name="chatbubble-ellipses-outline" size={32} color={palette.accentBlue} />
             </View>
-            <Text style={[styles.cardTitle, styles.centered]}>Verify Identity</Text>
+            <Text style={[styles.cardTitle, styles.centered]}>{_("Verify Identity")}</Text>
             <Text style={[styles.cardSubtitle, styles.centered]}>
-              Enter the 6-digit code sent to{"\n"}
-              <Text style={{ color: "#fff", fontWeight: "600" }}>{contact}</Text>
+              {lang === 'si' ? (
+                <>
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>{contact}</Text>
+                  {"\n"}{_("Enter the 6-digit code sent to")}
+                </>
+              ) : (
+                <>
+                  {_("Enter the 6-digit code sent to")}{"\n"}
+                  <Text style={{ color: "#fff", fontWeight: "600" }}>{contact}</Text>
+                </>
+              )}
             </Text>
 
             {errorMsg && (
               <View style={[styles.inlineError, { marginBottom: 15 }]}>
                 <Ionicons name="alert-circle-outline" size={18} color="#ff6b6b" />
-                <Text style={styles.inlineErrorText}>{errorMsg}</Text>
+                <Text style={styles.inlineErrorText}>{_(errorMsg)}</Text>
               </View>
             )}
 
@@ -394,7 +457,7 @@ export function OtpScreen({ route, navigation }: any) {
               value={otp}
               onChangeText={(t) => { setOtp(t); if(errorMsg) setErrorMsg(null); }}
               style={styles.otpInput}
-              keyboardType="number-pad"
+              keyboardType="default"
               maxLength={6}
               placeholder="------"
               placeholderTextColor="#3b5275"
@@ -412,23 +475,23 @@ export function OtpScreen({ route, navigation }: any) {
             >
               {loading
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.primaryBtnText}>Verify & Access</Text>
+                : <Text style={styles.primaryBtnText}>{_("Verify & Access")}</Text>
               }
             </Pressable>
 
             <View style={styles.helpCenterWrap}>
               <Pressable onPress={handleResend}>
                 <Text style={styles.helpCenterText}>
-                  Didn't receive code?{" "}
+                  {_("Didn't receive code?")}{" "}
                   <Text style={[styles.helpCenterLink, resendTimer > 0 && { opacity: 0.4 }]}>
-                    {resendTimer > 0 ? `Resend (0:${String(resendTimer).padStart(2, "0")})` : "Resend"}
+                    {resendTimer > 0 ? `${_("Resend")} (0:${String(resendTimer).padStart(2, "0")})` : _("Resend")}
                   </Text>
                 </Text>
               </Pressable>
             </View>
 
             <Pressable onPress={() => navigation.goBack()} style={{ marginTop: 25 }}>
-              <Text style={styles.cancelText}>← Back to Login</Text>
+              <Text style={styles.cancelText}>{_("← Back to Login")}</Text>
             </Pressable>
           </View>
         </View>

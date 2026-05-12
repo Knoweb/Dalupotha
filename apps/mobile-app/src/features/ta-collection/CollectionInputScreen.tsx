@@ -43,6 +43,7 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
 
   const [grossWeight, setGrossWeight] = useState("");
   const [isBluetoothReading, setIsBluetoothReading] = useState(false);
+  const [isManualWeight, setIsManualWeight] = useState(true);
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
@@ -189,6 +190,7 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
     setTimeout(() => {
       const randomWeight = (Math.random() * 50 + 20).toFixed(1);
       setGrossWeight(randomWeight);
+      setIsManualWeight(false);
       setIsBluetoothReading(false);
     }, 1500);
   };
@@ -240,7 +242,7 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
         gpsLat: currentLocation.coords.latitude,
         gpsLong: currentLocation.coords.longitude,
         gpsStatus: "GPS" as "GPS",
-        manualOverride: false,
+        manualOverride: isManualWeight,
         collectedAt: now.toISOString(),
         syncStatus: "QUEUED" as "QUEUED",
       };
@@ -354,7 +356,10 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
               placeholder="0.00"
               placeholderTextColor={palette.muted}
               value={grossWeight}
-              onChangeText={setGrossWeight}
+              onChangeText={(val) => {
+                setGrossWeight(val);
+                setIsManualWeight(true);
+              }}
               keyboardType="numeric"
             />
           </View>

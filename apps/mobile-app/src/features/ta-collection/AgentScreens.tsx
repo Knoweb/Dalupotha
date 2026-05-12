@@ -959,31 +959,38 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
       } else {
         // Agents: fetch BOTH requests assigned to them AND requests they created themselves
         // This ensures self-submitted pending requests appear alongside approved assigned ones
+        // Fetch requests without type filter and filter on frontend to bypass backend query limitations
         const agentId = String(user.userId || user.id);
-
-        const assignedParams = new URLSearchParams();
-        assignedParams.set("assignedAgentId", agentId);
-        assignedParams.set("requestType", requestType);
-        assignedParams.set("limit", "120");
-
-        const createdParams = new URLSearchParams();
-        createdParams.set("createdById", agentId);
-        createdParams.set("requestType", requestType);
-        createdParams.set("limit", "120");
-
-        const [assignedData, createdData] = await Promise.all([
-          apiGet<any[]>(`${ServicesAPI.createRequest}?${assignedParams.toString()}`, token).catch(() => []),
-          apiGet<any[]>(`${ServicesAPI.createRequest}?${createdParams.toString()}`, token).catch(() => []),
-        ]);
+        const url = `${ServicesAPI.createRequest}?limit=200`;
+        console.log("[Agent Requests] Fetching:", url);
+        
+        let allData: any[] = [];
+        try {
+          const result = await apiGet<any[]>(url, token);
+          allData = Array.isArray(result) ? result : [];
+          console.log("[Agent Requests] Got", allData.length, "records");
+          if (allData.length > 0) console.log("[Agent Requests] Sample:", JSON.stringify(allData[0]));
+        } catch (fetchErr: any) {
+          console.error("[Agent Requests] Fetch FAILED:", fetchErr?.message);
+        }
 
         // Merge and deduplicate by requestId
         const seen = new Set<string>();
-        const merged = [...(Array.isArray(assignedData) ? assignedData : []),
-                        ...(Array.isArray(createdData) ? createdData : [])]
+        const merged = (allData || [])
           .filter(item => {
             if (seen.has(item.requestId)) return false;
             seen.add(item.requestId);
-            return true;
+            // Filter by active tab's request type!
+            if (item.requestType !== requestType) return false;
+            
+            // Unified rule for ALL categories:
+            // If THIS agent created the request → show regardless of status (they track their own submissions)
+            if (String(item.createdById) === agentId) return true;
+            
+            // Otherwise (supplier/direct request) → only show when approved and assigned to this agent
+            const isApproved = item.status === 'APPROVED' || item.status === 'APPROVED_BY_EXT' || item.status === 'DISPATCHED' || item.status === 'COMPLETED';
+            const isAssignedToMe = String(item.assignedAgentId) === agentId;
+            return isApproved && isAssignedToMe;
           })
           .sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime());
 
@@ -1526,7 +1533,19 @@ export function RequestsScreen({ navigation, route, user, token, role, lang }: a
               {selectedRequest && (
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
-                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 8 }}>{_("Supplier Details")}</Text>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase" }}>{_("Supplier Details")}</Text>
+                      {/* Source badge: DIRECT if the creator is the supplier themselves */}
+                      {(selectedRequest.creatorName && selectedRequest.supplierName && selectedRequest.creatorName.trim().toLowerCase() === selectedRequest.supplierName.trim().toLowerCase()) ? (
+                        <View style={{ backgroundColor: "rgba(31,190,87,0.15)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: "rgba(31,190,87,0.3)" }}>
+                          <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold" }}>⬆ DIRECT REQUEST</Text>
+                        </View>
+                      ) : (
+                        <View style={{ backgroundColor: "rgba(100,160,255,0.15)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: "rgba(100,160,255,0.3)" }}>
+                          <Text style={{ color: "#64a0ff", fontSize: 10, fontWeight: "bold" }}>👤 BY AGENT</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={{ color: "white", fontSize: 16, fontWeight: "bold", marginBottom: 4 }}>{selectedRequest.supplierName}</Text>
                     <Text style={{ color: palette.muted, fontSize: 13 }}>PB: {selectedRequest.passbookNo}</Text>
                   </View>

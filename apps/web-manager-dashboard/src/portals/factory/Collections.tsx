@@ -10,7 +10,7 @@ export default function CollectionsPage() {
   const [agentsMap, setAgentsMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('Today')
+  const [filter, setFilter] = useState('All')
   const [selectedCollection, setSelectedCollection] = useState<CollectionItem | null>(null)
 
   const fetchCollections = useCallback(async () => {
@@ -95,7 +95,7 @@ export default function CollectionsPage() {
               <th className="px-6 py-5">{t('NET (KG)')}</th>
               <th className="px-6 py-5">{t('TRANSPORT AGENT')}</th>
               <th className="px-6 py-5">{t('GPS')}</th>
-              <th className="px-6 py-5 text-center">{t('TIME')}</th>
+              <th className="px-6 py-5">{t('DATE & TIME')}</th>
               <th className="px-6 py-5">{t('SYNC')}</th>
               <th className="px-6 py-5 text-right">{t('ACTIONS')}</th>
             </tr>
@@ -115,8 +115,15 @@ export default function CollectionsPage() {
                 <td className="px-6 py-4">
                    <GPSStatus status={c.gpsStatus} t={t} />
                 </td>
-                <td className="px-6 py-4 text-center text-slate-950 text-sm font-medium">
-                  {new Date(c.collectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                <td className="px-6 py-4">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-800 text-sm">
+                      {new Date(c.collectedAt).toLocaleDateString(lang === 'si' ? 'si-LK' : 'en-GB')}
+                    </span>
+                    <span className="text-slate-500 text-xs">
+                      {new Date(c.collectedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-6 py-4"><StatusPill status={c.syncStatus} t={t} /></td>
                 <td className="px-6 py-4 text-right">

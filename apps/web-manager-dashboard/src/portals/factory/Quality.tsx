@@ -3,12 +3,14 @@ import { ClipboardCheck, CheckCircle2, AlertTriangle, RefreshCw, Loader2, X, Sca
 import React from 'react'
 import { dismissCollectionAlertById } from '../../hooks/useNotifications'
 import { useLanguage } from '../../hooks/useLanguage'
+import { AuthAPI } from '../../services/api'
 
 interface CollectionRow {
   collectionId: string;
   supplierName: string;
   passbookNo: string;
   transportAgentName?: string;
+  transportAgentId?: string;
   grossWeight: number;
   netWeight: number;
   collectedAt: string;
@@ -22,6 +24,23 @@ export default function QualityPage() {
   const [selectedDelivery, setSelectedDelivery] = useState<CollectionRow | null>(null);
   const [deductionInput, setDeductionInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [agentsMap, setAgentsMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const users = await AuthAPI.getUsers();
+        const map: Record<string, string> = {};
+        users.forEach(u => {
+          map[u.userId] = u.id;
+        });
+        setAgentsMap(map);
+      } catch (e) {
+        console.error('Failed to load users for mapping:', e);
+      }
+    };
+    loadUsers();
+  }, []);
 
   const fetchCollections = useCallback(async () => {
     setLoading(true);
@@ -34,10 +53,11 @@ export default function QualityPage() {
         supplierName: c.supplierName || t('Unknown'),
         passbookNo: c.passbookNo || '—',
         transportAgentName: c.transportAgentName || '—',
+        transportAgentId: c.transportAgentId || '—',
         grossWeight: parseFloat(c.grossWeight ?? 0),
-        netWeight: parseFloat(c.netWeight ?? c.grossWeight ?? 0),
+        netWeight: c.netWeight != null ? parseFloat(c.netWeight) : null,
         collectedAt: c.collectedAt,
-        status: (c.netWeight !== null && parseFloat(c.netWeight) < parseFloat(c.grossWeight)) ? 'Processed' : 'Pending',
+        status: c.netWeight != null ? 'Processed' : 'Pending',
       })));
     } catch (e) {
       console.error('Failed to load collections:', e);
@@ -80,7 +100,7 @@ export default function QualityPage() {
 
   const pending   = deliveries.filter(d => d.status === 'Pending').length;
   const processed = deliveries.filter(d => d.status === 'Processed').length;
-  const totalDeductions = deliveries.reduce((s, d) => s + Math.max(0, d.grossWeight - d.netWeight), 0).toFixed(2);
+  const totalDeductions = deliveries.reduce((s, d) => s + (d.netWeight != null ? Math.max(0, d.grossWeight - d.netWeight) : 0), 0).toFixed(2);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -106,6 +126,7 @@ export default function QualityPage() {
             <tr className="bg-slate-100 border-b border-slate-200 text-slate-900 text-[10px] font-black uppercase tracking-widest">
               <th className="px-6 py-4">{t('Supplier')}</th>
               <th className="px-6 py-4">{t('Agent')}</th>
+              <th className="px-6 py-4">{t('Date / Time')}</th>
               <th className="px-6 py-4 text-right">{t('Gross (kg)')}</th>
               <th className="px-6 py-4 text-right">{t('Deduction (kg)')}</th>
               <th className="px-6 py-4 text-right">{t('Net (kg)')}</th>
@@ -115,25 +136,38 @@ export default function QualityPage() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-16 text-slate-950 text-xs uppercase font-bold tracking-widest">{t('Loading...')}</td></tr>
+              <tr><td colSpan={8} className="text-center py-16 text-slate-950 text-xs uppercase font-bold tracking-widest">{t('Loading...')}</td></tr>
             ) : deliveries.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-16 text-slate-950 text-xs uppercase font-bold tracking-widest">{t('No collections today')}</td></tr>
+              <tr><td colSpan={8} className="text-center py-16 text-slate-950 text-xs uppercase font-bold tracking-widest">{t('No collections today')}</td></tr>
             ) : deliveries.map((d) => {
-              const deducted = parseFloat((d.grossWeight - d.netWeight).toString());
+              const deducted = d.netWeight != null ? parseFloat((d.grossWeight - d.netWeight).toString()) : null;
+              const dateObj = new Date(d.collectedAt);
+              const dateStr = dateObj.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+              const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
               return (
                 <React.Fragment key={d.collectionId}>
                   <tr className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="font-bold text-slate-900 text-sm">{d.supplierName}</p>
+                      <p className="text-xs text-slate-500 font-medium">{d.passbookNo}</p>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">{d.transportAgentName}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-slate-900 font-medium">{d.transportAgentName}</p>
+                      <p className="text-xs text-slate-500 font-medium">{d.transportAgentId && agentsMap[d.transportAgentId] ? agentsMap[d.transportAgentId] : '—'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-slate-900">{dateStr}</p>
+                      <p className="text-xs text-slate-500 font-medium">{timeStr}</p>
+                    </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">{d.grossWeight.toFixed(2)}</td>
                     <td className="px-6 py-4 text-right">
-                      {deducted > 0.001
-                        ? <span className="text-red-500 font-bold text-sm">-{deducted.toFixed(2)}</span>
-                        : <span className="text-slate-950 text-sm">—</span>}
+                      {deducted !== null
+                        ? (deducted > 0.001 ? <span className="text-red-500 font-bold text-sm">-{deducted.toFixed(2)}</span> : <span className="text-slate-950 text-sm">—</span>)
+                        : <span className="text-slate-400 font-medium">{t('Pending')}</span>}
                     </td>
-                    <td className="px-6 py-4 text-right font-black text-slate-800">{d.netWeight.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-right font-black text-slate-800">
+                      {d.netWeight != null ? d.netWeight.toFixed(2) : <span className="text-slate-400 font-medium">{t('Pending')}</span>}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         d.status === 'Processed'

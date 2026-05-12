@@ -562,6 +562,10 @@ public class AuthService {
         user.setContact(request.getContact());
         user.setEmail(request.getEmail());
 
+        if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+            user.setHashedPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
         if (request.getEstateId() != null) {
             estateRepository.findById(request.getEstateId()).ifPresent(user::setEstate);
         } else {
@@ -592,6 +596,7 @@ public class AuthService {
             users = userRepository.findAll();
         }
         java.util.Map<UUID, String> supplierIds = new java.util.HashMap<>();
+        java.util.Map<UUID, String> shPassbooks = new java.util.HashMap<>();
         smallHolderRepository.findAll().forEach(sh -> {
             if (sh.getUser() != null) {
                 shPassbooks.put(sh.getUser().getUserId(), sh.getPassbookNo());

@@ -19,6 +19,8 @@ interface SidebarProps {
   onMarkAllRead: () => void;
   onMarkRead: (id: string) => void;
   pendingRequestCount?: number;
+  pendingPayoutCount?: number;
+  pendingCollectionCount?: number;
 }
 
 const ALL_NAV = [
@@ -38,7 +40,9 @@ const ALL_NAV = [
 export default function Sidebar({
   activeTab, onTabChange, userInfo, userRole, onLogout,
   unreadCount, notifications, onMarkAllRead, onMarkRead,
-  pendingRequestCount = 0
+  pendingRequestCount = 0,
+  pendingPayoutCount = 0,
+  pendingCollectionCount = 0
 }: SidebarProps) {
   const { t } = useLanguage();
 
@@ -61,7 +65,9 @@ export default function Sidebar({
           <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-white/10 shadow-lg overflow-hidden group">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-cover transform transition-transform group-hover:scale-110 duration-500" />
           </div>
-          <span className="text-lg font-bold text-white tracking-tight uppercase">{userInfo.estateName}</span>
+          <span className="text-lg font-bold text-white tracking-tight uppercase">
+            {sessionStorage.getItem('estate_name') || userInfo.estateName}
+          </span>
         </div>
         <button className="text-white/50 hover:text-white bg-black/5 p-1 rounded-md">
           <ChevronLeft size={16} />
@@ -85,7 +91,9 @@ export default function Sidebar({
             onClick={() => onTabChange(item.key)}
             badge={
               item.key === 'approvals' && pendingRequestCount > 0 ? (pendingRequestCount > 99 ? '99+' : pendingRequestCount.toString()) : 
-              item.key === 'quality' && unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount.toString()) : 
+              item.key === 'financials' && pendingPayoutCount > 0 ? (pendingPayoutCount > 9 ? '9+' : pendingPayoutCount.toString()) : 
+              item.key === 'quality' && pendingCollectionCount > 0 ? (pendingCollectionCount > 99 ? '99+' : pendingCollectionCount.toString()) :
+              item.key === 'collections' && userRole === 'manager' && pendingCollectionCount > 0 ? (pendingCollectionCount > 99 ? '99+' : pendingCollectionCount.toString()) :
               undefined
             }
           />

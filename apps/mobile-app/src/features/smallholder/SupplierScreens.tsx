@@ -432,15 +432,17 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
   // Use stable primitives in deps to prevent infinite loops
   const userFullName = user?.fullName as string | undefined;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isSilent = false) => {
     if (!token || !passbookNo) {
       setError("Missing supplier session data.");
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    if (!isSilent) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const identity = await resolveSupplierIdentity(token, { passbookNo, fullName: userFullName, supplierId: fallbackSupplierId }).catch(() => null);
@@ -455,26 +457,49 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
       setResolvedSupplierId(supplierId);
       setResolvedLabel(identity?.fullName || userFullName || null);
 
-      const historyData = await fetchSupplierHistory(token, supplierId);
+      const qp = new URLSearchParams();
+      qp.set("supplierId", String(supplierId));
+      if (passbookNo) qp.set("passbookNo", String(passbookNo));
+
+      const [historyData, ledgerData, reqRes] = await Promise.all([
+        fetchSupplierHistory(token, supplierId),
+        apiGet<any>(FinanceAPI.ledger(supplierId), token),
+        apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => [])
+      ]);
+
       setHistory(historyData);
 
-      try {
-        const ledgerData = await apiGet<any>(FinanceAPI.ledger(supplierId), token);
-        setLedger(normalizeLedger(ledgerData));
-      } catch {
-        setLedger({ currentDebt: 0, estimatedBalance: 0, advanceTaken: 0 });
-      }
+      const pendingAdvances = (reqRes || [])
+          .filter((r: any) => r.requestType === 'ADVANCE' && r.status === 'PENDING')
+          .reduce((sum: number, r: any) => sum + Number(r.requestedAmount || r.amount || 0), 0);
+
+      const pendingDebts = (reqRes || [])
+          .filter((r: any) => r.requestType !== 'ADVANCE' && r.requestType !== 'ADVISORY' && r.status === 'PENDING')
+          .reduce((sum: number, r: any) => sum + Number(r.requestedAmount || r.amount || r.estimatedCost || r.totalDeduction || 0), 0);
+
+      const normLedger = normalizeLedger(ledgerData);
+      normLedger.advanceTaken = Math.max(0, normLedger.advanceTaken - pendingAdvances);
+      normLedger.currentDebt = Math.max(0, normLedger.currentDebt - pendingDebts);
+      normLedger.estimatedBalance = normLedger.estimatedBalance + pendingAdvances + pendingDebts;
+
+      setLedger(normLedger);
     } catch (err: any) {
-      setError(err?.message || "Failed to load supplier dashboard data.");
-      setHistory([]);
+      if (!isSilent) setError(err?.message || "Failed to load supplier dashboard data.");
+      if (!isSilent) setHistory([]);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [fallbackSupplierId, passbookNo, token, userFullName]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      load(false); // Initial load with spinner
+
+      const intervalId = setInterval(() => {
+        load(true); // Silent real-time poll
+      }, 5000);
+
+      return () => clearInterval(intervalId);
     }, [load])
   );
 
@@ -635,7 +660,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
             const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
             const isSynced = String(item.syncStatus).toUpperCase() === "SYNCED";
             const isGPS = String(item.gpsStatus).toUpperCase() === "GPS";
-            const netWt = item.netWeight ?? item.grossWeight;
+            const netWt = item.netWeight != null ? item.netWeight : null;
             return (
               <Pressable 
                 key={item.collectionId || idx} 
@@ -651,7 +676,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: "white", fontSize: 14, fontWeight: "700" }}>
                     {_("Delivered")} {Number(item.grossWeight || 0).toFixed(2)} kg
-                    {netWt && Math.abs(netWt - item.grossWeight) > 0.001 ? <Text style={{ color: palette.muted, fontWeight: "400", fontSize: 12 }}> ({_("Net:")} {Number(netWt).toFixed(2)} kg)</Text> : null}
+                    {netWt != null && Math.abs(netWt - item.grossWeight) > 0.001 ? <Text style={{ color: palette.muted, fontWeight: "400", fontSize: 12 }}> ({_("Net:")} {Number(netWt).toFixed(2)} kg)</Text> : null}
                   </Text>
                   <View style={{ flexDirection: "row", alignItems: "center", marginTop: 3, gap: 6 }}>
                     <Text style={{ color: palette.muted, fontSize: 12 }}>{dateStr}</Text>
@@ -748,7 +773,11 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
 
   const totals = useMemo(() => {
     const totalGross = filteredHistory.reduce((sum, item) => sum + toNumber(item.grossWeight), 0).toFixed(2);
-    const totalNet = filteredHistory.reduce((sum, item) => sum + toNumber(item.netWeight ?? item.grossWeight), 0).toFixed(2);
+    // Only count truly processed (netWeight != null) collections for TOTAL NET
+    const totalNet = filteredHistory
+      .filter(item => item.netWeight != null)
+      .reduce((sum, item) => sum + toNumber(item.netWeight), 0)
+      .toFixed(2);
     return {
       totalGross,
       totalNet,
@@ -838,7 +867,10 @@ export function SupplierSupplyScreen({ user, token, navigation, lang }: any) {
               <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 10 }}>
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={styles.supHistGross}>{Number(toNumber(item.grossWeight)).toFixed(2)} kg</Text>
-                  <Text style={styles.supHistSub}>{_("Net:")} {Number(toNumber(item.netWeight ?? item.grossWeight)).toFixed(2)} kg</Text>
+                  {item.netWeight != null
+                    ? <Text style={styles.supHistSub}>{_("Net:")} {Number(toNumber(item.netWeight)).toFixed(2)} kg</Text>
+                    : <Text style={[styles.supHistSub, { color: "#f39c12", fontSize: 10 }]}>⏳ {_("Awaiting Processing")}</Text>
+                  }
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={palette.muted} style={{ alignSelf: 'center' }} />
               </View>
@@ -864,32 +896,66 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
   
   const [transactions, setTransactions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const supplierId = getSupplierId(user);
 
   useEffect(() => {
-    const fetchFinances = async () => {
+    const fetchFinances = async (isSilent = false) => {
       try {
-        setLoading(true);
+        if (!isSilent) setLoading(true);
         if (!supplierId) return;
-        const [txRes, ledgerRes] = await Promise.all([
+        const passbookNo = user?.passbookNo || user?.passbook_no;
+        const qp = new URLSearchParams();
+        qp.set("supplierId", String(supplierId));
+        if (passbookNo) qp.set("passbookNo", String(passbookNo));
+
+        const [txRes, ledgerRes, historyRes, reqRes] = await Promise.all([
           apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token),
-          apiGet<any>(FinanceAPI.ledger(supplierId), token)
+          apiGet<any>(FinanceAPI.ledger(supplierId), token),
+          fetchSupplierHistory(token, supplierId).catch(() => []),
+          apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => [])
         ]);
+
+        const pendingAdvances = (reqRes || [])
+            .filter((r: any) => r.requestType === 'ADVANCE' && r.status === 'PENDING')
+            .reduce((sum: number, r: any) => sum + Number(r.requestedAmount || r.amount || 0), 0);
+
+        // Calculate current month's Gross Earnings
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const currentMonthNet = historyRes
+            .filter((item: any) => item.netWeight != null && new Date(item.collectedAt).getTime() >= startOfMonth)
+            .reduce((sum: number, item: any) => sum + Number(item.netWeight), 0);
+        
+        const leafPrice = ledgerRes.leafPrice || 0;
+        ledgerRes.currentMonthGrossEarnings = currentMonthNet * leafPrice;
+        
+        // Calculate all-time gross from the ledger, then find the unpaid arrears from previous months
+        const allTimeGross = ledgerRes.grossEarnings || 0;
+        ledgerRes.broughtForward = allTimeGross - ledgerRes.currentMonthGrossEarnings;
+        ledgerRes.qualityDeduction = 0; // Not a financial deduction
+        ledgerRes.pendingAdvances = pendingAdvances;
+
         setTransactions(txRes || []);
         setLedger(ledgerRes);
+        setHistory(historyRes || []);
       } catch (err) {
         console.error("Failed to fetch payments:", err);
       } finally {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
       }
     };
-    fetchFinances();
-  }, [supplierId, token]);
+    
+    fetchFinances(false);
+    
+    const intervalId = setInterval(() => {
+      fetchFinances(true);
+    }, 5000);
 
-  const payouts = transactions.filter((t) => t.transactionType === "PAYOUT");
-  const advances = transactions.filter((t) => t.transactionType === "ADVANCE");
+    return () => clearInterval(intervalId);
+  }, [supplierId, token]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "N/A";
@@ -902,6 +968,72 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
     const d = new Date(dateStr);
     return `${d.toLocaleDateString("en-US", { month: "long", year: "numeric" })} Payout`;
   };
+
+  const advances = transactions.filter((t) => t.transactionType === "ADVANCE");
+
+  const payouts = useMemo(() => {
+    const rawPayouts = transactions.filter((t) => t.transactionType === "PAYOUT");
+    
+    // Filter out duplicate payouts for the same month
+    const uniqueRawPayouts = rawPayouts.reduce((acc: any[], current) => {
+      const monthName = getMonthName(current.transactionDate);
+      const existing = acc.find(item => getMonthName(item.transactionDate) === monthName);
+      if (!existing) {
+        acc.push(current);
+      }
+      return acc;
+    }, []);
+
+    return uniqueRawPayouts.map(payout => {
+      const payoutDate = new Date(payout.transactionDate);
+      const month = payoutDate.getMonth();
+      const year = payoutDate.getFullYear();
+      
+      // Calculate Gross
+      const monthHistory = history.filter((item: any) => {
+        const d = new Date(item.collectedAt);
+        return d.getMonth() === month && d.getFullYear() === year && item.netWeight != null;
+      });
+      const grossKg = monthHistory.reduce((sum: number, item: any) => sum + Number(item.netWeight), 0);
+      const leafPrice = ledger?.leafPrice || 0;
+      const grossAmount = grossKg * leafPrice;
+      
+      // Calculate Deductions
+      const monthAdvances = transactions.filter((t: any) => {
+        const d = new Date(t.transactionDate);
+        return t.transactionType === 'ADVANCE' && d.getMonth() === month && d.getFullYear() === year;
+      });
+      const advAmount = monthAdvances.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      
+      const monthDebts = transactions.filter((t: any) => {
+        const d = new Date(t.transactionDate);
+        return t.transactionType === 'DEBT' && d.getMonth() === month && d.getFullYear() === year;
+      });
+      const debtAmount = monthDebts.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      
+      const deductions = advAmount + debtAmount;
+      
+      // Check if structured description exists (for future payouts or fallbacks)
+      let parsedGross = grossAmount;
+      let parsedDeductions = deductions;
+      
+      if (payout.description && payout.description.startsWith('STATEMENT_SUMMARY|')) {
+        const parts = payout.description.split('|');
+        parts.forEach(part => {
+          const [key, value] = part.split(':');
+          if (key === 'Gross') parsedGross = Number(value);
+          if (key === 'Adv') parsedDeductions = (parsedDeductions || 0) + Number(value);
+          if (key === 'Debt') parsedDeductions = (parsedDeductions || 0) + Number(value);
+        });
+      }
+      
+      return {
+        ...payout,
+        grossAmount: parsedGross || payout.amount, // Fallback to amount if gross is 0
+        deductions: parsedDeductions
+      };
+    });
+  }, [transactions, history, ledger]);
 
   return (
     <View style={styles.dashboardWrap}>
@@ -928,6 +1060,8 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
 
         {activeTab === "Balance Payments" ? (
           <>
+
+
             <View style={styles.nextPayBox}>
               <Ionicons name="calendar-outline" size={24} color={palette.accentBlue} />
               <View style={{ marginLeft: 15 }}>
@@ -953,18 +1087,18 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
                   
                   <View style={[styles.payRow, { marginTop: 15 }]}>
                     <Text style={styles.payLabel}>{_("Gross Earnings")}</Text>
-                    <Text style={styles.payVal}>Rs. {(ledger?.grossEarnings || 0).toLocaleString()}</Text>
+                    <Text style={styles.payVal}>Rs. {(ledger?.currentMonthGrossEarnings || 0).toLocaleString()}</Text>
                   </View>
                   <View style={styles.payRow}>
                     <Text style={styles.payLabel}>{_("Deductions")}</Text>
-                    <Text style={styles.payValRed}>-Rs. {((ledger?.currentDebt || 0) + (ledger?.advanceTaken || 0)).toLocaleString()}</Text>
+                    <Text style={styles.payValRed}>-Rs. {((ledger?.currentDebt || 0) + (ledger?.advanceTaken || 0) - (ledger?.pendingAdvances || 0)).toLocaleString()}</Text>
                   </View>
                   
                   <View style={[styles.payDivider, { marginVertical: 15 }]} />
                   
                   <View style={styles.payRow}>
                     <Text style={[styles.payTotalLabel, { fontSize: 18 }]}>{_("Net Amount")}</Text>
-                    <Text style={[styles.payTotalVal, { fontSize: 20, color: palette.accentGreen }]}>Rs. {(ledger?.estimatedBalance || 0).toLocaleString()}</Text>
+                    <Text style={[styles.payTotalVal, { fontSize: 20, color: palette.accentGreen }]}>Rs. {((ledger?.currentMonthGrossEarnings || 0) - ((ledger?.currentDebt || 0) + (ledger?.advanceTaken || 0) - (ledger?.pendingAdvances || 0))).toLocaleString()}</Text>
                   </View>
                   
                   <Text style={[styles.payFooterTextYellow, { marginTop: 15, fontWeight: 'bold' }]}>
@@ -973,24 +1107,41 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
                 </View>
               )}
 
-              {payouts.map((t, idx) => (
-                <View key={idx} style={styles.paymentCard}>
-                  <View style={styles.payCardHeader}>
-                    <View>
-                      <Text style={styles.payCardTitle}>{getMonthName(t.transactionDate)}</Text>
-                      <Text style={styles.payCardId}>ID: {t.transactionId?.slice(0, 8).toUpperCase()}</Text>
+              {payouts.map((t, idx) => {
+                let gross = t.grossAmount || (t.amount + (t.deductions || 0));
+                let deductions = t.deductions || 0;
+                let net = t.amount;
+                
+                if (t.description && t.description.startsWith('STATEMENT_SUMMARY|')) {
+                  const parts = t.description.split('|');
+                  parts.forEach(part => {
+                    const [key, value] = part.split(':');
+                    if (key === 'Gross') gross = Number(value);
+                    if (key === 'Adv') deductions += Number(value);
+                    if (key === 'Debt') deductions += Number(value);
+                    if (key === 'Net') net = Number(value);
+                  });
+                }
+                
+                return (
+                  <View key={idx} style={styles.paymentCard}>
+                    <View style={styles.payCardHeader}>
+                      <View>
+                        <Text style={styles.payCardTitle}>{getMonthName(t.transactionDate)}</Text>
+                        <Text style={styles.payCardId}>ID: {t.transactionId?.slice(0, 8).toUpperCase()}</Text>
+                      </View>
+                      <View style={styles.statusBadgeGrey}><Ionicons name={t.status === 'CLEARED' ? "layers-outline" : "time-outline"} size={10} color={palette.muted} /><Text style={styles.statusBadgeTextGrey}> {t.status === 'CLEARED' ? _("Paid") : _(t.status.charAt(0) + t.status.slice(1).toLowerCase())}</Text></View>
                     </View>
-                    <View style={styles.statusBadgeGrey}><Ionicons name={t.status === 'CLEARED' ? "layers-outline" : "time-outline"} size={10} color={palette.muted} /><Text style={styles.statusBadgeTextGrey}> {t.status === 'CLEARED' ? _("Paid") : _(t.status.charAt(0) + t.status.slice(1).toLowerCase())}</Text></View>
+                    <View style={styles.payRow}><Text style={styles.payLabel}>{_("Gross Earnings")}</Text><Text style={styles.payVal}>Rs. {gross.toLocaleString()}</Text></View>
+                    <View style={styles.payRow}><Text style={styles.payLabel}>{_("Deductions")}</Text><Text style={styles.payValRed}>-Rs. {deductions.toLocaleString()}</Text></View>
+                    <View style={styles.payDivider} />
+                    <View style={styles.payRow}><Text style={styles.payTotalLabel}>{_("Net Amount")}</Text><Text style={styles.payTotalVal}>Rs. {net.toLocaleString()}</Text></View>
+                    <Text style={t.status === 'CLEARED' ? styles.payFooterTextDim : styles.payFooterTextYellow}>
+                      {t.status === 'CLEARED' ? `Finalized on ${formatDate(t.transactionDate)}` : `Upcoming: 28 ${new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}`}
+                    </Text>
                   </View>
-                  <View style={styles.payRow}><Text style={styles.payLabel}>{_("Gross Earnings")}</Text><Text style={styles.payVal}>Rs. {t.grossAmount || (t.amount + (t.deductions || 0))}</Text></View>
-                  <View style={styles.payRow}><Text style={styles.payLabel}>{_("Deductions")}</Text><Text style={styles.payValRed}>-Rs. {t.deductions || 0}</Text></View>
-                  <View style={styles.payDivider} />
-                  <View style={styles.payRow}><Text style={styles.payTotalLabel}>{_("Net Amount")}</Text><Text style={styles.payTotalVal}>Rs. {t.amount}</Text></View>
-                  <Text style={t.status === 'CLEARED' ? styles.payFooterTextDim : styles.payFooterTextYellow}>
-                    {t.status === 'CLEARED' ? `Finalized on ${formatDate(t.transactionDate)}` : `Upcoming: 28 ${new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}`}
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
               
               {payouts.length === 0 && !loading && !ledger && (
                 <Text style={{color: palette.muted, textAlign: 'center', marginTop: 40}}>No payouts history available.</Text>
@@ -1077,11 +1228,12 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
       const ledgerDebts = (txData || []).filter((t: any) => 
         (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
         t.amount > 0 && 
+        t.status !== 'PENDING' && 
         !t.description?.toUpperCase().includes('ADVISORY')
       );
 
       const pendingReqs = (reqData || []).filter((r: any) => 
-        (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED' || r.status === 'PENDING') &&
+        (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED') &&
         r.requestType !== 'ADVISORY'
       ).map(r => ({
         transactionDate: r.updatedAt || r.requestDate,

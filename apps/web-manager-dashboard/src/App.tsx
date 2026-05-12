@@ -31,10 +31,10 @@ export type UserRole = 'manager' | 'super-admin' | 'extension-officer' | 'store-
 // Which nav tabs each role can access
 export const ROLE_TABS: Record<UserRole, string[]> = {
   'manager':           ['dashboard', 'collections', 'quality', 'financials', 'inventory', 'approvals', 'tracking', 'circulars', 'reports', 'users', 'settings'],
-  'extension-officer': ['dashboard', 'approvals', 'financials', 'collections', 'circulars', 'reports', 'settings'],
-  'office-staff':      ['dashboard', 'collections', 'financials', 'reports', 'settings'],
-  'store-keeper':      ['dashboard', 'inventory', 'approvals', 'settings'],
-  'factory-staff':     ['dashboard', 'quality', 'collections', 'settings'],
+  'extension-officer': ['approvals', 'financials', 'collections', 'circulars', 'reports', 'settings'],
+  'office-staff':      ['collections', 'financials', 'reports', 'settings'],
+  'store-keeper':      ['inventory', 'approvals', 'settings'],
+  'factory-staff':     ['quality', 'collections', 'settings'],
   'super-admin':       [],
 };
 
