@@ -343,11 +343,22 @@ export function LoginScreen({ navigation }: any) {
 
 // ── OTP Screen ─────────────────────────────────────────────────────────────────
 export function OtpScreen({ route, navigation }: any) {
-  const { role, contact, lang = "en" } = route.params;
+  const { role, contact, lang = "en", otpCode } = route.params;
   const [otp, setOtp]       = useState("");
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Show OTP in a popup when dev mode returns it in the response
+  React.useEffect(() => {
+    if (otpCode) {
+      Alert.alert(
+        "🔐 Dev Mode — OTP",
+        `Your verification code is:\n\n${otpCode}\n\nEnter this code below to continue.`,
+        [{ text: "Got it", style: "default" }]
+      );
+    }
+  }, []);
 
   const dict: any = {
     si: {
@@ -407,11 +418,20 @@ export function OtpScreen({ route, navigation }: any) {
   const handleResend = async () => {
     if (resendTimer > 0) return;
     try {
-      await apiPost(AuthAPI.sendOtp, { contact });
+      const res: any = await apiPost(AuthAPI.sendOtp, { contact });
       setResendTimer(30);
-      Alert.alert("OTP Resent", "A new code has been sent to your number.");
+      if (res?.otpCode) {
+        // Dev mode — show new OTP in popup
+        Alert.alert(
+          "🔐 Dev Mode — New OTP",
+          `Your new verification code is:\n\n${res.otpCode}\n\nEnter this code below to continue.`,
+          [{ text: "Got it", style: "default" }]
+        );
+      } else {
+        Alert.alert(_("OTP Resent"), _("A new code has been sent to your number."));
+      }
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Could not resend OTP.");
+      Alert.alert(_("Error"), err.message ?? _("Could not resend OTP."));
     }
   };
 

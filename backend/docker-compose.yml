@@ -46,6 +46,11 @@ services:
       VONAGE_API_KEY: ${VONAGE_API_KEY:-}
       VONAGE_API_SECRET: ${VONAGE_API_SECRET:-}
       VONAGE_SENDER_ID: ${VONAGE_SENDER_ID:-VonageAPIs}
+      DEV_MODE: ${DEV_MODE:-false}
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+      INFOBIP_API_KEY: ${INFOBIP_API_KEY:-}
+      INFOBIP_BASE_URL: ${INFOBIP_BASE_URL:-}
+      INFOBIP_SENDER: ${INFOBIP_SENDER:-Dalupotha}
     develop:
       watch:
         - path: ./services/auth-service/src

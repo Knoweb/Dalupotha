@@ -32,6 +32,7 @@ export const dictionary: any = {
     "Hello": "ආයුබෝවන්",
     "Weekly Supply": "සතියේ දළු සැපයුම",
     "Current Debt": "දැනට ණය",
+    "Service Debts": "සේවා ණය",
     "Advance": "ඇත්තිකාරම්",
     "Advances": "අත්තිකාරම්",
     "Estimated Balance": "ඇස්තමේන්තු ගත ඉතිරිය",
@@ -208,7 +209,14 @@ export const dictionary: any = {
     "Verify Code": "කේතය තහවුරු කරන්න",
     "Didn't receive code? Resend": "කේතය ලැබුණේ නැද්ද? නැවත එවන්න",
     "Set your new 4-digit security PIN": "ඔබේ නව ඉලක්කම් 4ක ආරක්ෂිත PIN අංකය ඇතුළත් කරන්න",
-    "Update Security PIN": "ආරක්ෂිත PIN අංකය යාවත්කාලීන කරන්න"
+    "Update Security PIN": "ආරක්ෂිත PIN අංකය යාවත්කාලීන කරන්න",
+    "TRI Circulars": "TRI චක්‍රලේඛ",
+    "Circulars": "චක්‍රලේඛ",
+    "Official Tea Research Institute advisory registry": "නිල තේ පර්යේෂණ ආයතන උපදේශන ලේඛනය",
+    "Search circulars...": "චක්‍රලේඛ සොයන්න...",
+    "No circulars found": "චක්‍රලේඛ කිසිවක් හමු නොවීය",
+    "Read": "කියවා ඇත",
+    "Unread": "කියවා නැත"
   }
 };
 
@@ -461,11 +469,16 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
       qp.set("supplierId", String(supplierId));
       if (passbookNo) qp.set("passbookNo", String(passbookNo));
 
-      const [historyData, ledgerData, reqRes] = await Promise.all([
-        fetchSupplierHistory(token, supplierId),
-        apiGet<any>(FinanceAPI.ledger(supplierId), token),
+      const [historyData, ledgerData, txData, reqRes] = await Promise.all([
+        fetchSupplierHistory(token, supplierId).catch(() => []),
+        apiGet<any>(FinanceAPI.ledger(supplierId), token).catch(() => null),
+        apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token).catch(() => []),
         apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => [])
       ]);
+
+      if (!ledgerData) {
+        setError(`No finance ledger found for supplier ${supplierId || passbookNo}`);
+      }
 
       setHistory(historyData);
 
@@ -478,8 +491,19 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
           .reduce((sum: number, r: any) => sum + Number(r.requestedAmount || r.amount || r.estimatedCost || r.totalDeduction || 0), 0);
 
       const normLedger = normalizeLedger(ledgerData);
+      // If ledger summary is zero but transactions show debts, derive a fallback sum
+      try {
+        const txSum = (txData || [])
+          .filter((t:any) => (t.transactionType === 'DEBT' || t.transactionType === 'DEDUCTION' || String(t.type).toUpperCase().includes('DEBT')) && Number(t.amount || t.remaining || 0) > 0)
+          .reduce((s:any,t:any) => s + Number(t.amount ?? t.remaining ?? 0), 0);
+        if ((normLedger.currentDebt || 0) === 0 && txSum > 0) {
+          console.debug('[SupplierHome] applying tx fallback currentDebt=', txSum);
+          normLedger.currentDebt = txSum;
+        }
+      } catch (e) {
+        console.debug('[SupplierHome] tx fallback error', e);
+      }
       normLedger.advanceTaken = Math.max(0, normLedger.advanceTaken - pendingAdvances);
-      normLedger.currentDebt = Math.max(0, normLedger.currentDebt - pendingDebts);
       normLedger.estimatedBalance = normLedger.estimatedBalance + pendingAdvances + pendingDebts;
 
       setLedger(normLedger);
@@ -564,7 +588,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
           </View>
           <View style={[styles.supCard, { borderTopColor: "#e74c3c" }]}>
             <View style={[styles.supCardIcon, { backgroundColor: "rgba(231,76,60,0.1)" }]}><Ionicons name="clipboard-outline" size={20} color="#e74c3c" /></View>
-            <Text style={[styles.supCardLabel, { letterSpacing: 0, fontSize: 12 }]}>{_("Current Debt")}</Text>
+            <Text style={[styles.supCardLabel, { letterSpacing: 0, fontSize: 12 }]}>{_("Service Debts")}</Text>
             <Text style={styles.supCardValue}>{formatLKR(ledger.currentDebt)}</Text>
             <Text style={styles.supCardSub}>From finance ledger</Text>
           </View>
@@ -595,17 +619,31 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
         
         {(() => {
           const services = [
-            { title: _("Fertilizer"),     icon: { lib: "mc",  name: "sprout" },                      color: "#1fbe57", status: "Approved", statusIcon: "checkmark-circle-outline", hideStatus: false },
-            { title: _("Leaf Bags"),  icon: { lib: "ion", name: "bag-handle-outline" },           color: "#00d2d3", status: "Pending",  statusIcon: "time-outline",             hideStatus: false },
-            { title: "Circulars", icon: { lib: "ion", name: "document-text-outline" },        color: "#9b59b6", status: "New",      statusIcon: "notifications-outline",    hideStatus: false },
-            { title: _("Transport"), icon: { lib: "mc",  name: "truck-delivery-outline" },       color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true  },
-            { title: _("Advisory"),   icon: { lib: "ion", name: "chatbox-outline" },              color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true  },
-            { title: "Settings",  icon: { lib: "ion", name: "settings-outline" },             color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true  },
+            { title: _("Fertilizer"),  icon: { lib: "mc",  name: "sprout" },                      color: "#1fbe57", status: "Approved", statusIcon: "checkmark-circle-outline", hideStatus: false, tab: "Requests", initialTab: "Fertilizer" },
+            { title: _("Leaf Bags"),   icon: { lib: "ion", name: "bag-handle-outline" },           color: "#00d2d3", status: "Pending",  statusIcon: "time-outline",             hideStatus: false, tab: "Requests", initialTab: "Leaf Bags" },
+            { title: "Circulars",     icon: { lib: "ion", name: "document-text-outline" },        color: "#9b59b6", status: "New",      statusIcon: "notifications-outline",    hideStatus: false, tab: "Circulars", initialTab: null, params: { lang } },
+            { title: _("Transport"),  icon: { lib: "mc",  name: "truck-delivery-outline" },       color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true,  tab: "Requests", initialTab: "Transport" },
+            { title: _("Advisory"),   icon: { lib: "ion", name: "chatbox-outline" },              color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true,  tab: "Requests", initialTab: "Advisory" },
+            { title: "Settings",     icon: { lib: "ion", name: "settings-outline" },             color: "#607b96", status: "",         statusIcon: "",                         hideStatus: true,  tab: "Profile",  initialTab: null },
           ];
           const renderCard = (item: typeof services[0], idx: number) => {
             const isColored = !item.hideStatus;
             return (
-              <View key={idx} style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 12, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+              <Pressable
+                key={idx}
+                onPress={() => {
+                  const navParams = { 
+                    ...(item.initialTab ? { initialTab: item.initialTab } : {}),
+                    ...(item.params || {})
+                  };
+                  navigation.navigate(item.tab, Object.keys(navParams).length > 0 ? navParams : undefined);
+                }}
+                style={({ pressed }) => [{
+                  flex: 1, backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 12, alignItems: "center",
+                  borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
+                  opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.96 : 1 }]
+                }]}
+              >
                 <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: isColored ? `${item.color}20` : "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: isColored ? `${item.color}35` : "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
                   {item.icon.lib === "mc"
                     ? <MaterialCommunityIcons name={item.icon.name as any} size={26} color={item.color} />
@@ -618,7 +656,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
                     <Text style={{ color: item.color, fontSize: 9, marginLeft: 2 }}>{item.status}</Text>
                   </View>
                 )}
-              </View>
+              </Pressable>
             );
           };
           return (
@@ -1296,7 +1334,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={localStyles.debtSummaryCard}>
           <Text style={localStyles.debtTitle}>{_("Current Outstanding")}</Text>
-          <Text style={localStyles.debtAmount}>{loading ? '...' : `Rs. ${totalOutstanding.toLocaleString()}`}</Text>
+          <Text style={localStyles.debtAmount}>{loading ? '...' : `Rs. ${Number(ledger?.currentDebt || 0).toLocaleString()}`}</Text>
           <Text style={localStyles.debtSubTitle}>{_("Estimated for next payout")}</Text>
         </View>
 
@@ -1318,6 +1356,24 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
           </View>
         ) : (
           (() => {
+            // Show advance as the first breakdown item if present
+            const rows: any[] = [];
+            if ((ledger?.advanceTaken || 0) > 0) {
+              rows.push(
+                <View key="advance" style={[localStyles.debtCardContainer]}>
+                  <View style={localStyles.debtItemRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>{_("Advance")}</Text>
+                      <Text style={{ fontSize: 12, color: palette.muted, marginTop: 4 }}>{new Date().toLocaleDateString('en-GB')}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Rs. {Number(ledger.advanceTaken || 0).toLocaleString()}</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            }
+
             const groups: Record<string, { label: string, icon: string, color: string, amount: number, date: Date, items: any[] }> = {};
             
             debtItems.forEach(item => {
@@ -1332,7 +1388,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
               if (itemDate > groups[key].date) groups[key].date = itemDate;
             });
 
-            return Object.values(groups).map((group, idx) => {
+            return rows.concat(Object.values(groups).map((group, idx) => {
               const dateStr = group.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
               const isExpanded = expandedCategory === group.label;
               
@@ -1377,7 +1433,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
                   )}
                 </View>
               );
-            });
+            }));
           })()
         )}
 

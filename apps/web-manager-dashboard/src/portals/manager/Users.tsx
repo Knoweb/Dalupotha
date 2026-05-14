@@ -263,7 +263,12 @@ export default function UsersPage() {
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-900">
                          <User size={16} />
                       </div>
+                     <div className="flex flex-col leading-tight">
                       <span className="font-bold text-slate-700 text-sm">{user.name}</span>
+                      {(user.role === 'TA' || user.role === 'Transport Agent') && (
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">Agent ID: {user.id}</span>
+                      )}
+                     </div>
                    </div>
                 </td>
                 <td className="px-8 py-5 text-center">
@@ -555,6 +560,12 @@ export default function UsersPage() {
                   <div>
                     <h2 className="text-2xl font-black text-slate-900">{detailedUser.name}</h2>
                     <p className="text-slate-950 font-bold">{getFullRoleName(detailedUser.role)} • {detailedUser.id}</p>
+                    {(detailedUser.role === 'TA' || detailedUser.role === 'Transport Agent') && (
+                      <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest">
+                        <span>Agent ID</span>
+                        <span className="font-mono">{detailedUser.id}</span>
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center gap-2">
                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                           (detailedUser.status === 'ACTIVE' || detailedUser.status === 'Active') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'

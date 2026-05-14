@@ -2,7 +2,6 @@ package com.dalupotha.finance.controller;
 
 import com.dalupotha.finance.dto.CreateServiceRequestRequest;
 import com.dalupotha.finance.dto.LedgerTransactionResponse;
-import com.dalupotha.finance.dto.ProcessPayoutRequest;
 import com.dalupotha.finance.dto.ServiceRequestResponse;
 import com.dalupotha.finance.dto.SupplierLedgerResponse;
 import com.dalupotha.finance.dto.UpdateRequestStatusRequest;
@@ -10,7 +9,6 @@ import com.dalupotha.finance.model.RequestStatus;
 import com.dalupotha.finance.model.RequestType;
 import com.dalupotha.finance.service.FinanceService;
 import jakarta.validation.Valid;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,20 +27,6 @@ public class FinanceController {
 
     public FinanceController(FinanceService financeService) {
         this.financeService = financeService;
-    }
-
-    @PostMapping("/api/finance/payout")
-    public LedgerTransactionResponse processPayout(@Valid @RequestBody ProcessPayoutRequest request) {
-        return financeService.processPayout(request.getSupplierId(), request.getAmount(), request.getRequesterId(), request.getDescription(), request.isImmediate());
-    }
-
-    @PostMapping("/api/finance/payout/bulk")
-    public void bulkProcessPayouts(
-            @RequestParam List<UUID> supplierIds,
-            @RequestParam UUID requesterId,
-            @RequestParam(defaultValue = "false") boolean immediate
-    ) {
-        financeService.bulkProcessPayouts(supplierIds, requesterId, immediate);
     }
 
     @GetMapping("/api/finance/ledger/{supplierId}")
@@ -70,13 +54,11 @@ public class FinanceController {
     public List<ServiceRequestResponse> getRequests(
             @RequestParam(required = false) UUID createdById,
             @RequestParam(required = false) UUID supplierId,
-            @RequestParam(required = false) String passbookNo,
             @RequestParam(required = false) RequestType requestType,
             @RequestParam(required = false) RequestStatus status,
-            @RequestParam(required = false) UUID assignedAgentId,
             @RequestParam(required = false) Integer limit
     ) {
-        return financeService.getRequests(createdById, supplierId, passbookNo, requestType, status, assignedAgentId, limit);
+        return financeService.getRequests(createdById, supplierId, requestType, status, limit);
     }
 
     @PatchMapping("/api/services/request/{requestId}/status")
@@ -85,26 +67,5 @@ public class FinanceController {
             @Valid @RequestBody UpdateRequestStatusRequest request
     ) {
         return financeService.updateRequestStatus(requestId, request);
-    }
-    @GetMapping("/api/finance/leaf-price")
-    public java.util.Map<String, Object> getCurrentLeafPrice() {
-        return financeService.getCurrentLeafPrice();
-    }
-
-    @PostMapping("/api/finance/leaf-price")
-    public java.util.Map<String, Object> setLeafPrice(@RequestBody java.util.Map<String, Object> body) {
-        BigDecimal price = new BigDecimal(body.get("pricePerKg").toString());
-        return financeService.setLeafPrice(price);
-    }
-
-    @GetMapping("/api/finance/advance-limit")
-    public java.util.Map<String, Object> getAdvanceLimit() {
-        return financeService.getAdvanceLimit();
-    }
-
-    @PostMapping("/api/finance/advance-limit")
-    public java.util.Map<String, Object> setAdvanceLimit(@RequestBody java.util.Map<String, Object> body) {
-        BigDecimal limit = new BigDecimal(body.get("advanceLimit").toString());
-        return financeService.setAdvanceLimit(limit);
     }
 }

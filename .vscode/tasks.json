@@ -1,0 +1,58 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build-auth-service-now",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Set-Location 'c:\\Users\\USER\\OneDrive - itum.mrt.ac.lk\\Desktop\\Dalupotha\\backend'; docker compose build auth-service"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-auth-service-now-2",
+			"type": "shell",
+			"command": "Set-Location \"c:\\Users\\USER\\OneDrive - itum.mrt.ac.lk\\Desktop\\Dalupotha\\backend\"; docker compose build auth-service",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "build-auth-service-root-rel",
+			"type": "shell",
+			"command": "cd backend; docker compose build auth-service",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "restart-auth-service-twilio-only",
+			"type": "shell",
+			"command": "cd backend; docker compose up -d auth-service; docker compose ps auth-service",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "auth-service-startup-check",
+			"type": "shell",
+			"command": "cd backend; docker compose logs auth-service --tail 30",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "up-build-auth-service-twilio-only",
+			"type": "shell",
+			"command": "cd backend; docker compose up -d --build auth-service; docker compose ps auth-service",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

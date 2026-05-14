@@ -15,6 +15,17 @@ spring:
 server:
   port: 8081
 
+app:
+  dev-mode: ${DEV_MODE:false}
+
+firebase:
+  api-key: ${FIREBASE_API_KEY:}
+
+infobip:
+  api-key: ${INFOBIP_API_KEY:}
+  base-url: ${INFOBIP_BASE_URL:}
+  sender: ${INFOBIP_SENDER:Dalupotha}
+
 management:
   endpoints:
     web:
@@ -32,3 +43,9 @@ vonage:
     key: ${VONAGE_API_KEY:dummy-key}
     secret: ${VONAGE_API_SECRET:dummy-secret}
   sender-id: ${VONAGE_SENDER_ID:VonageAPIs}
+
+# Twilio SMS (Fallback to avoid BeanCreationException)
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID:dummy-sid}
+  auth-token: ${TWILIO_AUTH_TOKEN:dummy-token}
+  phone-number: ${TWILIO_PHONE_NUMBER:dummy-number}

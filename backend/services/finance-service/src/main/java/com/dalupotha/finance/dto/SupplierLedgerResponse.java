@@ -8,9 +8,6 @@ public record SupplierLedgerResponse(
         BigDecimal currentDebt,
         BigDecimal advanceTaken,
         BigDecimal payoutTotal,
-        BigDecimal estimatedBalance,
-        BigDecimal totalNetWeight,
-        BigDecimal leafPrice,
-        BigDecimal grossEarnings
+        BigDecimal estimatedBalance
 ) {
 }

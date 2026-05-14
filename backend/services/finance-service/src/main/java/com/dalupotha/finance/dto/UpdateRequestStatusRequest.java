@@ -12,7 +12,6 @@ public class UpdateRequestStatusRequest {
     private UUID approverId;
     @JsonProperty("approverComment")
     private String approverComment;
-    private java.math.BigDecimal amount;
 
     public RequestStatus getStatus() { return status; }
     public void setStatus(RequestStatus status) { this.status = status; }
@@ -22,7 +21,4 @@ public class UpdateRequestStatusRequest {
 
     public String getApproverComment() { return approverComment; }
     public void setApproverComment(String approverComment) { this.approverComment = approverComment; }
-
-    public java.math.BigDecimal getAmount() { return amount; }
-    public void setAmount(java.math.BigDecimal amount) { this.amount = amount; }
 }

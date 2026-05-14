@@ -241,401 +241,372 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{isManager ? t('System Settings') : t('Preferences')}</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
-            {isManager ? t('Global configuration and estate management') : t('Manage your dashboard experience')}
-          </p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 space-y-8 pb-6">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">{isManager ? t('System Settings') : t('Preferences')}</h1>
+        <p className="text-sm text-slate-500 font-semibold mt-2">
+          {isManager ? t('Global configuration and estate management') : t('Manage your dashboard experience')}
+        </p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Language (Compact) ── */}
-        <section className="lg:col-span-3">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center justify-between group hover:border-slate-300 transition-colors">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
-                <Globe size={18} />
-              </div>
-              <div>
-                <p className="text-sm font-black text-slate-800 tracking-tight">{t('Select your language')}</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{t('Current')}: {lang === 'en' ? 'English' : 'සිංහල'}</p>
-              </div>
+
+      {/* ── Language Selection ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Globe size={24} className="text-blue-600" />
             </div>
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-              <button
-                onClick={() => setLang('en')}
-                className={`px-6 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                  lang === 'en' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                EN
-              </button>
-              <button
-                onClick={() => setLang('si')}
-                className={`px-6 py-2 rounded-xl text-lg font-bold leading-none transition-all ${
-                  lang === 'si' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                සි
-              </button>
+            <div>
+              <p className="text-base font-bold text-slate-900">{t('Select your language')}</p>
+              <p className="text-[12px] text-slate-500 font-semibold uppercase tracking-wider mt-1">{t('Current')}: {lang === 'en' ? 'English' : 'සිංහල'}</p>
             </div>
           </div>
-        </section>
+          <div className="flex bg-slate-100 p-2 rounded-2xl gap-1">
+            <button
+              onClick={() => setLang('en')}
+              className={`px-8 py-2.5 rounded-xl text-[12px] font-black uppercase tracking-widest transition-all ${
+                lang === 'en' ? 'bg-white text-slate-900 shadow-lg border border-slate-200' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang('si')}
+              className={`px-8 py-2.5 rounded-xl text-base font-bold transition-all ${
+                lang === 'si' ? 'bg-emerald-600 text-white shadow-lg border border-emerald-700' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              සි
+            </button>
+          </div>
+        </div>
+      </div>
 
-        {isManager && (
-          <section className="lg:col-span-3 space-y-4">
-            <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 pl-1">
-              <Shield size={12} className="text-blue-600" />
-              {t('Estate & Manager Profile')}
-            </h2>
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-8">
-                 <div>
-                   <p className="font-black text-slate-900 text-lg tracking-tight">{t('General Information')}</p>
-                   <p className="text-[10px] text-slate-500 font-medium mt-0.5">{t('Manage identity & credentials')}</p>
-                 </div>
-                 {!profileLoading && (
+      {isManager && (
+        <>
+          {/* ── General Information Section ── */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-50 px-6 py-4 border-b border-blue-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shield size={20} className="text-blue-600" />
+                  <div>
+                    <p className="font-black text-slate-900 text-base">{t('General Information')}</p>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{t('Manage identity & credentials')}</p>
+                  </div>
+                </div>
+                {!profileLoading && (
                    <button 
                      onClick={() => setIsEditingProfile(!isEditingProfile)}
-                     className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 ${
+                     className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
                        isEditingProfile 
-                       ? 'bg-slate-100 text-slate-600 border border-slate-200' 
-                       : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100'
+                       ? 'bg-white text-slate-600 border border-slate-200 shadow-sm' 
+                       : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200'
                      }`}
                    >
                      {isEditingProfile ? t('Cancel') : t('Edit All')}
                    </button>
-                 )}
+                )}
               </div>
+            </div>
 
+            <div className="p-8">
               {profileLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-pulse">
-                  <div className="space-y-6">
-                    <div className="h-4 bg-slate-100 rounded w-1/4"></div>
-                    <div className="h-10 bg-slate-50 rounded-xl w-full"></div>
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-2"><div className="h-3 bg-slate-100 rounded w-1/2"></div><div className="h-10 bg-slate-50 rounded-xl w-full"></div></div>
-                       <div className="space-y-2"><div className="h-3 bg-slate-100 rounded w-1/2"></div><div className="h-10 bg-slate-50 rounded-xl w-full"></div></div>
+                <div className="grid grid-cols-2 gap-8 animate-pulse">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="space-y-3">
+                      <div className="h-3 bg-slate-100 rounded w-1/3"></div>
+                      <div className="h-11 bg-slate-50 rounded-xl"></div>
                     </div>
-                  </div>
-                  <div className="space-y-6">
-                    <div className="h-4 bg-slate-100 rounded w-1/4"></div>
-                    <div className="h-10 bg-slate-50 rounded-xl w-full"></div>
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-2"><div className="h-3 bg-slate-100 rounded w-1/2"></div><div className="h-10 bg-slate-50 rounded-xl w-full"></div></div>
-                       <div className="space-y-2"><div className="h-3 bg-slate-100 rounded w-1/2"></div><div className="h-10 bg-slate-50 rounded-xl w-full"></div></div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
-                 {/* ── Estate Section ── */}
-                 <div className="space-y-5">
-                    <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-widest pb-2 border-b border-blue-50 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                      {t('Estate Details')}
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Estate Name')}</label>
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    {/* ── Estate Details ── */}
+                    <div>
+                      <h3 className="text-[12px] font-black text-blue-600 uppercase tracking-widest pb-4 border-b-2 border-blue-100 mb-6">
+                        {t('Estate Details')}
+                      </h3>
+                      <div className="space-y-6">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">{t('Estate Name')}</label>
                           <input 
                             type="text" 
                             disabled={!isEditingProfile}
                             value={estateInfo.name}
                             onChange={e => setEstateInfo({...estateInfo, name: e.target.value})}
-                            className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
+                            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-slate-900 disabled:opacity-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
                           />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Phone')}</label>
-                            <input 
-                              type="text" 
-                              disabled={!isEditingProfile}
-                              value={estateInfo.phone}
-                              onChange={e => setEstateInfo({...estateInfo, phone: e.target.value})}
-                              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
-                            />
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Address')}</label>
-                            <input 
-                              type="text" 
-                              disabled={!isEditingProfile}
-                              value={estateInfo.address}
-                              onChange={e => setEstateInfo({...estateInfo, address: e.target.value})}
-                              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
-                            />
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">{t('Address')}</label>
+                          <input 
+                            type="text" 
+                            disabled={!isEditingProfile}
+                            value={estateInfo.address}
+                            onChange={e => setEstateInfo({...estateInfo, address: e.target.value})}
+                            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-slate-900 disabled:opacity-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                          />
                         </div>
                       </div>
                     </div>
-                 </div>
 
-                 {/* ── Manager Section ── */}
-                 <div className="space-y-5">
-                    <h3 className="text-[10px] font-black text-blue-600 uppercase tracking-widest pb-2 border-b border-blue-50 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                      {t('Manager Account')}
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Manager Name')}</label>
+                    {/* ── Manager Account ── */}
+                    <div>
+                      <h3 className="text-[12px] font-black text-blue-600 uppercase tracking-widest pb-4 border-b-2 border-blue-100 mb-6">
+                        {t('Manager Account')}
+                      </h3>
+                      <div className="space-y-6">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">{t('Manager Name')}</label>
                           <input 
                             type="text" 
                             disabled={!isEditingProfile}
                             value={profile.name}
                             onChange={e => setProfile({...profile, name: e.target.value})}
-                            className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
+                            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-slate-900 disabled:opacity-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
                           />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Email')}</label>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">{t('Email')}</label>
                             <input 
                               type="email" 
                               disabled={!isEditingProfile}
                               value={profile.email}
                               onChange={e => setProfile({...profile, email: e.target.value})}
-                              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
+                              className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-slate-900 disabled:opacity-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
                             />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Phone')}</label>
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">{t('Phone')}</label>
                             <input 
                               type="text" 
                               disabled={!isEditingProfile}
                               value={profile.contact}
                               onChange={e => setProfile({...profile, contact: e.target.value})}
-                              className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
+                              className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-slate-900 disabled:opacity-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
                             />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Password')}</label>
-                            <div className="relative">
-                              <input 
-                                type={showPassword ? "text" : "password"} 
-                                disabled={!isEditingProfile}
-                                placeholder="••••••••"
-                                value={profile.password}
-                                onChange={e => setProfile({...profile, password: e.target.value})}
-                                className="w-full bg-slate-50/50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all disabled:opacity-50"
-                              />
-                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">{t('Password')}</label>
+                            <input 
+                              type={showPassword ? "text" : "password"} 
+                              disabled={!isEditingProfile}
+                              placeholder="••••••••"
+                              value={profile.password}
+                              onChange={e => setProfile({...profile, password: e.target.value})}
+                              className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-[13px] font-semibold text-slate-900 disabled:opacity-50 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
-                 </div>
-              </div>
+                  </div>
 
-              {isEditingProfile && (
-                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-                   <button 
-                     onClick={async () => {
-                        setProfileSaving(true);
-                        try {
-                          const userId = sessionStorage.getItem('current_user_id');
-                          const estateId = estateInfo.id || sessionStorage.getItem('current_estate_id');
-                          const p1 = fetch(`/api/auth/users/${userId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(profile),
-                          });
-                          const p2 = fetch(`/api/auth/estates/${estateId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: estateInfo.name, phone: estateInfo.phone, address: estateInfo.address }),
-                          });
-                          const [r1, r2] = await Promise.all([p1, p2]);
-                          if (!r1.ok || !r2.ok) throw new Error('Failed to save');
-                          sessionStorage.setItem('estate_name', estateInfo.name);
-                          setIsEditingProfile(false);
-                          setProfile({...profile, password: ''});
-                          window.location.reload();
-                        } catch (err: any) { alert(err.message); } finally { setProfileSaving(false); }
-                     }}
-                     disabled={profileSaving}
-                     className="px-10 py-3 bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-100 flex items-center gap-2 active:scale-95 transition-all"
-                   >
-                     {profileSaving && <Loader size={14} className="animate-spin" />}
-                     {profileSaving ? t('Saving...') : t('Save All Changes')}
-                   </button>
-                </div>
-              )}
+                  {isEditingProfile && (
+                    <div className="pt-6 border-t-2 border-slate-200 flex justify-end">
+                       <button 
+                         onClick={async () => {
+                            setProfileSaving(true);
+                            try {
+                              const userId = sessionStorage.getItem('current_user_id');
+                              const estateId = estateInfo.id || sessionStorage.getItem('current_estate_id');
+                              const p1 = fetch(`/api/auth/users/${userId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(profile),
+                              });
+                              const p2 = fetch(`/api/auth/estates/${estateId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: estateInfo.name, phone: estateInfo.phone, address: estateInfo.address }),
+                              });
+                              const [r1, r2] = await Promise.all([p1, p2]);
+                              if (!r1.ok || !r2.ok) throw new Error('Failed to save');
+                              sessionStorage.setItem('estate_name', estateInfo.name);
+                              setIsEditingProfile(false);
+                              setProfile({...profile, password: ''});
+                              window.location.reload();
+                            } catch (err: any) { alert(err.message); } finally { setProfileSaving(false); }
+                         }}
+                         disabled={profileSaving}
+                         className="px-12 py-3.5 bg-blue-600 text-white text-[12px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center gap-2 active:scale-95 transition-all"
+                       >
+                         {profileSaving && <Loader size={16} className="animate-spin" />}
+                         {profileSaving ? t('Saving...') : t('Save All Changes')}
+                       </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
-        </section>
+
+          {/* ── Financial Settings Grid ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* ── Leaf Price ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+              <div className="bg-gradient-to-r from-emerald-50 to-emerald-50 px-6 py-4 border-b border-emerald-100 flex items-center gap-3">
+                <Leaf size={20} className="text-emerald-600" />
+                <div>
+                  <p className="font-bold text-slate-900">{t('Leaf Pricing')}</p>
+                  <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{t('Current Rate')}</p>
+                </div>
+              </div>
+              <div className="p-6 flex-1">
+                {priceLoading ? (
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-10 bg-slate-100 rounded w-32"></div>
+                    <div className="h-4 bg-slate-50 rounded w-40"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline gap-1 mb-3">
+                      <span className="text-3xl font-black text-slate-900">Rs. {currentPrice?.toFixed(2)}</span>
+                      <span className="text-base font-bold text-slate-500">/kg</span>
+                    </div>
+                    {effectiveDate && (
+                      <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">
+                        {t('Since')}: {new Date(effectiveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
+
+                    {isEditing && (
+                      <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">Rs.</span>
+                          <input
+                            ref={inputRef}
+                            type="number"
+                            value={newPrice}
+                            onChange={e => setNewPrice(e.target.value)}
+                            className="w-full bg-slate-50 border-2 border-emerald-200 rounded-xl pl-11 pr-4 py-3 text-sm font-bold text-slate-900 focus:border-emerald-500 focus:bg-white outline-none transition-all"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={requestSave} className="flex-1 py-3 bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 active:scale-95 transition-all">
+                            {t('Update')}
+                          </button>
+                          <button onClick={cancelEditing} className="px-4 py-3 bg-slate-100 text-slate-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 active:scale-95 transition-all">
+                            {t('Cancel')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              {!isEditing && (
+                <div className="px-6 py-4 bg-emerald-50/50 border-t border-emerald-100 flex items-center justify-between">
+                  <p className="text-[10px] text-slate-600 font-semibold">{t('Used to calculate supplier earnings')}</p>
+                  {!isEditing && (
+                    <button onClick={startEditing} className="p-2.5 rounded-lg bg-white text-emerald-600 hover:bg-emerald-100 transition-all border border-emerald-200">
+                      <Edit2 size={16} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Advance Limit ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-50 px-6 py-4 border-b border-blue-100 flex items-center gap-3">
+                <Shield size={20} className="text-blue-600" />
+                <div>
+                  <p className="font-bold text-slate-900">{t('Advance Limit')}</p>
+                  <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{t('Max Request')}</p>
+                </div>
+              </div>
+              <div className="p-6 flex-1">
+                {limitLoading ? (
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-10 bg-slate-100 rounded w-32"></div>
+                    <div className="h-4 bg-slate-50 rounded w-40"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline gap-1 mb-3">
+                      <span className="text-3xl font-black text-slate-900">Rs. {advanceLimit?.toLocaleString('en-LK')}</span>
+                      <span className="text-base font-bold text-slate-500">max</span>
+                    </div>
+
+                    {isEditingLimit && (
+                      <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">Rs.</span>
+                          <input
+                            ref={limitInputRef}
+                            type="number"
+                            value={newLimit}
+                            onChange={e => setNewLimit(e.target.value)}
+                            className="w-full bg-slate-50 border-2 border-blue-200 rounded-xl pl-11 pr-4 py-3 text-sm font-bold text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={requestSaveLimit} className="flex-1 py-3 bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 active:scale-95 transition-all">
+                            {t('Update')}
+                          </button>
+                          <button onClick={cancelEditingLimit} className="px-4 py-3 bg-slate-100 text-slate-600 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 active:scale-95 transition-all">
+                            {t('Cancel')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              {!isEditingLimit && (
+                <div className="px-6 py-4 bg-blue-50/50 border-t border-blue-100 flex items-center justify-between">
+                  <p className="text-[10px] text-slate-600 font-semibold">{t('Applies to all advance requests')}</p>
+                  {!isEditingLimit && (
+                    <button onClick={startEditingLimit} className="p-2.5 rounded-lg bg-white text-blue-600 hover:bg-blue-100 transition-all border border-blue-200">
+                      <Edit2 size={16} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Security Status ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+              <div className="bg-gradient-to-r from-amber-50 to-amber-50 px-6 py-4 border-b border-amber-100 flex items-center gap-3">
+                <Shield size={20} className="text-amber-600" />
+                <div>
+                  <p className="font-bold text-slate-900">{t('Security')}</p>
+                  <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{t('System Status')}</p>
+                </div>
+              </div>
+              <div className="p-6 flex-1 flex flex-col justify-center items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+                  <Shield size={28} className="text-amber-600" />
+                </div>
+                <p className="text-[12px] font-black text-slate-900 uppercase tracking-wider mb-2">{t('System Locked')}</p>
+                <p className="text-[11px] text-slate-600 font-semibold">{t('Root admin access only')}</p>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
-        {isManager && (
-          <>
-            {/* ── Leaf Price ── */}
-            <section className="lg:col-span-1 space-y-3">
-              <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 pl-1">
-                <Leaf size={12} className="text-emerald-500" />
-                {t('Leaf Pricing')}
-              </h2>
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full hover:border-emerald-100 transition-colors">
-                <div className="p-6 flex-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Current Rate')}</p>
-                    {!isEditing && (
-                      <button onClick={startEditing} className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors active:scale-90">
-                        <Edit2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                  
-                  {priceLoading ? (
-                    <div className="animate-pulse space-y-2">
-                      <div className="h-10 bg-slate-100 rounded w-24"></div>
-                      <div className="h-4 bg-slate-50 rounded w-32"></div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-slate-900 tracking-tighter">Rs. {currentPrice?.toFixed(2)}</span>
-                        <span className="text-sm font-bold text-slate-500">/kg</span>
-                      </div>
-                      {effectiveDate && (
-                        <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-widest opacity-80">
-                          {t('Since')}: {new Date(effectiveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </p>
-                      )}
-                    </>
-                  )}
-
-                  {isEditing && (
-                    <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">Rs.</span>
-                        <input
-                          ref={inputRef}
-                          type="number"
-                          value={newPrice}
-                          onChange={e => setNewPrice(e.target.value)}
-                          className="w-full bg-slate-50 border-2 border-emerald-100 rounded-xl pl-10 pr-4 py-3 text-sm font-black text-slate-800 focus:border-emerald-500 focus:bg-white outline-none transition-all shadow-inner"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={requestSave} className="flex-1 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-100 active:scale-95 transition-all">
-                          {t('Update')}
-                        </button>
-                        <button onClick={cancelEditing} className="px-4 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 active:scale-95 transition-all">
-                          {t('Cancel')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
-                  <p className="text-[10px] font-medium text-slate-500 leading-tight italic">
-                    {t('Used to calculate gross earnings for all suppliers.')}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* ── Cash Advance Limit ── */}
-            <section className="lg:col-span-1 space-y-3">
-              <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 pl-1">
-                <Shield size={12} className="text-blue-500" />
-                {t('Advance Limit')}
-              </h2>
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full hover:border-blue-100 transition-colors">
-                <div className="p-6 flex-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{t('Max Request')}</p>
-                    {!isEditingLimit && (
-                      <button onClick={startEditingLimit} className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors active:scale-90">
-                        <Edit2 size={14} />
-                      </button>
-                    )}
-                  </div>
-
-                  {limitLoading ? (
-                    <div className="animate-pulse space-y-2">
-                      <div className="h-10 bg-slate-100 rounded w-24"></div>
-                      <div className="h-4 bg-slate-50 rounded w-32"></div>
-                    </div>
-                  ) : (
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-black text-slate-900 tracking-tighter">Rs. {advanceLimit?.toLocaleString('en-LK')}</span>
-                      <span className="text-sm font-bold text-slate-500">max</span>
-                    </div>
-                  )}
-
-                  {isEditingLimit && (
-                    <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">Rs.</span>
-                        <input
-                          ref={limitInputRef}
-                          type="number"
-                          value={newLimit}
-                          onChange={e => setNewLimit(e.target.value)}
-                          className="w-full bg-slate-50 border-2 border-blue-100 rounded-xl pl-10 pr-4 py-3 text-sm font-black text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={requestSaveLimit} className="flex-1 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 active:scale-95 transition-all">
-                          {t('Update')}
-                        </button>
-                        <button onClick={cancelEditingLimit} className="px-4 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 active:scale-95 transition-all">
-                          {t('Cancel')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
-                  <p className="text-[10px] font-medium text-slate-500 leading-tight italic">
-                    {t('Limits set here apply to all new advance requests.')}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* ── Security Status (Compact) ── */}
-            <section className="lg:col-span-1 space-y-3">
-              <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 pl-1">
-                <Shield size={12} className="text-amber-500" />
-                {t('Security')}
-              </h2>
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-full border-dashed border-2 bg-slate-50/5 flex flex-col justify-center items-center text-center group hover:border-amber-100 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:bg-amber-50 transition-colors">
-                  <Shield size={24} className="text-slate-400 group-hover:text-amber-600 transition-colors" />
-                </div>
-                <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-1">{t('System Locked')}</p>
-                <p className="text-[10px] text-slate-500 max-w-[180px] font-medium">{t('Access to security auditing is restricted to root admins.')}</p>
-              </div>
-            </section>
-          </>
-        )}
-      </div>
-
-      {/* ── Modals ── */}
+      {/* ── Confirmation Modals ── */}
       {showConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300">
             <div className="p-8 text-center">
-              <div className="w-16 h-16 rounded-3xl bg-amber-100 flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle size={32} className="text-amber-600" />
               </div>
               <h3 className="font-black text-slate-900 text-xl tracking-tight">{t('Update Leaf Rate?')}</h3>
-              <p className="text-sm text-slate-500 mt-3 leading-relaxed font-medium">
+              <p className="text-sm text-slate-500 mt-3 leading-relaxed font-semibold">
                 {t('This change will immediately affect all supplier earnings calculations.')}
               </p>
               <div className="mt-8 flex gap-3">
-                <button onClick={() => setShowConfirm(false)} className="flex-1 py-4 rounded-2xl border border-slate-200 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all">
+                <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-[12px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all">
                   {t('Cancel')}
                 </button>
-                <button onClick={confirmSave} className="flex-1 py-4 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-xl shadow-emerald-100 active:scale-95 transition-all">
+                <button onClick={confirmSave} className="flex-1 py-3 rounded-xl bg-emerald-600 text-white text-[12px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 active:scale-95 transition-all">
                   {t('Confirm')}
                 </button>
               </div>
@@ -645,21 +616,21 @@ export default function SettingsPage() {
       )}
 
       {showLimitConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-300">
             <div className="p-8 text-center">
-              <div className="w-16 h-16 rounded-3xl bg-amber-100 flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle size={32} className="text-amber-600" />
               </div>
               <h3 className="font-black text-slate-900 text-xl tracking-tight">{t('Update Advance Limit?')}</h3>
-              <p className="text-sm text-slate-500 mt-3 leading-relaxed font-medium">
+              <p className="text-sm text-slate-500 mt-3 leading-relaxed font-semibold">
                 {t('Requests above this amount will be automatically rejected.')}
               </p>
               <div className="mt-8 flex gap-3">
-                <button onClick={() => setShowLimitConfirm(false)} className="flex-1 py-4 rounded-2xl border border-slate-200 text-[11px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all">
+                <button onClick={() => setShowLimitConfirm(false)} className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-[12px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all">
                   {t('Cancel')}
                 </button>
-                <button onClick={confirmSaveLimit} className="flex-1 py-4 rounded-2xl bg-blue-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 active:scale-95 transition-all">
+                <button onClick={confirmSaveLimit} className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-[12px] font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-200 active:scale-95 transition-all">
                   {t('Confirm')}
                 </button>
               </div>
@@ -667,15 +638,6 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-
-      {/* ── Advanced Security ── */}
-      <section className="pt-6 opacity-40">
-        <div className="bg-slate-100/50 rounded-2xl p-8 border border-slate-200 text-center border-dashed">
-          <Shield size={32} className="mx-auto mb-4 text-slate-400" />
-          <p className="text-[10px] font-black text-slate-600 uppercase tracking-[4px]">{t('Advanced Security Controls')}</p>
-          <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-widest">{t('Root Admin Only')}</p>
-        </div>
-      </section>
     </div>
   );
 }

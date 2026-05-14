@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck } from "lucide-react"
-import { FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
+import { CollectionAPI, FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
 import { useNotifications } from "../../hooks/useNotifications"
 import { useLanguage } from "../../hooks/useLanguage"
 
@@ -97,10 +97,25 @@ function matchesFilter(req: ServiceRequest, filter: string) {
   return true
 }
 
-function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, processing }: {
+function calcSupplierMonthSupplyKg(history: Array<{ collectedAt: string; netWeight?: number; grossWeight?: number }>): number {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  return history.reduce((sum, item) => {
+    const date = new Date(item.collectedAt);
+    if (Number.isNaN(date.getTime())) return sum;
+    if (date.getFullYear() !== year || date.getMonth() !== month) return sum;
+    const weight = Number(item.netWeight ?? item.grossWeight ?? 0);
+    return sum + (Number.isFinite(weight) ? weight : 0);
+  }, 0);
+}
+
+function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onReject, onAction, processing }: {
   req: ServiceRequest;
   code: string;
   debt: number | null;
+  supplyThisMonth: number | null;
   onClose: () => void;
   onApprove: (comment: string) => void;
   onReject: (comment: string) => void;
@@ -158,9 +173,9 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
   }, [req.itemId, req.requestType, req.requestedAmount, req.quantity])
 
 
-  const supplyThisMonth = (req as any).supplyThisMonth ?? 0
   const debtVal = debt ?? 0
-  const ratio = supplyThisMonth > 0 ? ((debtVal / supplyThisMonth) * 100).toFixed(1) : "0.0"
+  const supplyVal = supplyThisMonth ?? 0
+  const ratio = supplyVal > 0 ? ((debtVal / supplyVal) * 100).toFixed(1) : "0.0"
   const highRatio = Number(ratio) > 40
   const meta = TYPE_META_KEYS[req.requestType] || { label: req.requestType, color: "text-slate-950 font-medium" }
   const isPending = req.status === "PENDING" || req.status === "REVIEW"
@@ -204,7 +219,7 @@ function ViewModal({ req, code, debt, onClose, onApprove, onReject, onAction, pr
                   <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-2">{t('Financial Standing')}</p>
                   {[
                     { label: t("Outstanding Debt"),  value: `Rs. ${debtVal.toLocaleString()}` },
-                    { label: t("Supply This Month"), value: `${supplyThisMonth.toLocaleString()} kg` },
+                    { label: t("Supply This Month"), value: `${supplyVal.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` },
                     { label: t("Debt/Supply Ratio"), value: `${ratio}%` },
                   ].map(row => (
                     <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
@@ -443,6 +458,7 @@ export default function ApprovalsPage() {
   const [typeFilter, setTypeFilter] = useState("All Types")
   const [search, setSearch] = useState("")
   const [debtMap, setDebtMap] = useState<Record<string, number>>({})
+  const [supplyMap, setSupplyMap] = useState<Record<string, number>>({})
   const [approverMap, setApproverMap] = useState<Record<string, string>>({})
   const [creatorMap, setCreatorMap] = useState<Record<string, string>>({})
   const [viewReq, setViewReq] = useState<{ req: ServiceRequest; code: string } | null>(null)
@@ -474,13 +490,22 @@ export default function ApprovalsPage() {
         }).catch(err => console.error("Failed to load inventory map", err))
       }
 
-      const pendingIds = [...new Set(sorted.filter(r => r.status === "PENDING" || r.status === "APPROVED_BY_EXT").map(r => r.supplierId))]
+      const activeIds = [...new Set(sorted.filter(r => r.status === "PENDING" || r.status === "APPROVED_BY_EXT").map(r => r.supplierId))]
       const dmap: Record<string, number> = {}
-      await Promise.allSettled(pendingIds.map(async id => {
+      const smap: Record<string, number> = {}
+      await Promise.allSettled(activeIds.map(async id => {
         try { dmap[id] = (await FinanceAPI.getSupplierLedger(id)).currentDebt ?? 0 }
         catch { dmap[id] = 0 }
+
+        try {
+          const history = await CollectionAPI.getSupplierHistory(id, 250)
+          smap[id] = calcSupplierMonthSupplyKg(history || [])
+        } catch {
+          smap[id] = 0
+        }
       }))
       setDebtMap(dmap)
+      setSupplyMap(smap)
       
       const approverIds = [...new Set(sorted.filter(r => r.approverId).map(r => r.approverId!))]
       const amap: Record<string, string> = {}
@@ -704,6 +729,7 @@ export default function ApprovalsPage() {
                 applyFilters(statusFilter === "PENDING" ? pending : statusFilter === "APPROVED" ? recentApproved : recentRejected).map((req, i) => {
                   const meta = TYPE_META_KEYS[req.requestType] || { label: req.requestType, color: "text-slate-950 font-medium" }
                   const debt = debtMap[req.supplierId] ?? null
+                  const supply = supplyMap[req.supplierId] ?? null
                   const isProcessing = processingId === req.requestId
                   return (
                     <tr key={req.requestId} className="hover:bg-slate-50/60 transition-colors">
@@ -742,6 +768,11 @@ export default function ApprovalsPage() {
                         <span className={`text-sm font-semibold ${debt && debt > 0 ? "text-slate-800" : "text-slate-950"}`}>
                           {debt === null ? "..." : `Rs. ${debt.toLocaleString()}`}
                         </span>
+                        {supply !== null && (
+                          <span className="block text-[10px] text-slate-900 mt-0.5">
+                            {supply.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg (month)
+                          </span>
+                        )}
                       </td>
                       <td className={TD}>
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-900"}`}>
@@ -793,6 +824,7 @@ export default function ApprovalsPage() {
           req={viewReq.req}
           code={viewReq.code}
           debt={debtMap[viewReq.req.supplierId] ?? null}
+          supplyThisMonth={supplyMap[viewReq.req.supplierId] ?? null}
           onClose={() => setViewReq(null)}
           onApprove={(remark) => handleAction(viewReq.req.requestId!, "APPROVED_BY_EXT", remark)}
           onReject={(remark) => handleAction(viewReq.req.requestId!, "REJECTED", remark)}

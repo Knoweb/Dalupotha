@@ -67,9 +67,10 @@ public class AuthDtos {
     @Data
     public static class OtpSendRequest {
         @NotBlank(message = "Contact number is required")
-        private String contact;   // e.g. +94711001001
+        private String contact;        // e.g. +94711001001
         private String purpose = "LOGIN"; // LOGIN | REGISTRATION
-        private String passbookNo;         // optional, for early uniqueness check
+        private String passbookNo;        // optional, for early uniqueness check
+        private String recaptchaToken;    // optional, provided by Firebase reCAPTCHA WebView on client
     }
 
     /** Verify OTP submitted by Small Holder */
@@ -209,11 +210,29 @@ public class AuthDtos {
         private String message;
         private String contact;
         private int    expiryMinutes;
+        private String otpCode;      // only set in dev mode or when SMS fails
+        private String sessionInfo;  // only set when Firebase sends the OTP
 
         public OtpSendResponse(String contact, int expiryMinutes) {
             this.message      = "OTP sent successfully";
             this.contact      = contact;
             this.expiryMinutes = expiryMinutes;
+        }
+
+        public OtpSendResponse(String contact, int expiryMinutes, String otpCode) {
+            this.message      = "OTP sent successfully";
+            this.contact      = contact;
+            this.expiryMinutes = expiryMinutes;
+            this.otpCode = otpCode;
+        }
+
+        /** Firebase flow: no OTP exposed, but sessionInfo is returned for client-side verify */
+        public OtpSendResponse(String contact, int expiryMinutes, String otpCode, String sessionInfo) {
+            this.message      = "OTP sent via Firebase";
+            this.contact      = contact;
+            this.expiryMinutes = expiryMinutes;
+            this.otpCode      = otpCode;
+            this.sessionInfo  = sessionInfo;
         }
     }
 

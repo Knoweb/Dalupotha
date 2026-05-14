@@ -1,11 +1,11 @@
 const API_BASE = '/api';
 
 const getHeaders = () => {
-    const token = sessionStorage.getItem('auth_token');
-    return {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-    };
+  const token = sessionStorage.getItem('auth_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+  };
 };
 
 export type RequestStatus = 'PENDING' | 'APPROVED_BY_EXT' | 'REJECTED' | 'DISPATCHED' | 'CANCELLED';
@@ -19,7 +19,6 @@ export interface ServiceRequest {
   requestType: string;
   requestedAmount: number;
   quantity?: number;
-  days?: number;
   itemType?: string;
   itemDetails?: string;
   creatorName?: string;
@@ -30,7 +29,6 @@ export interface ServiceRequest {
   notes?: string;
   approverId?: string;
   approverComment?: string;
-  itemId?: string;
 }
 
 export const FinanceAPI = {
@@ -41,11 +39,11 @@ export const FinanceAPI = {
     return res.json() as Promise<ServiceRequest[]>;
   },
   
-  updateStatus: async (requestId: string, status: RequestStatus, approverId: string, approverComment?: string, amount?: number) => {
+  updateStatus: async (requestId: string, status: RequestStatus, approverId: string, approverComment?: string) => {
     const res = await fetch(`${API_BASE}/services/request/${requestId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, approverId, approverComment, amount })
+      body: JSON.stringify({ status, approverId, approverComment })
     });
     if (!res.ok) throw new Error('Failed to update request status');
     return res.json() as Promise<ServiceRequest>;
@@ -55,14 +53,10 @@ export const FinanceAPI = {
     const res = await fetch(`${API_BASE}/finance/ledger/${supplierId}`);
     if (!res.ok) throw new Error('Failed to fetch supplier ledger');
     return res.json() as Promise<{
-      supplierId: string;
       currentDebt: number;
       advanceTaken: number;
       payoutTotal: number;
       estimatedBalance: number;
-      totalNetWeight: number;
-      leafPrice: number;
-      grossEarnings: number;
     }>;
   },
 
@@ -72,11 +66,11 @@ export const FinanceAPI = {
     return res.json() as Promise<any[]>;
   },
 
-  processPayout: async (data: { supplierId: string, amount: number, requesterId: string, description?: string, immediate?: boolean }) => {
+  processPayout: async (data: { supplierId: string; amount: number; requesterId: string; description?: string; immediate?: boolean }) => {
     const res = await fetch(`${API_BASE}/finance/payout`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      headers: getHeaders(),
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to process payout');
     return res.json();
@@ -86,12 +80,14 @@ export const FinanceAPI = {
     const query = new URLSearchParams({
       supplierIds: supplierIds.join(','),
       requesterId,
-      immediate: immediate.toString()
+      immediate: immediate.toString(),
     }).toString();
     const res = await fetch(`${API_BASE}/finance/payout/bulk?${query}`, {
-      method: 'POST'
+      method: 'POST',
+      headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to process bulk payout');
+    return res.json();
   }
 };
 
@@ -110,7 +106,21 @@ export interface CollectionItem {
   transportAgentName: string;
 }
 
+export interface SupplierCollectionHistoryItem {
+  collectionId: string;
+  supplierId: string;
+  grossWeight?: number;
+  netWeight?: number;
+  collectedAt: string;
+}
+
 export const CollectionAPI = {
+  getSupplierHistory: async (supplierId: string, limit: number = 250) => {
+    const res = await fetch(`${API_BASE}/collection/history/${supplierId}?limit=${limit}`);
+    if (!res.ok) throw new Error('Failed to fetch supplier history');
+    return res.json() as Promise<SupplierCollectionHistoryItem[]>;
+  },
+
   getRecentCollections: async (limit: number = 50) => {
     // Note: We'll use the agent history or a new recent endpoint if available.
     // For now, let's assume the gateway routes /api/collection/recent or similar.
@@ -124,17 +134,6 @@ export const CollectionAPI = {
        return [] as CollectionItem[];
     }
     return res.json() as Promise<CollectionItem[]>;
-  },
-  getSupplierSummary: async (supplierId: string) => {
-    const res = await fetch(`${API_BASE}/collection/summary/${supplierId}`);
-    if (!res.ok) throw new Error('Failed to fetch supplier summary');
-    return res.json() as Promise<{
-      totalGrossWeight: number;
-      totalNetWeight: number;
-      collectionCount: number;
-      processedCount: number;
-      pendingCount: number;
-    }>;
   }
 };
 
@@ -162,70 +161,97 @@ export interface DetailedUser extends UserSummary {
 }
 
 export const AuthAPI = {
+  getSuppliers: async (params?: { estateId?: string; search?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.estateId) query.set('estateId', params.estateId);
+    if (params?.search) query.set('search', params.search);
+    if (params?.limit) query.set('limit', String(params.limit));
+    const res = await fetch(`${API_BASE}/auth/suppliers${query.toString() ? `?${query.toString()}` : ''}`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch suppliers');
+    return res.json() as Promise<Array<{
+      supplierId: string;
+      fullName: string;
+      passbookNo: string;
+      landName?: string;
+      estateId?: string;
+      arcs?: number;
+    }>>;
+  },
+
   getUsers: async (estateId?: string) => {
     const query = estateId ? `?estateId=${estateId}` : '';
     const res = await fetch(`${API_BASE}/auth/users${query}`, {
-       headers: getHeaders()
+      headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch users');
     return res.json() as Promise<UserSummary[]>;
   },
+
   createUser: async (data: any) => {
     const res = await fetch(`${API_BASE}/auth/users`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to create user');
     return res.json();
   },
+
   registerAgent: async (data: any) => {
     const res = await fetch(`${API_BASE}/auth/agent/register`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to register agent');
     return res.json();
   },
+
   registerSmallHolder: async (data: any) => {
     const res = await fetch(`${API_BASE}/auth/small-holder/register`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to register small holder');
     return res.json();
   },
+
   deleteUser: async (userId: string) => {
     const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
       method: 'DELETE',
-      headers: getHeaders()
+      headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to delete user');
   },
+
   updateStatus: async (userId: string, status: string) => {
-    const res = await fetch(`${API_BASE}/auth/users/${userId}/status?status=${status}`, {
+    const res = await fetch(`${API_BASE}/auth/users/${userId}/status?status=${encodeURIComponent(status)}`, {
       method: 'PATCH',
-      headers: getHeaders()
+      headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to update status');
   },
+
   getDetailedUser: async (userId: string) => {
     const res = await fetch(`${API_BASE}/auth/users/${userId}/detailed`, {
-      headers: getHeaders()
+      headers: getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch detailed user');
     return res.json() as Promise<DetailedUser>;
   },
+
   updateUser: async (userId: string, data: Partial<DetailedUser>) => {
     const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to update user');
-  }
+    return res.json();
+  },
 };
 
 export interface InventoryItem {
@@ -238,26 +264,39 @@ export interface InventoryItem {
   unit: string;
   unitCost: number;
   lastUpdated?: string;
+  createdAt?: string;
 }
 
 export const InventoryAPI = {
   getItems: async () => {
     const res = await fetch(`${API_BASE}/inventory`);
-    if (!res.ok) throw new Error('Failed to fetch inventory');
+    if (!res.ok) throw new Error('Failed to fetch inventory items');
     return res.json() as Promise<InventoryItem[]>;
   },
-  getItem: async (id: string) => {
-    const res = await fetch(`${API_BASE}/inventory/${id}`);
-    if (!res.ok) throw new Error('Failed to fetch item');
+
+  getItem: async (itemId: string) => {
+    const res = await fetch(`${API_BASE}/inventory/${itemId}`);
+    if (!res.ok) throw new Error('Failed to fetch inventory item');
     return res.json() as Promise<InventoryItem>;
   },
-  updateItem: async (id: string, data: Partial<InventoryItem>) => {
-    const res = await fetch(`${API_BASE}/inventory/${id}`, {
+
+  createItem: async (item: Partial<InventoryItem>) => {
+    const res = await fetch(`${API_BASE}/inventory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    if (!res.ok) throw new Error('Failed to create inventory item');
+    return res.json() as Promise<InventoryItem>;
+  },
+
+  updateItem: async (itemId: string, item: Partial<InventoryItem>) => {
+    const res = await fetch(`${API_BASE}/inventory/${itemId}`, {
       method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(data)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
     });
     if (!res.ok) throw new Error('Failed to update inventory item');
     return res.json() as Promise<InventoryItem>;
-  }
+  },
 };

@@ -36,7 +36,9 @@ public class AuthService {
     private final OtpRepository         otpRepository;
     private final JwtTokenProvider      jwtTokenProvider;
     private final PasswordEncoder       passwordEncoder;
-    private final OtpSimulatorService   otpSimulatorService;
+    private final VonageSmsService      vonageSmsService;
+    private final FirebaseSmsService    firebaseSmsService;
+    private final InfobipSmsService     infobipSmsService;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Value("${otp.expiry-minutes:5}")
@@ -44,6 +46,9 @@ public class AuthService {
 
     @Value("${jwt.expiration-ms:86400000}")
     private long jwtExpirationMs;
+
+    @Value("${app.dev-mode:false}")
+    private boolean devMode;
 
     // ────────────────────────────────────────────
     // 1. Staff / TA Login
@@ -189,18 +194,19 @@ public class AuthService {
     public OtpSendResponse sendOtp(OtpSendRequest request) {
         // Early uniqueness check if registering
         if ("REGISTRATION".equalsIgnoreCase(request.getPurpose())) {
-            // Check Contact Number
+            // [DISABLED BY USER REQUEST] Allow multiple accounts with same contact/passbook
+            /*
             if (userRepository.findByContact(request.getContact()).isPresent()) {
                 log.warn("Registration failed: Contact number already exists: {}", request.getContact());
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Contact number already registered");
             }
-            // Check Passbook Number (Supplier specific)
             if (request.getPassbookNo() != null && !request.getPassbookNo().isBlank()) {
                 if (smallHolderRepository.findByPassbookNoIgnoreCase(request.getPassbookNo()).isPresent()) {
                     log.warn("Registration failed: Passbook number already exists: {}", request.getPassbookNo());
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Passbook number already registered");
                 }
             }
+            */
         }
 
         otpRepository.invalidateAllForContact(request.getContact());
@@ -215,9 +221,47 @@ public class AuthService {
                 .build();
 
         otpRepository.save(otpCode);
-        otpSimulatorService.sendOtp(request.getContact(), code);
 
-        return new OtpSendResponse(request.getContact(), otpExpiryMinutes);
+        // In dev mode, skip SMS and return OTP directly in the response
+        if (devMode) {
+            log.warn("=== DEV MODE: Skipping SMS. OTP for {} is: {} ===", request.getContact(), code);
+            return new OtpSendResponse(request.getContact(), otpExpiryMinutes);
+        }
+
+        // ── 1. Try Infobip (works in Sri Lanka, free trial, any number) ──────────
+        if (infobipSmsService.isConfigured()) {
+            try {
+                log.info("=== Attempting Infobip SMS to {} (OTP: {}) ===", request.getContact(), code);
+                infobipSmsService.sendOtp(request.getContact(), code);
+                log.info("=== Infobip SMS sent successfully ===");
+                return new OtpSendResponse(request.getContact(), otpExpiryMinutes);
+            } catch (Exception e) {
+                log.warn("=== Infobip SMS failed ({}), trying Vonage ===", e.getMessage());
+            }
+        }
+
+        // ── 2. Try Firebase SMS (if recaptchaToken provided) ──────────────────────
+        if (firebaseSmsService.isConfigured() && request.getRecaptchaToken() != null && !request.getRecaptchaToken().isBlank()) {
+            try {
+                log.info("=== Attempting Firebase SMS to {} (OTP: {}) ===", request.getContact(), code);
+                String sessionInfo = firebaseSmsService.sendVerificationCode(request.getContact(), request.getRecaptchaToken());
+                log.info("=== Firebase SMS sent successfully ===");
+                return new OtpSendResponse(request.getContact(), otpExpiryMinutes, sessionInfo);
+            } catch (Exception e) {
+                log.warn("=== Firebase SMS failed ({}), trying Vonage ===", e.getMessage());
+            }
+        }
+
+        // ── 3. Fallback: Vonage ─────────────────────────────────────────────────
+        try {
+            log.info("=== Attempting Vonage SMS to {} (OTP: {}) ===", request.getContact(), code);
+            vonageSmsService.sendOtp(request.getContact(), code);
+            log.info("=== Vonage SMS sent successfully ===");
+            return new OtpSendResponse(request.getContact(), otpExpiryMinutes);
+        } catch (Exception e) {
+            log.warn("=== Vonage SMS failed ({}). No more providers. ===", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SMS delivery failed. Please try again later.");
+        }
     }
 
     // ────────────────────────────────────────────

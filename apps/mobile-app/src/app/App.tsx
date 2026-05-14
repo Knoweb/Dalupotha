@@ -13,6 +13,7 @@ import { RegisterScreen } from "../features/auth/RegisterScreen";
 import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen, SupplierListScreen, CollectionDetailScreen } from "../features/ta-collection/AgentScreens";
 import { CollectionInputScreen } from "../features/ta-collection/CollectionInputScreen";
 import { SupplierHomeScreen, SupplierSupplyScreen, SupplierPaymentsScreen, SupplierDebtsScreen, SupplierProfileScreen } from "../features/smallholder/SupplierScreens";
+import { CircularsScreen } from "../features/smallholder/CircularsScreen";
 
 type Role = "agent" | "supplier";
 type RootStackParamList = {
@@ -20,9 +21,9 @@ type RootStackParamList = {
   Register: { initialRole?: Role };
   Otp: { role: Role; contact?: string; isRegistering?: boolean; registerData?: any };
   MainTabs: { role: Role; token?: string; user?: any };
-  CollectionInput: { token: string; user: any; lang?: string };
-  CollectionDetail: { item: any; token: string; lang?: string };
-  SupplierList: { user: any; token: string; lang?: string };
+  CollectionInput: { token: string; user: any };
+  CollectionDetail: undefined;
+  SupplierList: { user?: any; token?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -46,14 +47,6 @@ function MainTabNavigator({ route, navigation }: any) {
   };
   const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
 
-  // Memoize screen components to keep stable references — prevents infinite
-  // useFocusEffect loops caused by new arrow functions on every parent render.
-  const HomeScreen   = React.useMemo(() => () => <SupplierHomeScreen     user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
-  const SupplyScreen = React.useMemo(() => () => <SupplierSupplyScreen   user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
-  const SupReqScreen = React.useMemo(() => () => <RequestsScreen         navigation={navigation} user={user} token={token} role={role} lang={lang} />, [user, token, navigation, role, lang]);
-  const PayScreen    = React.useMemo(() => () => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
-  const DebtScreen   = React.useMemo(() => () => <SupplierDebtsScreen    user={user} token={token} navigation={navigation} lang={lang} />, [user, token, navigation, lang]);
-  const SupProfScreen= React.useMemo(() => () => <SupplierProfileScreen  user={user} navigation={navigation} lang={lang} setLang={setLang} />, [user, navigation, lang]);
 
   return (
     <Tab.Navigator
@@ -91,12 +84,12 @@ function MainTabNavigator({ route, navigation }: any) {
     >
       {role === "supplier" ? (
         <>
-          <Tab.Screen name="Home"     component={HomeScreen} />
-          <Tab.Screen name="Supply"   component={SupplyScreen} />
-          <Tab.Screen name="Requests" component={SupReqScreen} />
-          <Tab.Screen name="Payments" component={PayScreen} />
-          <Tab.Screen name="Debts"    component={DebtScreen} />
-          <Tab.Screen name="Profile"  component={SupProfScreen} />
+          <Tab.Screen name="Home" children={(props: any) => <SupplierHomeScreen {...props} user={user} token={token} lang={lang} />} />
+          <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Requests" children={(props: any) => <RequestsScreen {...props} navigation={navigation} user={user} token={token} role={role} lang={lang} />} />
+          <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} lang={lang} setLang={setLang} />} />
         </>
       ) : (
         <>
@@ -176,9 +169,19 @@ export default function App() {
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Otp" component={OtpScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        <Stack.Screen name="CollectionInput" children={(props) => <CollectionInputScreen {...props} lang={props.route.params?.lang} />} />
-        <Stack.Screen name="CollectionDetail" children={(props) => <CollectionDetailScreen {...props} lang={props.route.params?.lang} />} />
-        <Stack.Screen name="SupplierList" children={(props) => <SupplierListScreen {...props} user={props.route.params?.user} token={props.route.params?.token} lang={props.route.params?.lang} />} />
+        <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
+        <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
+        <Stack.Screen name="Circulars" children={(props) => <CircularsScreen {...props} lang={props.route.params?.lang || 'en'} />} />
+        <Stack.Screen
+          name="SupplierList"
+          children={(props: any) => (
+            <SupplierListScreen
+              {...props}
+              user={props.route.params?.user}
+              token={props.route.params?.token}
+            />
+          )}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

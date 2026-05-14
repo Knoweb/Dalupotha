@@ -156,56 +156,56 @@ export default function InventoryPage() {
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left">
                <thead>
-                   <tr className="bg-slate-50/50 border-b border-slate-200">
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('ITEM')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('CATEGORY')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('STOCK')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('RESERVED')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('REORDER LEVEL')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('STOCK LEVEL')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('UNIT COST')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest">{t('STATUS')}</th>
-                     <th className="px-6 py-3 text-[11px] font-semibold text-slate-950 uppercase tracking-widest text-right">{t('ACTIONS')}</th>
+                   <tr className="bg-slate-100/70 border-b border-slate-300">
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('ITEM')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('CATEGORY')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STOCK')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('RESERVED')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('REORDER LEVEL')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STOCK LEVEL')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('UNIT COST')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STATUS')}</th>
+                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider text-right">{t('ACTIONS')}</th>
                   </tr>
                </thead>
-               <tbody className="divide-y divide-slate-50">
+               <tbody className="divide-y divide-slate-100">
                   {loading ? (
                      [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
                   ) : filteredItems.map((item) => {
                      const isLow = item.quantityInStock <= item.reorderLevel;
                      const progress = Math.min((item.quantityInStock / (item.reorderLevel * 2)) * 100, 100);
                      return (
-                        <tr key={item.itemId} className="hover:bg-slate-50/30 transition-colors">
-                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.itemName}</td>
-                           <td className="px-6 py-4 text-[12px] font-normal text-slate-950">{t(item.itemCategory.charAt(0) + item.itemCategory.slice(1).toLowerCase().replace('_', ' '))}</td>
-                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.quantityInStock} {t(item.unit)}</td>
-                           <td className="px-6 py-4 text-[12px] font-normal text-slate-950">{item.reservedQuantity} {t(item.unit)}</td>
-                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">{item.reorderLevel} {t(item.unit)}</td>
-                           <td className="px-6 py-4 w-48">
+                        <tr key={item.itemId} className="hover:bg-emerald-50/40 transition-colors border-slate-100">
+                           <td className="px-6 py-5 text-[14px] font-bold text-slate-900">{item.itemName}</td>
+                           <td className="px-6 py-5 text-[14px] font-semibold text-slate-800">{t(item.itemCategory.charAt(0) + item.itemCategory.slice(1).toLowerCase().replace('_', ' '))}</td>
+                           <td className="px-6 py-5 text-[14px] font-bold text-emerald-700">{item.quantityInStock} <span className="text-slate-600">{t(item.unit)}</span></td>
+                           <td className="px-6 py-5 text-[14px] font-semibold text-slate-800">{item.reservedQuantity} <span className="text-slate-500">{t(item.unit)}</span></td>
+                           <td className="px-6 py-5 text-[14px] font-bold text-slate-900">{item.reorderLevel} <span className="text-slate-600">{t(item.unit)}</span></td>
+                           <td className="px-6 py-5 w-48">
                               <div className="space-y-2">
-                                 <div className="flex justify-between text-[9px] font-medium text-slate-900 uppercase tracking-tight">
+                                 <div className="flex justify-between text-[11px] font-semibold text-slate-900 uppercase tracking-wider">
                                     <span>{item.quantityInStock} {t('available')}</span>
                                     <span>{item.reservedQuantity} {t('reserved')}</span>
                                  </div>
-                                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                                    <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
-                                    <div className="h-full bg-emerald-200/40" style={{ width: '15%' }} />
+                                 <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden flex">
+                                    <div className="h-full bg-emerald-600" style={{ width: `${progress}%` }} />
+                                    <div className="h-full bg-emerald-300/50" style={{ width: '15%' }} />
                                  </div>
                               </div>
                            </td>
-                           <td className="px-6 py-4 text-[13px] font-semibold text-slate-800">Rs. {item.unitCost.toLocaleString()}</td>
-                           <td className="px-6 py-4">
-                              <span className={`px-2.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-tight ${isLow ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                           <td className="px-6 py-5 text-[14px] font-bold text-slate-900">Rs. {item.unitCost.toLocaleString()}</td>
+                           <td className="px-6 py-5">
+                              <span className={`px-3 py-1.5 rounded-lg text-[12px] font-bold uppercase tracking-wider ${isLow ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
                                  {isLow ? t('Low Stock') : t('OK')}
                               </span>
                            </td>
-                           <td className="px-6 py-4 text-right">
-                              <div className="flex items-center justify-end gap-2.5">
-                                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-slate-950 hover:bg-slate-100 transition-all">
-                                    <History size={13} /> {t('History')}
+                           <td className="px-6 py-5 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                 <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold text-slate-900 hover:bg-slate-200 transition-all border border-slate-300 hover:border-slate-400">
+                                    <History size={15} /> {t('History')}
                                  </button>
-                                 <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-[11px] font-semibold hover:bg-emerald-100 transition-all">
-                                    <RefreshCw size={13} /> {t('Update')}
+                                 <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 text-[12px] font-bold transition-all shadow-md">
+                                    <RefreshCw size={15} /> {t('Update')}
                                  </button>
                               </div>
                            </td>

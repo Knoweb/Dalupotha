@@ -7,5 +7,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FinancialLedgerRepository extends JpaRepository<FinancialLedgerEntity, UUID> {
     List<FinancialLedgerEntity> findBySupplierIdOrderByTransactionDateDesc(UUID supplierId);
-    java.util.Optional<FinancialLedgerEntity> findOptionalByRequestId(UUID requestId);
 }

@@ -48,6 +48,15 @@ export function RegisterScreen({ route, navigation }: any) {
   };
   const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
 
+  const normalizeSriLankaContact = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    if (!digits) return "";
+    if (digits.startsWith("0") && digits.length === 10) {
+      return `+94${digits.slice(1)}`;
+    }
+    return `+94${digits}`;
+  };
+
   const [role, setRole] = useState<"supplier" | "agent">(route.params?.initialRole ?? "supplier");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -127,8 +136,11 @@ export function RegisterScreen({ route, navigation }: any) {
   const handleRegister = async () => {
     setErrorMsg(null);
 
+    const contactDigits = contact.replace(/\D/g, "").slice(0, 10);
+    const fullContact = normalizeSriLankaContact(contactDigits);
+
     // Basic validation
-    if (!contact.trim() || !fullName.trim() || !selectedEstate) {
+    if (!contactDigits || contactDigits.length !== 10 || !fullContact || !fullName.trim() || !selectedEstate) {
       setErrorMsg("Please fill in all required fields including Estate.");
       return;
     }
@@ -154,8 +166,8 @@ export function RegisterScreen({ route, navigation }: any) {
       return;
     }
 
-    if (pin.trim().length < 4) {
-      setErrorMsg("PIN must be at least 4 digits.");
+    if (pin.trim().length !== 6) {
+      setErrorMsg("PIN must be exactly 6 digits.");
       return;
     }
 
@@ -180,17 +192,17 @@ export function RegisterScreen({ route, navigation }: any) {
       }
 
       // Early uniqueness check: pass contact and passbook to sendOtp for backend validation
-      console.log("👉 [DEBUG] Calling sendOtp with:", contact.trim());
-      await apiPost(AuthAPI.sendOtp, { 
-        contact: contact.trim(),
+      console.log("👉 [DEBUG] Calling sendOtp with:", fullContact);
+      const otpRes: any = await apiPost(AuthAPI.sendOtp, {
+        contact: fullContact,
         purpose: "REGISTRATION",
-        passbookNo: role === "supplier" ? passbookNo.trim() : undefined
+        passbookNo: role === "supplier" ? passbookNo.trim() : undefined,
       });
       console.log("👉 [DEBUG] sendOtp success!");
 
       // Build registration payload
       const registerData: any = {
-        contact: contact.trim(),
+        contact: fullContact,
         fullName: fullName.trim(),
         estateId: selectedEstate?.estateId,
       };
@@ -215,10 +227,11 @@ export function RegisterScreen({ route, navigation }: any) {
       // Navigate to OTP verification
       navigation.navigate("Otp", {
         role,
-        contact: contact.trim(),
+        contact: fullContact,
         isRegistering: true,
         registerData,
         lang,
+        otpCode: otpRes?.otpCode
       });
     } catch (err: any) {
       setErrorMsg(err.message ?? "Could not send OTP. Please check your phone number and try again.");
@@ -277,13 +290,15 @@ export function RegisterScreen({ route, navigation }: any) {
 
               <Text style={styles.label}>{_("CONTACT NUMBER *")}</Text>
               <View style={styles.inputContainer}>
+                <Text style={{ color: "#cbd5e1", marginRight: 6, fontWeight: "700" }}>+94</Text>
                 <TextInput
                   value={contact}
-                  onChangeText={setContact}
+                  onChangeText={(text) => setContact(text.replace(/\D/g, "").slice(0, 10))}
                   style={styles.inputField}
-                  placeholder="07XXXXXXXX"
+                  placeholder="712345678"
                   placeholderTextColor="#7d93b4"
                   keyboardType="phone-pad"
+                  maxLength={10}
                 />
               </View>
 
@@ -354,27 +369,39 @@ export function RegisterScreen({ route, navigation }: any) {
                   </Pressable>
 
                   <Text style={styles.label}>{_("CREATE LOGIN PIN *")}</Text>
-                  <View style={styles.inputContainer}>
+                  <View style={[styles.inputContainer, pin.length > 0 && pin.length < 6 && { borderColor: "#f39c12" }, pin.length === 6 && { borderColor: "#2ecc71" }]}>
                     <TextInput
                       value={pin}
                       onChangeText={setPin}
                       style={styles.inputField}
                       secureTextEntry={!showPin}
-                      placeholder={_("4-digit PIN")}
+                      placeholder={_("6-digit PIN")}
                       placeholderTextColor="#7d93b4"
                       keyboardType="number-pad"
                       maxLength={6}
                     />
                     <Pressable style={styles.inputRightIcon} onPress={() => setShowPin(!showPin)}>
-                      <Ionicons
-                        name={showPin ? "eye-outline" : "eye-off-outline"}
-                        size={20}
-                        color={palette.muted}
-                      />
+                      <Ionicons name={showPin ? "eye-outline" : "eye-off-outline"} size={20} color={palette.muted} />
                     </Pressable>
                   </View>
+                  {pin.length > 0 && (
+                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: -8, marginBottom: 8, gap: 6 }}>
+                      <View style={{ flexDirection: "row", gap: 3 }}>
+                        {[1,2,3,4,5,6].map(i => (
+                          <View key={i} style={{ width: 8, height: 4, borderRadius: 2, backgroundColor: i <= pin.length ? "#2ecc71" : "rgba(255,255,255,0.15)" }} />
+                        ))}
+                      </View>
+                      <Text style={{ color: pin.length === 6 ? "#2ecc71" : "#f39c12", fontSize: 10 }}>
+                        {pin.length === 6 ? "✓ PIN ready" : `${pin.length}/6 digits`}
+                      </Text>
+                    </View>
+                  )}
+
                   <Text style={styles.label}>{_("CONFIRM PIN *")}</Text>
-                  <View style={[styles.inputContainer, confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" }]}>
+                  <View style={[styles.inputContainer,
+                    confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" },
+                    confirmPin.length === 6 && pin === confirmPin && { borderColor: "#2ecc71" }
+                  ]}>
                     <TextInput
                       value={confirmPin}
                       onChangeText={setConfirmPin}
@@ -386,15 +413,13 @@ export function RegisterScreen({ route, navigation }: any) {
                       maxLength={6}
                     />
                     <Pressable style={styles.inputRightIcon} onPress={() => setShowConfirmPin(!showConfirmPin)}>
-                      <Ionicons
-                        name={showConfirmPin ? "eye-outline" : "eye-off-outline"}
-                        size={20}
-                        color={palette.muted}
-                      />
+                      <Ionicons name={showConfirmPin ? "eye-outline" : "eye-off-outline"} size={20} color={palette.muted} />
                     </Pressable>
                   </View>
-                  {confirmPin.length > 0 && pin !== confirmPin && (
-                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>{_("PINs do not match")}</Text>
+                  {confirmPin.length > 0 && (
+                    <Text style={{ color: pin === confirmPin ? "#2ecc71" : "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>
+                      {pin === confirmPin ? "✓ PINs match" : "✗ PINs do not match"}
+                    </Text>
                   )}
                 </>
               ) : (
@@ -412,28 +437,39 @@ export function RegisterScreen({ route, navigation }: any) {
                   </View>
 
                   <Text style={styles.label}>{_("CREATE LOGIN PIN *")}</Text>
-                  <View style={styles.inputContainer}>
+                  <View style={[styles.inputContainer, pin.length > 0 && pin.length < 6 && { borderColor: "#f39c12" }, pin.length === 6 && { borderColor: "#2ecc71" }]}>
                     <TextInput
                       value={pin}
                       onChangeText={setPin}
                       style={styles.inputField}
                       secureTextEntry={!showPin}
-                      placeholder={_("4-digit PIN")}
+                      placeholder={_("6-digit PIN")}
                       placeholderTextColor="#7d93b4"
                       keyboardType="number-pad"
                       maxLength={6}
                     />
                     <Pressable style={styles.inputRightIcon} onPress={() => setShowPin(!showPin)}>
-                      <Ionicons
-                        name={showPin ? "eye-outline" : "eye-off-outline"}
-                        size={20}
-                        color={palette.muted}
-                      />
+                      <Ionicons name={showPin ? "eye-outline" : "eye-off-outline"} size={20} color={palette.muted} />
                     </Pressable>
                   </View>
+                  {pin.length > 0 && (
+                    <View style={{ flexDirection: "row", alignItems: "center", marginTop: -8, marginBottom: 8, gap: 6 }}>
+                      <View style={{ flexDirection: "row", gap: 3 }}>
+                        {[1,2,3,4,5,6].map(i => (
+                          <View key={i} style={{ width: 8, height: 4, borderRadius: 2, backgroundColor: i <= pin.length ? "#2ecc71" : "rgba(255,255,255,0.15)" }} />
+                        ))}
+                      </View>
+                      <Text style={{ color: pin.length === 6 ? "#2ecc71" : "#f39c12", fontSize: 10 }}>
+                        {pin.length === 6 ? "✓ PIN ready" : `${pin.length}/6 digits`}
+                      </Text>
+                    </View>
+                  )}
 
                   <Text style={styles.label}>{_("CONFIRM PIN *")}</Text>
-                  <View style={[styles.inputContainer, confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" }]}>
+                  <View style={[styles.inputContainer,
+                    confirmPin.length > 0 && pin !== confirmPin && { borderColor: "#ff6b6b" },
+                    confirmPin.length === 6 && pin === confirmPin && { borderColor: "#2ecc71" }
+                  ]}>
                     <TextInput
                       value={confirmPin}
                       onChangeText={setConfirmPin}
@@ -445,15 +481,13 @@ export function RegisterScreen({ route, navigation }: any) {
                       maxLength={6}
                     />
                     <Pressable style={styles.inputRightIcon} onPress={() => setShowConfirmPin(!showConfirmPin)}>
-                      <Ionicons
-                        name={showConfirmPin ? "eye-outline" : "eye-off-outline"}
-                        size={20}
-                        color={palette.muted}
-                      />
+                      <Ionicons name={showConfirmPin ? "eye-outline" : "eye-off-outline"} size={20} color={palette.muted} />
                     </Pressable>
                   </View>
-                  {confirmPin.length > 0 && pin !== confirmPin && (
-                    <Text style={{ color: "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>{_("PINs do not match")}</Text>
+                  {confirmPin.length > 0 && (
+                    <Text style={{ color: pin === confirmPin ? "#2ecc71" : "#ff6b6b", fontSize: 11, marginTop: -8, marginBottom: 8 }}>
+                      {pin === confirmPin ? "✓ PINs match" : "✗ PINs do not match"}
+                    </Text>
                   )}
                 </>
               )}
