@@ -54,6 +54,11 @@ spring:
           filters:
             - RewritePath=/services/(?<segment>.*), /api/services/$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - id: notification-service-routes
+          uri: http://notification-service:8085
+          predicates:
+            - Path=/api/notifications/**
+          filters: []
 
 server:
   port: 8080

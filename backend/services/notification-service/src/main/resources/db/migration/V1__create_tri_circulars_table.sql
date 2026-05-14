@@ -6,6 +6,7 @@
 
 CREATE TABLE IF NOT EXISTS tri_circulars (
     circular_id         UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    display_id          VARCHAR(20),                  -- e.g. "LU 01", "PN 02"
     title               VARCHAR(200)    NOT NULL,
     content_url         VARCHAR(255)    NOT NULL,     -- URL to PDF/document storage
     published_date      TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,

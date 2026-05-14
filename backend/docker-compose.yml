@@ -11,6 +11,11 @@ services:
     volumes:
       - dalupotha_postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dalupotha_user} -d ${POSTGRES_DB:-dalupotha}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   api-gateway:
     build: ./services/api-gateway
@@ -144,8 +149,16 @@ services:
     container_name: dalupotha-notification-service
     ports:
       - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-dalupotha}
+      DB_USER: ${POSTGRES_USER:-dalupotha_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
     develop:
       watch:
         - path: ./services/notification-service/src

@@ -98,6 +98,11 @@ export const FinanceAPI = {
                   `${API_BASE}/finance/ledger/${supplierId}/transactions`, // GET — payment history
 };
 
+// ── 5. Notifications & Circulars ──────────────────────────────────────────────
+export const NotificationAPI = {
+  triCirculars: `${API_BASE}/api/notifications/tri-circulars`, // GET, POST
+};
+
 export const ServicesAPI = {
   createRequest:  `${API_BASE}/services/request`,               // POST — fertilizer/machine/transport
   updateStatus:   (requestId: string) =>

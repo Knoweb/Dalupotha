@@ -96,24 +96,25 @@ export default function InventoryPage() {
       <div className="grid grid-cols-4 gap-5">
          <StatCard label={t("TOTAL FERTILIZER STOCK")} value={`${stats.fertilizerTotal} ${t('kg')}`} sub={t("Urea + TSP + MOP")} icon={<Package size={20} className="text-emerald-500"/>} color="border-emerald-500" />
          <StatCard label={t("TOTAL LEAF BAGS")} value={`${stats.bagsTotal} ${t('bags')}`} sub={t("Standard + Large")} icon={<Layers size={20} className="text-emerald-500"/>} color="border-emerald-500" />
-         <StatCard label={t("LOW STOCK ALERTS")} value={stats.lowStockAlerts.toString()} sub={t("Urea Fertilizer")} icon={<AlertTriangle size={20} className="text-rose-500"/>} color="border-rose-500" />
-         <StatCard label={t("TOOLS UNITS")} value={`${stats.toolsTotal} ${t('units')}`} sub={t("1 reserved (TA-003)")} icon={<Settings size={20} className="text-amber-500"/>} color="border-amber-500" />
+         <StatCard label={t("LOW STOCK ALERTS")} value={stats.lowStockAlerts.toString()} sub={t("Items needing attention")} icon={<AlertTriangle size={20} className="text-rose-500"/>} color="border-rose-500" />
+         <StatCard label={t("TOOLS UNITS")} value={`${stats.toolsTotal} ${t('units')}`} sub={t("Active Inventory")} icon={<Settings size={20} className="text-amber-500"/>} color="border-amber-500" />
       </div>
 
-      {/* Low Stock Alert */}
-      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-         <div className="flex items-center gap-4">
-            <div className="p-2 bg-white rounded-xl shadow-xs">
-               <AlertTriangle className="text-rose-500" size={20} />
-            </div>
-            <p className="text-[13px] text-rose-800 font-medium tracking-tight">
-               <span className="font-semibold">{t('Urea Fertilizer')}</span> {t('stock is below reorder level')} (1420 kg {t('remaining')}, {t('reorder at')} 1000 kg).
-            </p>
-         </div>
-         <button className="flex items-center gap-2 px-5 py-2 bg-white border border-rose-200 rounded-xl text-[12px] font-semibold text-rose-600 hover:bg-rose-50 transition-all shadow-sm">
-            <RefreshCw size={14} /> {t('Reorder Now')}
-         </button>
-      </div>
+      {items.find(i => i.quantityInStock <= i.reorderLevel) && (
+        <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+           <div className="flex items-center gap-4">
+              <div className="p-2 bg-white rounded-xl shadow-xs">
+                 <AlertTriangle className="text-rose-500" size={20} />
+              </div>
+              <p className="text-[13px] text-rose-800 font-medium tracking-tight">
+                 <span className="font-semibold">{items.find(i => i.quantityInStock <= i.reorderLevel)?.itemName}</span> {t('stock is below reorder level')} ({items.find(i => i.quantityInStock <= i.reorderLevel)?.quantityInStock} {items.find(i => i.quantityInStock <= i.reorderLevel)?.unit} {t('remaining')}, {t('reorder at')} {items.find(i => i.quantityInStock <= i.reorderLevel)?.reorderLevel} {items.find(i => i.quantityInStock <= i.reorderLevel)?.unit}).
+              </p>
+           </div>
+           <button className="flex items-center gap-2 px-5 py-2 bg-white border border-rose-200 rounded-xl text-[12px] font-semibold text-rose-600 hover:bg-rose-50 transition-all shadow-sm">
+              <RefreshCw size={14} /> {t('Reorder Now')}
+           </button>
+        </div>
+      )}
 
       {/* Inventory Items Section */}
       <div className="space-y-4 pt-2">
@@ -156,17 +157,16 @@ export default function InventoryPage() {
          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-left">
                <thead>
-                   <tr className="bg-slate-100/70 border-b border-slate-300">
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('ITEM')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('CATEGORY')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STOCK')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('RESERVED')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('REORDER LEVEL')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STOCK LEVEL')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('UNIT COST')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STATUS')}</th>
-                     <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider text-right">{t('ACTIONS')}</th>
-                  </tr>
+                    <tr className="bg-slate-100/70 border-b border-slate-300">
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('ITEM')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('CATEGORY')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('AVAILABLE STOCK')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('REORDER LEVEL')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STOCK STATUS')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('UNIT COST')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider">{t('STATUS')}</th>
+                      <th className="px-6 py-4 text-[13px] font-black text-slate-900 uppercase tracking-wider text-right">{t('ACTIONS')}</th>
+                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
                   {loading ? (
@@ -179,17 +179,14 @@ export default function InventoryPage() {
                            <td className="px-6 py-5 text-[14px] font-bold text-slate-900">{item.itemName}</td>
                            <td className="px-6 py-5 text-[14px] font-semibold text-slate-800">{t(item.itemCategory.charAt(0) + item.itemCategory.slice(1).toLowerCase().replace('_', ' '))}</td>
                            <td className="px-6 py-5 text-[14px] font-bold text-emerald-700">{item.quantityInStock} <span className="text-slate-600">{t(item.unit)}</span></td>
-                           <td className="px-6 py-5 text-[14px] font-semibold text-slate-800">{item.reservedQuantity} <span className="text-slate-500">{t(item.unit)}</span></td>
                            <td className="px-6 py-5 text-[14px] font-bold text-slate-900">{item.reorderLevel} <span className="text-slate-600">{t(item.unit)}</span></td>
                            <td className="px-6 py-5 w-48">
                               <div className="space-y-2">
                                  <div className="flex justify-between text-[11px] font-semibold text-slate-900 uppercase tracking-wider">
-                                    <span>{item.quantityInStock} {t('available')}</span>
-                                    <span>{item.reservedQuantity} {t('reserved')}</span>
+                                    <span>{item.quantityInStock} {t(item.unit)} {t('Available')}</span>
                                  </div>
-                                 <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden flex">
-                                    <div className="h-full bg-emerald-600" style={{ width: `${progress}%` }} />
-                                    <div className="h-full bg-emerald-300/50" style={{ width: '15%' }} />
+                                 <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                                    <div className={`h-full ${isLow ? 'bg-rose-500' : 'bg-emerald-600'}`} style={{ width: `${Math.min((item.quantityInStock / (item.reorderLevel * 1.5)) * 100, 100)}%` }} />
                                  </div>
                               </div>
                            </td>

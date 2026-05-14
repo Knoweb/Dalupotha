@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,24 +6,71 @@ import {
   Pressable,
   SafeAreaView,
   TextInput,
-  ActivityIndicator
+  ActivityIndicator,
+  Linking
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
 import { getTranslation } from "./SupplierScreens";
+import { NotificationAPI } from "../../services/api";
+
+const DEFAULT_CIRCULARS = [
+  { id: 'LU 01', title: 'Guidelines on Land Suitability Classification for Tea', date: 'Oct 2002', read: false, url: 'https://www.tri.lk/wp-content/uploads/2020/02/TRI_LU01e.pdf' },
+  { id: 'LU 02', title: 'Field Categorization in Tea Lands', date: 'Sep 2003', read: true, url: 'https://www.tri.lk/wp-content/uploads/2020/02/TRI_LU02e.pdf' },
+  { id: 'PN 01', title: 'The Suitability of Tea Clones for the Different Regions', date: 'Dec 2002', read: true, url: 'https://www.tri.lk/wp-content/uploads/2020/02/TRI_PN01e.pdf' },
+  { id: 'PN 02', title: 'Tea Nursery Management', date: 'Nov 2009', read: true, url: 'https://www.tri.lk/wp-content/uploads/2020/02/TRI_Advisory_Ciculars_PN_02.pdf' },
+  { id: 'SP 01', title: 'Fertilizer Recommendations for Nursery Tea', date: 'Jul 2000', read: true, url: 'https://www.tri.lk/wp-content/uploads/2020/02/TRI_SP01e.pdf' },
+  { id: 'SP 02', title: 'Fertilizer Recommendations for Immature Tea', date: 'Jul 2000', read: true, url: 'https://www.tri.lk/wp-content/uploads/2020/02/TRI_SP02e.pdf' },
+];
 
 export function CircularsScreen({ navigation, lang }: any) {
   const _ = (key: string) => getTranslation(key, lang);
   const [search, setSearch] = useState("");
+  const [circulars, setCirculars] = useState<any[]>(DEFAULT_CIRCULARS);
+  const [loading, setLoading] = useState(true);
 
-  const mockCirculars = [
-    { id: 'TRI001', title: _('Feb 2026 - Tea Price Revision'), date: '01 Feb 2026', read: false },
-    { id: 'TRI002', title: _('Fertilizer Subsidy Scheme 2026'), date: '15 Jan 2026', read: true },
-    { id: 'TRI003', title: _('Quality Standards Update - Q1 2026'), date: '10 Jan 2026', read: true },
-    { id: 'TRI004', title: _('Pest Alert: Blister Blight Notice'), date: '05 Dec 2025', read: true },
-  ];
+  useEffect(() => {
+    fetchCirculars();
+  }, []);
 
-  const filtered = mockCirculars.filter(c => 
+  const fetchCirculars = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(NotificationAPI.triCirculars);
+      if (!response.ok) throw new Error('Failed to fetch circulars');
+      
+      const data = await response.json();
+      // Map API response to UI format
+      const mapped = data.map((item: any) => ({
+        circularId: item.circularId,
+        id: item.id || item.circularId?.substring(0, 5),
+        title: item.title,
+        date: item.date,
+        read: false,
+        url: item.url || item.contentUrl
+      }));
+      setCirculars(mapped);
+    } catch (error) {
+      console.warn('Error fetching circulars from API, using default data:', error);
+      // Use default mock data if API fails
+      setCirculars(DEFAULT_CIRCULARS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePress = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      }
+    } catch (error) {
+      console.error("Failed to open URL:", error);
+    }
+  };
+
+  const filtered = circulars.filter(c => 
     c.title.toLowerCase().includes(search.toLowerCase()) || 
     c.id.toLowerCase().includes(search.toLowerCase())
   );
@@ -57,7 +104,12 @@ export function CircularsScreen({ navigation, lang }: any) {
             {_("RECENT ANNOUNCEMENTS")}
           </Text>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <View style={{ paddingVertical: 40, alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#9b59b6" />
+              <Text style={{ color: palette.muted, marginTop: 15 }}>{_("Fetching latest circulars...")}</Text>
+            </View>
+          ) : filtered.length === 0 ? (
             <View style={{ paddingVertical: 40, alignItems: "center" }}>
               <Ionicons name="document-text-outline" size={48} color="rgba(255,255,255,0.1)" />
               <Text style={{ color: palette.muted, marginTop: 15 }}>{_("No circulars found")}</Text>
@@ -66,6 +118,7 @@ export function CircularsScreen({ navigation, lang }: any) {
             filtered.map((item) => (
               <Pressable
                 key={item.id}
+                onPress={() => handlePress(item.url)}
                 style={({ pressed }) => [
                   {
                     backgroundColor: "rgba(255,255,255,0.03)",
@@ -117,7 +170,23 @@ export function CircularsScreen({ navigation, lang }: any) {
               </Pressable>
             ))
           )}
-          <View style={{ height: 100 }} />
+          
+          <Pressable 
+            onPress={() => handlePress("https://www.tri.lk/view-all-publications/")}
+            style={({ pressed }) => [
+              {
+                paddingVertical: 20,
+                alignItems: "center",
+                opacity: pressed ? 0.6 : 1
+              }
+            ]}
+          >
+            <Text style={{ color: palette.muted, fontSize: 14, fontWeight: "bold" }}>
+              {_("Want to see more? Click here")}
+            </Text>
+          </Pressable>
+          
+          <View style={{ height: 60 }} />
         </ScrollView>
       </View>
     </View>

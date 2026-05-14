@@ -1,6 +1,18 @@
-﻿spring:
+spring:
   application:
     name: notification-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:dalupotha}
+    username: ${DB_USER:dalupotha_user}
+    password: ${DB_PASSWORD:dalupotha_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    baseline-on-migrate: true
 
 server:
   port: 8085
