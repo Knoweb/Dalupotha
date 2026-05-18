@@ -74,13 +74,6 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* Role Badge */}
-      <div className="px-6 mb-3">
-        <span className="inline-block bg-white/10 text-white/80 text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full border border-white/10">
-          {ROLE_LABELS[userRole] || t('Staff')}
-        </span>
-      </div>
-
       <nav className="flex-1 px-3 space-y-1 mt-2 overflow-y-auto">
         {visibleNav.map(item => (
           <NavItem
@@ -101,10 +94,6 @@ export default function Sidebar({
       </nav>
 
       <div className="p-6 border-t border-white/10">
-        <div className="mb-3 px-1">
-          <p className="text-white font-bold text-sm truncate">{userInfo.fullName}</p>
-          {userInfo.employeeId && <p className="text-white/50 text-[10px] font-mono tracking-wider">{userInfo.employeeId}</p>}
-        </div>
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white hover:bg-black/10 rounded-xl transition-all text-sm font-semibold group"

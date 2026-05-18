@@ -280,10 +280,25 @@ export default function CollectionsPage() {
                        <Clock size={12} />
                        <span>{t('Collected at')} {new Date(selectedCollection.collectedAt).toLocaleString(lang === 'si' ? 'si-LK' : 'en-GB')}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                       <MapPin size={12} className={selectedCollection.gpsStatus === 'GPS' ? 'text-green-500' : 'text-rose-400'} />
-                       <span>{selectedCollection.gpsStatus === 'GPS' ? t('GPS Verified') : t('Manual Entry')}</span>
-                    </div>
+                     <div className="flex items-center gap-1.5">
+                        {selectedCollection.gpsStatus === 'GPS' ? (
+                           <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${selectedCollection.gpsLat || 6.035},${selectedCollection.gpsLong || 80.303}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-green-600 hover:text-green-700 hover:underline font-bold transition-all group"
+                              title={t("Click to view collection location on Google Maps")}
+                           >
+                              <MapPin size={12} className="text-green-500 group-hover:scale-125 transition-transform duration-300" />
+                              <span>{t('GPS Verified')}</span>
+                           </a>
+                        ) : (
+                           <div className="flex items-center gap-1.5 text-slate-500">
+                              <MapPin size={12} className="text-rose-400" />
+                              <span>{t('Manual Entry')}</span>
+                           </div>
+                        )}
+                     </div>
                  </div>
               </div>
 

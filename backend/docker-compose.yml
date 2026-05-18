@@ -17,13 +17,49 @@ services:
       timeout: 5s
       retries: 20
 
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:16-alpine
+    container_name: dalupotha-db-backup
+    restart: always
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: "" # Leave empty to back up ALL databases automatically
+      POSTGRES_USER: ${POSTGRES_USER:-dalupotha_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dalupotha_password}
+      POSTGRES_PORT: 5432
+      BACKUP_NUM_KEEP: 30
+      BACKUP_FREQUENCY: 1d
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: dalupotha-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - dalupotha_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api-gateway:
     build: ./services/api-gateway
     container_name: dalupotha-api-gateway
     ports:
       - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     develop:
       watch:
         - path: ./services/api-gateway/src
@@ -193,3 +229,4 @@ services:
 
 volumes:
   dalupotha_postgres_data:
+  dalupotha_redis_data:
