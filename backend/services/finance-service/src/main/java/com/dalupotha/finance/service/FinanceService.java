@@ -194,7 +194,7 @@ public class FinanceService {
         entity.setStatus(request.getStatus());
         entity.setApproverId(request.getApproverId());
         if (request.getAmount() != null) {
-            entity.setRequestedAmount(request.getAmount());
+            entity.setApprovedAmount(request.getAmount());
         }
         if (request.getApproverComment() != null && !request.getApproverComment().isBlank()) {
             entity.setApproverComment(request.getApproverComment());
@@ -342,7 +342,7 @@ public class FinanceService {
         ledger.setAmount(amount);
         ledger.setApproverId(immediate ? requesterId : null); // Only set approver if immediate
         ledger.setDescription(description != null ? description : "Balance Payment Payout");
-        ledger.setStatus(immediate ? LedgerStatus.APPROVED : LedgerStatus.AWAITING_APPROVAL);
+        ledger.setStatus(immediate ? LedgerStatus.APPROVED : LedgerStatus.PENDING);
         
         FinancialLedgerEntity saved = financialLedgerRepository.save(ledger);
         return toLedgerTransactionResponse(saved);
@@ -519,7 +519,8 @@ public class FinanceService {
                 entity.getUpdatedAt(),
                 resolvedAgentId,
                 assignedAgentName,
-                approverName
+                approverName,
+                entity.getApprovedAmount()
         );
     }
 

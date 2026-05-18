@@ -29,6 +29,7 @@ public record ServiceRequestResponse(
         OffsetDateTime updatedAt,
         UUID assignedAgentId,
         String assignedAgentName,
-        String approverName
+        String approverName,
+        BigDecimal approvedAmount
 ) {
 }

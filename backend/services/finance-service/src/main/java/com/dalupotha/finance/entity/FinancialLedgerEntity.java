@@ -53,12 +53,18 @@ public class FinancialLedgerEntity {
     @Column(name = "status", nullable = false)
     private LedgerStatus status;
 
+    @Column(name = "request_id")
+    private UUID requestId;
+
     @PrePersist
     public void onCreate() {
         if (transactionId == null) transactionId = UUID.randomUUID();
         if (transactionDate == null) transactionDate = OffsetDateTime.now();
         if (status == null) status = LedgerStatus.PENDING;
     }
+
+    public UUID getRequestId() { return requestId; }
+    public void setRequestId(UUID requestId) { this.requestId = requestId; }
 
     public UUID getTransactionId() {
         return transactionId;

@@ -8,6 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { palette, styles } from "../../ui/theme";
 import { CollectionAPI, ServicesAPI, apiGet, apiPatch, apiPost } from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getOfflineCollections, syncQueuedCollections } from "./collectionData";
 import { getTranslation } from "../smallholder/SupplierScreens";
 
@@ -281,9 +282,9 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(31,190,87,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <MaterialCommunityIcons name="leaf" size={18} color="#1fbe57" />
             </View>
-            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayKgToday.toFixed(1)} kg</Text>
+            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{`${displayKgToday.toFixed(1)} kg`}</Text>
             <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>TODAY'S LEAF</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupToday} suppliers</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{`${displaySupToday} suppliers`}</Text>
           </Pressable>
 
           {/* Pending Sync */}
@@ -313,7 +314,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: "rgba(46,168,255,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
               <Ionicons name="location-outline" size={18} color={palette.accentBlue} />
             </View>
-            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displaySupToday}/{displaySupTotal || "—"}</Text>
+            <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{`${displaySupToday}/${displaySupTotal || "—"}`}</Text>
             <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>ROUTE PROGRESS</Text>
             <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% complete` : "No data"}</Text>
           </Pressable>
@@ -409,7 +410,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
                 </View>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{Number(item.grossWeight).toFixed(1)} kg</Text>
+                <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{`${Number(item.grossWeight).toFixed(1)} kg`}</Text>
                 <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{formatDateTime(item.collectedAt)}</Text>
               </View>
             </View>
@@ -608,7 +609,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
                 </View>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.cardWeight}>{item.grossWeight.toFixed(1)} kg</Text>
+                <Text style={styles.cardWeight}>{`${item.grossWeight.toFixed(1)} kg`}</Text>
                 <Text style={styles.cardTime}>{formatDateTime(item.collectedAt)}</Text>
               </View>
             </Pressable>
@@ -628,6 +629,29 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
   const _ = (key: string) => getTranslation(key, lang);
   const [activeTab, setActiveTab] = useState(route?.params?.initialTab ?? "Advance");
   
+  const [toolItems, setToolItems] = useState<{type: string, quantity: string, days?: string, itemId?: string, unitCost?: number}[]>([]);
+  const [formItemType, setFormItemType] = useState("");
+  const [formQuantity, setFormQuantity] = useState("");
+  const [formDays, setFormDays] = useState("");
+
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<any>(null);
+
+  const fetchInventory = async () => {
+    setInventoryLoading(true);
+    try {
+      const data = await apiGet<any[]>(ServicesAPI.inventory, token);
+      setInventoryItems(data || []);
+    } catch (e) {
+      console.error("Failed to fetch inventory", e);
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (route?.params?.initialTab) {
       setActiveTab(route.params.initialTab);
@@ -644,17 +668,16 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [formSupplier, setFormSupplier] = useState<any>(null);
   const [formAmount, setFormAmount] = useState("");
-  const [formQuantity, setFormQuantity] = useState("");
-  const [formItemType, setFormItemType] = useState("");
-  const [fertilizerItems, setFertilizerItems] = useState<Array<{ type: string; quantity: string }>>([]);
-  const [toolItems, setToolItems] = useState<Array<{ type: string; quantity: string }>>([]);
+  const [fertilizerItems, setFertilizerItems] = useState<Array<{ type: string; quantity: string; itemId?: string; unitCost?: number }>>([]);
   const [formNotes, setFormNotes] = useState("");
-  const [formDays, setFormDays] = useState("");
   const [suppliersLoading, setSuppliersLoading] = useState(false);
   const [supplierProfile, setSupplierProfile] = useState<any>(null);
   const addItemBlink = useRef(new Animated.Value(1)).current;
 
   const [toolViewMode, setToolViewMode] = useState<"TOOL_PURCHASE" | "TOOL_RENT">("TOOL_PURCHASE");
+  
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   let requestType = "ADVANCE";
   if (activeTab === "Fertilizer") requestType = "FERTILIZER";
@@ -779,14 +802,8 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       }))
       .filter((item) => item.type && !Number.isNaN(item.quantity) && item.quantity > 0);
 
-    const normalizedToolItems = toolItems
-      .map((item) => ({
-        type: item.type.trim(),
-        quantity: Number(item.quantity),
-      }))
-      .filter((item) => item.type && !Number.isNaN(item.quantity) && item.quantity > 0);
 
-    if (activeTab === "Fertilizer" && normalizedFertilizerItems.length === 0) {
+    if (activeTab === "Fertilizer" && fertilizerItems.length === 0) {
       Alert.alert("Required", "Please save at least one fertilizer item.");
       return;
     }
@@ -796,7 +813,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       return;
     }
 
-    if (activeTab === "Tools" && normalizedToolItems.length === 0) {
+    if (activeTab === "Tools" && toolItems.length === 0) {
       Alert.alert("Required", "Please save at least one tool item.");
       return;
     }
@@ -814,8 +831,13 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
 
     setCreating(true);
     try {
-      const totalFertilizerQuantity = normalizedFertilizerItems.reduce((sum, item) => sum + item.quantity, 0);
-      const totalToolQuantity = normalizedToolItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalFertilizerQuantity = fertilizerItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+      const totalToolQuantity = toolItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+      
+      const totalFertilizerCost = fertilizerItems.reduce((sum, item) => sum + (Number(item.quantity) * (Number(item.unitCost) || 0)), 0);
+      const totalToolCost = toolItems.reduce((sum, item) => sum + (Number(item.quantity) * (Number(item.unitCost) || 0)), 0);
+      const leafBagCost = activeTab === "Leaf Bags" ? (Number(formQuantity) * (Number(selectedInventoryItem?.unitCost) || 0)) : 0;
+
       const daysCount = activeTab === "Tools" && toolViewMode === "TOOL_RENT" ? Number(formDays) : (activeTab === "Advisory" ? 0 : null);
       
       await apiPost(
@@ -826,10 +848,11 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
           passbookNo: formSupplier.passbookNo || "No passbook",
           createdById: user.userId,
           requestType: requestType,
-          requestedAmount: activeTab === "Advance" ? amount : 0,
+          requestedAmount: activeTab === "Advance" ? amount : (activeTab === "Fertilizer" ? totalFertilizerCost : (activeTab === "Tools" ? totalToolCost : (activeTab === "Leaf Bags" ? leafBagCost : 0))),
           quantity: activeTab === "Fertilizer" ? totalFertilizerQuantity : (activeTab === "Tools" ? totalToolQuantity : (activeTab === "Leaf Bags" ? leafBagQty : null)),
-          itemType: activeTab === "Fertilizer" ? (normalizedFertilizerItems[0]?.type || formItemType) : (activeTab === "Tools" ? (normalizedToolItems[0]?.type || formItemType) : (activeTab === "Leaf Bags" ? "Leaf Bag" : formItemType)),
-          itemDetails: activeTab === "Fertilizer" ? JSON.stringify(normalizedFertilizerItems) : (activeTab === "Tools" ? JSON.stringify(normalizedToolItems) : undefined),
+          itemId: activeTab === "Leaf Bags" ? selectedInventoryItem?.itemId : (activeTab === "Fertilizer" ? fertilizerItems[0]?.itemId : (activeTab === "Tools" ? toolItems[0]?.itemId : undefined)),
+          itemType: activeTab === "Fertilizer" ? (fertilizerItems[0]?.type || formItemType) : (activeTab === "Tools" ? (toolItems[0]?.type || formItemType) : (activeTab === "Leaf Bags" ? (selectedInventoryItem?.itemName || "Leaf Bag") : formItemType)),
+          itemDetails: activeTab === "Fertilizer" ? JSON.stringify(fertilizerItems) : (activeTab === "Tools" ? JSON.stringify(toolItems) : undefined),
           creatorName: user.fullName || "Agent",
           creatorId: user.employeeId || "No ID",
           days: daysCount,
@@ -853,9 +876,15 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       Alert.alert("Invalid Item", "Enter a valid fertilizer type and quantity, then save.");
       return;
     }
-    setFertilizerItems((prev) => [...prev, { type, quantity: String(quantity) }]);
+    setFertilizerItems((prev) => [...prev, { 
+      type, 
+      quantity: String(quantity),
+      itemId: selectedInventoryItem?.itemId,
+      unitCost: selectedInventoryItem?.unitCost
+    }]);
     setFormItemType("");
     setFormQuantity("");
+    setSelectedInventoryItem(null);
   };
 
   const saveToolItem = () => {
@@ -865,9 +894,20 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       Alert.alert("Invalid Item", "Enter a valid tool type and quantity, then save.");
       return;
     }
-    setToolItems((prev) => [...prev, { type, quantity: String(quantity) }]);
+    const newItem: any = { 
+      type, 
+      quantity: String(quantity),
+      itemId: selectedInventoryItem?.itemId,
+      unitCost: selectedInventoryItem?.unitCost
+    };
+    if (toolViewMode === "TOOL_RENT" && formDays) {
+      newItem.days = formDays;
+    }
+    setToolItems((prev) => [...prev, newItem]);
     setFormItemType("");
     setFormQuantity("");
+    setFormDays("");
+    setSelectedInventoryItem(null);
   };
 
   const handleCancelRequest = async (requestId: string) => {
@@ -1103,11 +1143,18 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
             const isDirectRequest = item.createdById === item.supplierId;
 
             return (
-            <View key={item.requestId} style={styles.reqCard}>
+            <Pressable 
+              key={item.requestId} 
+              style={({ pressed }) => [styles.reqCard, pressed && { opacity: 0.8, backgroundColor: "rgba(255,255,255,0.08)" }]}
+              onPress={() => {
+                setSelectedRequest(item);
+                setShowDetailModal(true);
+              }}
+            >
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 15 }}>
                 <View>
                   <Text style={styles.cardItemTitle}>{item.supplierName || "Supplier"}</Text>
-                  <Text style={styles.cardItemSub}>{item.passbookNo || "No passbook"} · {submittedTime}</Text>
+                  <Text style={styles.cardItemSub}>{`${item.passbookNo || "No passbook"} · ${submittedTime}`}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
                   <Text style={[styles.statusBadgeText, { color: statusColor(String(item.status || "PENDING")) }]}>
@@ -1118,7 +1165,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
               {activeTab === "Advance" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                   <Text style={styles.reqCardLabel}>{_("Amount")}</Text>
-                  <Text style={styles.reqCardValue}>Rs. {Number(item.requestedAmount || 0).toLocaleString()}</Text>
+                  <Text style={styles.reqCardValue}>{`Rs. ${Number(item.requestedAmount || 0).toLocaleString()}`}</Text>
                 </View>
               )}
               {activeTab === "Fertilizer" && (
@@ -1131,7 +1178,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                       </View>
                       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                         <Text style={styles.reqCardLabel}>Quantity</Text>
-                        <Text style={styles.reqCardValue}>{item.quantity || 0} kg</Text>
+                        <Text style={styles.reqCardValue}>{`${item.quantity || 0} kg`}</Text>
                       </View>
                     </>
                   )}
@@ -1156,7 +1203,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                   {item.days > 0 && (
                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                       <Text style={styles.reqCardLabel}>Rent Duration</Text>
-                      <Text style={styles.reqCardValue}>{item.days} days</Text>
+                      <Text style={styles.reqCardValue}>{`${item.days} days`}</Text>
                     </View>
                   )}
                   {!hasToolDetailItems && (
@@ -1178,7 +1225,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
               {activeTab === "Leaf Bags" && (
                 <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
                   <Text style={styles.reqCardLabel}>Bags Requested</Text>
-                  <Text style={styles.reqCardValue}>{item.quantity || 0} bags</Text>
+                  <Text style={styles.reqCardValue}>{`${item.quantity || 0} bags`}</Text>
                 </View>
               )}
               {activeTab === "Advisory" && (
@@ -1211,7 +1258,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <Text style={[styles.reqCardLabel, { textTransform: "uppercase", fontSize: 10, color: palette.accentGreen }]}>Manager Remark</Text>
                     {item.updatedAt && item.status !== "PENDING" && (
-                      <Text style={{ fontSize: 9, color: palette.muted }}>{new Date(item.updatedAt).toLocaleDateString()} {new Date(item.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}</Text>
+                      <Text style={{ fontSize: 9, color: palette.muted }}>{`${new Date(item.updatedAt).toLocaleDateString()} ${new Date(item.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}`}</Text>
                     )}
                   </View>
                   <Text style={[styles.reqCardValue, { textAlign: "left", fontStyle: "italic", opacity: 0.9, lineHeight: 18 }]}>{item.approverComment || item.remark}</Text>
@@ -1229,7 +1276,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                   </Pressable>
                 </View>
               ) : null}
-            </View>
+            </Pressable>
           );})}
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -1255,7 +1302,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                     <Ionicons name="search" size={18} color={palette.muted} style={{ marginLeft: 15 }} />
                     <TextInput
                       style={[styles.inputField, { paddingLeft: 10 }]}
-                      placeholder="Name or Passbook (e.g. PB-0088)"
+                      placeholder="Name or Passbook (e.g. 05497)"
                       placeholderTextColor="#7d93b4"
                       value={searchQuery}
                       autoCapitalize="none"
@@ -1327,15 +1374,19 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                            <View style={{ flexDirection: "row", gap: 10 }}>
                              <View style={{ flex: 1.5 }}>
                                <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Fertilizer Type</Text>
-                               <View style={[styles.inputContainer, { height: 52 }]}> 
-                                 <TextInput
-                                   style={[styles.inputField, { paddingLeft: 15, fontSize: 15, fontWeight: "bold" }]}
-                                   placeholder="e.g. U709"
-                                   placeholderTextColor="#7d93b4"
-                                   value={formItemType}
-                                   onChangeText={setFormItemType}
-                                 />
-                               </View>
+                              <View style={[styles.inputContainer, { height: 52 }]}><Pressable
+                                  style={{ flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 15 }}
+                                  onPress={() => {
+                                    fetchInventory();
+                                    setShowInventoryModal(true);
+                                  }}
+                                ><TextInput
+                                    style={[styles.inputField, { flex: 1, color: "white", fontSize: 15, fontWeight: "bold" }]}
+                                    placeholder="Select Fertilizer"
+                                    placeholderTextColor="#7d93b4"
+                                    value={formItemType}
+                                    editable={false}
+                                  /><Ionicons name="search" size={20} color={palette.accentGreen} /></Pressable></View>
                              </View>
                              <View style={{ flex: 1 }}>
                                <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Quantity (kg)</Text>
@@ -1392,15 +1443,19 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                             <View style={{ flexDirection: "row", gap: 10 }}>
                                <View style={{ flex: 1 }}>
                                   <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Tool Type</Text>
-                                  <View style={[styles.inputContainer, { height: 48 }]}>
-                                     <TextInput
-                                        style={[styles.inputField, { paddingLeft: 12, fontSize: 14, fontWeight: "600" }]}
-                                        placeholder="e.g. Shovel"
+                                  <View style={[styles.inputContainer, { height: 48 }]}><Pressable
+                                      style={{ flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 }}
+                                      onPress={() => {
+                                        fetchInventory();
+                                        setShowInventoryModal(true);
+                                      }}
+                                    ><TextInput
+                                        style={[styles.inputField, { flex: 1, color: "white", fontSize: 14, fontWeight: "600" }]}
+                                        placeholder="Select Tool"
                                         placeholderTextColor="#7d93b4"
                                         value={formItemType}
-                                        onChangeText={setFormItemType}
-                                     />
-                                  </View>
+                                        editable={false}
+                                      /><Ionicons name="search" size={18} color={palette.accentBlue} /></Pressable></View>
                                </View>
                                <View style={{ flex: 0.6 }}>
                                   <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Qty</Text>
@@ -1482,9 +1537,23 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
 
                   {activeTab === "Leaf Bags" && (
                     <>
-                      <View style={{ backgroundColor: "rgba(46,168,255,0.08)", padding: 12, borderRadius: 10, marginBottom: 18, borderWidth: 1, borderColor: "rgba(46,168,255,0.2)" }}>
+                      <View style={{ backgroundColor: "rgba(46,168,255,0.08)", padding: 12, borderRadius: 10, marginBottom: 15, borderWidth: 1, borderColor: "rgba(46,168,255,0.2)" }}>
                         <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600", lineHeight: 18 }}>Leaf bags are factory-issued and will be billed as a debt deducted from your balance payment.</Text>
                       </View>
+                      <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Bag Type</Text>
+                      <View style={[styles.inputContainer, { marginBottom: 15 }]}><Pressable
+                          style={{ flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 15 }}
+                          onPress={() => {
+                            fetchInventory();
+                            setShowInventoryModal(true);
+                          }}
+                        ><TextInput
+                            style={[styles.inputField, { flex: 1, color: "white", fontSize: 15, fontWeight: "bold" }]}
+                            placeholder="Select Bag Type"
+                            placeholderTextColor="#7d93b4"
+                            value={formItemType}
+                            editable={false}
+                          /><Ionicons name="search" size={20} color={palette.accentBlue} /></Pressable></View>
                       <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Number of Bags Needed</Text>
                       <View style={[styles.inputContainer, { marginBottom: 20 }]}>
                         <Ionicons name="bag-handle-outline" size={20} color={palette.muted} style={{ marginLeft: 15 }} />
@@ -1547,11 +1616,186 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Request Detail Modal */}
+      <Modal visible={showDetailModal} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", padding: 20 }}>
+          <View style={{ backgroundColor: "#111f38", borderRadius: 24, padding: 25, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>Request Details</Text>
+              <Pressable onPress={() => setShowDetailModal(false)} style={{ padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12 }}>
+                <Ionicons name="close" size={24} color={palette.muted} />
+              </Pressable>
+            </View>
+
+            {selectedRequest && (
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+                <View style={{ marginBottom: 20 }}>
+                  <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Supplier Information</Text>
+                  <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>{selectedRequest.supplierName || "Unknown Supplier"}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 13, marginTop: 2 }}>{selectedRequest.passbookNo || "No Passbook"}</Text>
+                </View>
+
+                <View style={{ marginBottom: 20 }}>
+                   <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Request Information</Text>
+                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                     <Text style={{ color: palette.muted, fontSize: 13 }}>Type</Text>
+                     <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.requestType}</Text>
+                   </View>
+                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                     <Text style={{ color: palette.muted, fontSize: 13 }}>Status</Text>
+                     <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)", paddingHorizontal: 8 }]}>
+                        <Text style={{ color: statusColor(selectedRequest.status), fontSize: 11, fontWeight: "bold" }}>{selectedRequest.status}</Text>
+                     </View>
+                   </View>
+                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                     <Text style={{ color: palette.muted, fontSize: 13 }}>Date</Text>
+                     <Text style={{ color: "white", fontSize: 13 }}>{new Date(selectedRequest.requestDate || Date.now()).toLocaleDateString()}</Text>
+                   </View>
+                </View>
+
+                {Number(selectedRequest.requestedAmount) > 0 && (
+                  <View style={{ marginBottom: 20, padding: 15, backgroundColor: "rgba(46, 168, 255, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(46, 168, 255, 0.2)" }}>
+                    <Text style={{ color: palette.accentBlue, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Deduction Amount</Text>
+                    <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>{`Rs. ${Number(selectedRequest.requestedAmount).toLocaleString()}`}</Text>
+                  </View>
+                )}
+
+                {selectedRequest.itemDetails && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Item Details</Text>
+                    {(() => {
+                      try {
+                        const details = JSON.parse(selectedRequest.itemDetails);
+                        if (Array.isArray(details)) {
+                          return details.map((d: any, i: number) => (
+                            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6, backgroundColor: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                              <Text style={{ color: "white", fontSize: 14 }}>{d.type || d.itemName}</Text>
+                              <Text style={{ color: palette.accentGreen, fontWeight: "bold", fontSize: 14 }}>{`${d.quantity} ${d.unit || "kg"}`}</Text>
+                            </View>
+                          ));
+                        }
+                        return <Text style={{ color: "white", fontSize: 14 }}>{selectedRequest.itemDetails}</Text>;
+                      } catch (e) {
+                        return <Text style={{ color: "white", fontSize: 14 }}>{selectedRequest.itemDetails}</Text>;
+                      }
+                    })()}
+                  </View>
+                )}
+
+                {selectedRequest.notes && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Notes</Text>
+                    <View style={{ backgroundColor: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                      <Text style={{ color: "white", fontStyle: "italic", lineHeight: 20, fontSize: 14 }}>{`"${selectedRequest.notes}"`}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {(selectedRequest.approverComment || selectedRequest.remark) && (
+                  <View style={{ marginTop: 10, padding: 15, backgroundColor: "rgba(31, 190, 87, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(31, 190, 87, 0.2)" }}>
+                    <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Manager Remark</Text>
+                    <Text style={{ color: "white", lineHeight: 20, fontSize: 14 }}>{selectedRequest.approverComment || selectedRequest.remark}</Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+            
+            <Pressable 
+              onPress={() => setShowDetailModal(false)}
+              style={[styles.primaryBtn, { marginTop: 25, backgroundColor: "rgba(255,255,255,0.05)", height: 48 }]}
+            >
+              <Text style={[styles.primaryBtnText, { color: "#fff" }]}>Close Details</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {role !== 'supplier' && (
         <Pressable style={styles.fab} onPress={openForm}>
           <Ionicons name="add" size={30} color="white" />
         </Pressable>
       )}
+
+      <Modal visible={showInventoryModal} animationType="slide" transparent={true}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#111f38", height: "70%", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <View>
+                <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>Select {activeTab === "Fertilizer" ? "Fertilizer" : (activeTab === "Tools" ? "Tool" : "Bag")}</Text>
+                <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>Available items from inventory</Text>
+              </View>
+              <Pressable onPress={() => setShowInventoryModal(false)} style={{ padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12 }}>
+                <Ionicons name="close" size={24} color={palette.muted} />
+              </Pressable>
+            </View>
+            <View style={[styles.searchBox, { marginBottom: 15 }]}>
+              <Ionicons name="search" size={20} color={palette.muted} />
+              <TextInput 
+                placeholder="Search items..."
+                placeholderTextColor={palette.muted}
+                style={styles.searchInput}
+                value={inventorySearch}
+                onChangeText={setInventorySearch}
+              />
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {inventoryLoading ? (
+                <View style={{ paddingVertical: 40, alignItems: "center" }}>
+                  <ActivityIndicator color={palette.accentGreen} />
+                  <Text style={{ color: palette.muted, marginTop: 10 }}>Fetching inventory...</Text>
+                </View>
+              ) : (
+                inventoryItems
+                  .filter(item => {
+                    const cat = activeTab === "Fertilizer" ? "FERTILIZER" : (activeTab === "Tools" ? "TOOLS" : "LEAF_BAG");
+                    if (item.itemCategory !== cat) return false;
+                    if (inventorySearch && !item.itemName.toLowerCase().includes(inventorySearch.toLowerCase())) return false;
+                    return true;
+                  })
+                  .map((item, idx) => (
+                    <Pressable 
+                      key={item.itemId || idx} 
+                      style={{ 
+                        padding: 16, 
+                        backgroundColor: "rgba(255,255,255,0.03)", 
+                        borderRadius: 12, 
+                        marginBottom: 10, 
+                        flexDirection: "row", 
+                        justifyContent: "space-between", 
+                        alignItems: "center",
+                        borderWidth: 1,
+                        borderColor: "rgba(255,255,255,0.05)"
+                      }}
+                      onPress={() => {
+                        setFormItemType(item.itemName);
+                        setSelectedInventoryItem(item);
+                        setShowInventoryModal(false);
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: "white", fontSize: 15, fontWeight: "600" }}>{item.itemName}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>
+                          <Text style={{ color: palette.muted, fontSize: 12 }}>Stock: {Number(item.quantityInStock || 0).toFixed(0)} {item.unit}</Text>
+                          {!!(item.unitCost > 0) && <Text style={{ color: palette.muted, fontSize: 12 }}>• Rs. {Number(item.unitCost).toLocaleString()}</Text>}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={palette.muted} />
+                    </Pressable>
+                  ))
+              )}
+              {!inventoryLoading && inventoryItems.filter(i => {
+                const cat = activeTab === "Fertilizer" ? "FERTILIZER" : (activeTab === "Tools" ? "TOOLS" : "LEAF_BAG");
+                return i.itemCategory === cat;
+              }).length === 0 && (
+                <View style={{ paddingVertical: 40, alignItems: "center" }}>
+                  <MaterialCommunityIcons name="package-variant-closed" size={48} color="rgba(255,255,255,0.1)" />
+                  <Text style={{ color: palette.muted, marginTop: 12 }}>No items found in inventory.</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1624,7 +1868,13 @@ export function ProfileScreen({ user, navigation }: any) {
             </View>
           ))}
 
-          <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Login")}>
+          <Pressable 
+            style={styles.settingItem} 
+            onPress={async () => {
+              await AsyncStorage.removeItem("dalupotha_session");
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+            }}
+          >
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(255,255,255,0.05)" }]}>
               <Ionicons name="log-out-outline" size={20} color={palette.muted} />
             </View>

@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, TextInput } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
 import { CollectionAPI, FinanceAPI, ServicesAPI, apiGet } from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const dictionary: any = {
   si: {
@@ -387,7 +388,8 @@ const normalizeLedger = (raw: any): SupplierLedger => {
     currentDebt: toNumber(raw.currentDebt ?? raw.totalDebt ?? raw.outstanding ?? raw.deductions),
     estimatedBalance: toNumber(raw.estimatedBalance ?? raw.netBalance ?? raw.availableBalance ?? raw.netAmount),
     advanceTaken: toNumber(raw.advanceTaken ?? raw.totalAdvance ?? raw.advances),
-    grossEarnings: toNumber(raw.grossEarnings)
+    grossEarnings: toNumber(raw.grossEarnings),
+    leafPrice: toNumber(raw.leafPrice)
   };
 };
 
@@ -943,18 +945,30 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
     const fetchFinances = async (isSilent = false) => {
       try {
         if (!isSilent) setLoading(true);
-        if (!supplierId) return;
-        const passbookNo = user?.passbookNo || user?.passbook_no;
+        if (!token) return;
+
+        // Ensure we have the correct supplier UUID (matches Home screen logic)
+        const identity = await resolveSupplierIdentity(token, {
+          passbookNo: user?.passbookNo || user?.passbook_no,
+          fullName: user?.fullName,
+          supplierId: supplierId
+        }).catch(() => null);
+        const resolvedId = identity?.supplierId || supplierId;
+        if (!resolvedId) return;
+
         const qp = new URLSearchParams();
-        qp.set("supplierId", String(supplierId));
+        qp.set("supplierId", String(resolvedId));
+        const passbookNo = identity?.passbookNo || user?.passbookNo || user?.passbook_no;
         if (passbookNo) qp.set("passbookNo", String(passbookNo));
 
         const [txRes, ledgerRes, historyRes, reqRes] = await Promise.all([
-          apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token),
-          apiGet<any>(FinanceAPI.ledger(supplierId), token),
-          fetchSupplierHistory(token, supplierId).catch(() => []),
+          apiGet<any[]>(FinanceAPI.ledgerTransactions(resolvedId), token).catch(() => []),
+          apiGet<any>(FinanceAPI.ledger(resolvedId), token).catch(() => null),
+          fetchSupplierHistory(token, resolvedId).catch(() => []),
           apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => [])
         ]);
+
+        const normalizedLedger = normalizeLedger(ledgerRes);
 
         const pendingAdvances = (reqRes || [])
             .filter((r: any) => r.requestType === 'ADVANCE' && r.status === 'PENDING')
@@ -963,21 +977,32 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
         // Calculate current month's Gross Earnings
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const currentMonthNet = historyRes
-            .filter((item: any) => item.netWeight != null && new Date(item.collectedAt).getTime() >= startOfMonth)
-            .reduce((sum: number, item: any) => sum + Number(item.netWeight), 0);
+        const currentMonthKg = historyRes
+            .filter((item: any) => new Date(item.collectedAt).getTime() >= startOfMonth)
+            .reduce((sum: number, item: any) => {
+              const w = item.netWeight != null ? Number(item.netWeight) : Number(item.grossWeight || 0);
+              return sum + w;
+            }, 0);
+
+        const price = normalizedLedger.leafPrice || ledgerRes?.leafPrice || 240.0;
+        let currentMonthGross = currentMonthKg * price;
+
+        // Fallback: If current month weight is zero but the ledger has unpayout earnings, use those
+        if (currentMonthGross === 0 && (normalizedLedger.totalGrossEarnings || 0) > 0) {
+          currentMonthGross = Number(normalizedLedger.totalGrossEarnings) - Number(normalizedLedger.payoutTotal || 0);
+        }
+
+        normalizedLedger.currentMonthGrossEarnings = Math.max(0, currentMonthGross);
         
-        const leafPrice = ledgerRes.leafPrice || 0;
-        ledgerRes.currentMonthGrossEarnings = currentMonthNet * leafPrice;
-        
-        // Calculate all-time gross from the ledger, then find the unpaid arrears from previous months
-        const allTimeGross = ledgerRes.grossEarnings || 0;
-        ledgerRes.broughtForward = allTimeGross - ledgerRes.currentMonthGrossEarnings;
-        ledgerRes.qualityDeduction = 0; // Not a financial deduction
-        ledgerRes.pendingAdvances = pendingAdvances;
+        // Final Net Balance = Gross - (Past Payouts) - Total Debt
+        // But for the "Monthly View", we show Gross - This Month's Deductions
+        const totalDeductions = (normalizedLedger.currentDebt || 0) + (normalizedLedger.advanceTaken || 0);
+        normalizedLedger.estimatedBalance = Math.max(0, currentMonthGross - totalDeductions);
+        normalizedLedger.qualityDeduction = 0;
+        normalizedLedger.pendingAdvances = pendingAdvances;
 
         setTransactions(txRes || []);
-        setLedger(ledgerRes);
+        setLedger(normalizedLedger);
         setHistory(historyRes || []);
       } catch (err) {
         console.error("Failed to fetch payments:", err);
@@ -1231,52 +1256,75 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
   const supplierId = getSupplierId(user);
   const [ledger, setLedger] = useState<any>(null);
   const [debtItems, setDebtItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   const getCategoryInfo = (desc: string) => {
     const d = desc?.toUpperCase() || '';
-    if (d.includes('FERTILIZER')) return { label: _("Fertilizer"), icon: 'leaf', color: '#2ecc71', sub: desc };
-    if (d.includes('BAG')) return { label: _("Leaf Bags"), icon: 'bag-handle-outline', color: '#3498db', sub: desc };
-    if (d.includes('ADVANCE')) return { label: _("Advance"), icon: 'wallet-outline', color: '#f39c12', sub: desc };
-    if (d.includes('TOOL') || d.includes('MACHINE')) return { label: _("Tools"), icon: 'construct-outline', color: '#9b59b6', sub: desc };
-    if (d.includes('TRANSPORT')) return { label: _("Transport"), icon: 'car-outline', color: '#e67e22', sub: desc };
-    return { label: desc || _("Other"), icon: 'receipt-outline', color: '#95a5a6', sub: desc };
+    if (d.includes('FERTILIZER')) return { label: _("Fertilizer"), rawKey: 'Fertilizer', icon: 'leaf', color: '#2ecc71', sub: desc };
+    if (d.includes('BAG')) return { label: _("Leaf Bags"), rawKey: 'Leaf Bags', icon: 'bag-handle-outline', color: '#3498db', sub: desc };
+    if (d.includes('ADVANCE')) return { label: _("Advance"), rawKey: 'Advance', icon: 'wallet-outline', color: '#f39c12', sub: desc };
+    if (d.includes('TOOL') || d.includes('MACHINE')) return { label: _("Tools"), rawKey: 'Tools', icon: 'construct-outline', color: '#9b59b6', sub: desc };
+    if (d.includes('TRANSPORT')) return { label: _("Transport"), rawKey: 'Transport', icon: 'car-outline', color: '#e67e22', sub: desc };
+    return { label: desc || _("Other"), rawKey: 'Advisory', icon: 'receipt-outline', color: '#95a5a6', sub: desc };
   };
 
-  // Stable primitive from user to prevent infinite loops
   const debtPassbookNo = user?.passbookNo || user?.passbook_no as string | undefined;
 
   const loadDebts = useCallback(async () => {
-    if (!supplierId || !token) return;
+    if (!token) return;
     setLoading(true);
     try {
+      // Resolve correct supplierId (UUID) from auth service
+      const identity = await resolveSupplierIdentity(token, {
+        passbookNo: user?.passbookNo || user?.passbook_no,
+        fullName: user?.fullName,
+        supplierId: supplierId
+      }).catch(() => null);
+      const resolvedId = identity?.supplierId || supplierId;
+      if (!resolvedId) { setLoading(false); return; }
+
       const qp = new URLSearchParams();
-      if (supplierId) qp.set("supplierId", String(supplierId));
-      if (debtPassbookNo) qp.set("passbookNo", debtPassbookNo);
+      qp.set("supplierId", String(resolvedId));
+      const passbookNo = identity?.passbookNo || user?.passbookNo || user?.passbook_no;
+      if (passbookNo) qp.set("passbookNo", passbookNo);
       qp.set("size", "120");
 
       const [ledgerData, txData, reqData] = await Promise.all([
-        apiGet<any>(FinanceAPI.ledger(supplierId), token).catch(() => null),
-        apiGet<any[]>(FinanceAPI.ledgerTransactions(supplierId), token).catch(() => []),
+        apiGet<any>(FinanceAPI.ledger(resolvedId), token).catch(() => null),
+        apiGet<any[]>(FinanceAPI.ledgerTransactions(resolvedId), token).catch(() => []),
         apiGet<any[]>(`${ServicesAPI.history}?${qp.toString()}`, token).catch(() => []),
       ]);
-      setLedger(ledgerData);
+      const normLedger = normalizeLedger(ledgerData);
+      
+      // Derive currentDebt from transactions if ledger summary is zero (matches Home screen)
+      try {
+        const txSum = (txData || [])
+          .filter((t: any) => (t.transactionType === 'DEBT' || t.transactionType === 'DEDUCTION' || String(t.type).toUpperCase().includes('DEBT')) && Number(t.amount || t.remaining || 0) > 0)
+          .reduce((s: number, t: any) => s + Number(t.amount ?? t.remaining ?? 0), 0);
+        if ((normLedger.currentDebt || 0) === 0 && txSum > 0) {
+          normLedger.currentDebt = txSum;
+        }
+      } catch (e) { console.debug('[SupplierDebts] tx fallback error', e); }
+      
+      setLedger(normLedger);
 
-      const ledgerDebts = (txData || []).filter((t: any) => 
-        (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
-        t.amount > 0 && 
-        t.status !== 'PENDING' && 
+      const ledgerDebts = (txData || []).filter((t: any) =>
+        (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') &&
+        t.amount > 0 && t.status !== 'PENDING' &&
         !t.description?.toUpperCase().includes('ADVISORY')
       );
 
-      const pendingReqs = (reqData || []).filter((r: any) => 
-        (r.status === 'APPROVED' || r.status === 'DISPATCHED' || r.status === 'APPROVED_BY_EXT' || r.status === 'COMPLETED') &&
+      const pendingReqs = (reqData || []).filter((r: any) =>
+        (r.status === 'PENDING' || r.status === 'APPROVED' || r.status === 'DISPATCHED' ||
+         r.status === 'APPROVED_BY_EXT' || r.status === 'APPROVED_BY_MANAGER' || r.status === 'COMPLETED') &&
         r.requestType !== 'ADVISORY'
-      ).map(r => ({
+      ).map((r: any) => ({
         transactionDate: r.updatedAt || r.requestDate,
-        description: r.requestType === 'FERTILIZER' ? `FERTILIZER: ${r.fertilizerItems?.map((f:any)=>f.type).join(', ') || 'Fertilizer'}` : r.requestType,
-        amount: Number(r.requestedAmount || r.totalDeduction || r.estimatedCost || r.amount || r.totalAmount || r.cost || 0) || 0, 
+        description: r.requestType === 'FERTILIZER'
+          ? `FERTILIZER: ${r.fertilizerItems?.map((f: any) => f.type).join(', ') || r.itemType || 'Fertilizer'}`
+          : (r.itemType || r.requestType),
+        amount: Number(r.approvedAmount || r.requestedAmount || r.totalDeduction || r.estimatedCost || r.amount || 0) || 0,
         isRequest: true,
         status: r.status,
         requestId: r.requestId
@@ -1284,25 +1332,51 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
 
       const finalItems: any[] = [];
       const seenRequestIds = new Set<string>();
-      
       ledgerDebts.forEach(ld => {
-        if (ld.requestId) seenRequestIds.add(String(ld.requestId));
-        finalItems.push(ld);
+        const enrichedLd = { ...ld };
+        if (enrichedLd.requestId) seenRequestIds.add(String(enrichedLd.requestId));
+        
+        // Try to find matching request to enrich description with actual itemType
+        const matchingReq = (reqData || []).find((r: any) => String(r.requestId) === String(enrichedLd.requestId));
+        if (matchingReq && matchingReq.itemType) {
+          enrichedLd.description = matchingReq.itemType;
+        } else if (enrichedLd.description?.toUpperCase().includes('LEAF_BAG')) {
+          const leafReq = (reqData || []).find((r: any) => r.requestType === 'LEAF_BAG' && r.itemType);
+          if (leafReq) enrichedLd.description = leafReq.itemType;
+        }
+        
+        finalItems.push(enrichedLd);
       });
-
       pendingReqs.forEach(req => {
         if (req.requestId && seenRequestIds.has(String(req.requestId))) return;
-
         const cat = getCategoryInfo(req.description).label;
-        const alreadyInLedger = ledgerDebts.some(ld => 
-          getCategoryInfo(ld.description).label === cat && 
+        const alreadyInLedger = ledgerDebts.some(ld =>
+          getCategoryInfo(ld.description).label === cat &&
           Math.abs(Number(ld.amount) - Number(req.amount)) < 0.01
         );
-        
-        if (!alreadyInLedger) {
-          finalItems.push(req);
-        }
+        if (!alreadyInLedger) finalItems.push(req);
       });
+
+      // Ledger fallback: if no breakdown items found but ledger shows outstanding debt,
+      // create synthetic items from the ledger summary so the screen isn't blank
+      if (finalItems.length === 0 && normLedger.currentDebt > 0) {
+        finalItems.push({
+          transactionDate: new Date().toISOString(),
+          description: 'SERVICE DEBT',
+          amount: Number(normLedger.currentDebt),
+          isLedgerFallback: true,
+          status: 'PENDING',
+        });
+      }
+      if (finalItems.length === 0 && normLedger.advanceTaken > 0) {
+        finalItems.push({
+          transactionDate: new Date().toISOString(),
+          description: 'ADVANCE',
+          amount: Number(normLedger.advanceTaken),
+          isLedgerFallback: true,
+          status: 'PENDING',
+        });
+      }
 
       setDebtItems(finalItems);
     } catch (err) {
@@ -1310,13 +1384,11 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
     } finally {
       setLoading(false);
     }
-  }, [supplierId, token, debtPassbookNo]);
+  }, [supplierId, token, user?.passbookNo, user?.passbook_no, user?.fullName]);  // debtPassbookNo excluded from deps — string but prevents loop on web
 
-  useFocusEffect(
-    useCallback(() => {
-      loadDebts();
-    }, [loadDebts])
-  );
+  useEffect(() => {
+    loadDebts();
+  }, [loadDebts]);
 
   const totalOutstanding = debtItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
@@ -1334,7 +1406,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
       <ScrollView contentContainerStyle={{ padding: 20 }}>
         <View style={localStyles.debtSummaryCard}>
           <Text style={localStyles.debtTitle}>{_("Current Outstanding")}</Text>
-          <Text style={localStyles.debtAmount}>{loading ? '...' : `Rs. ${Number(ledger?.currentDebt || 0).toLocaleString()}`}</Text>
+          <Text style={localStyles.debtAmount}>{loading ? '...' : `Rs. ${totalOutstanding.toLocaleString()}`}</Text>
           <Text style={localStyles.debtSubTitle}>{_("Estimated for next payout")}</Text>
         </View>
 
@@ -1356,23 +1428,15 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
           </View>
         ) : (
           (() => {
-            // Show advance as the first breakdown item if present
-            const rows: any[] = [];
-            if ((ledger?.advanceTaken || 0) > 0) {
-              rows.push(
-                <View key="advance" style={[localStyles.debtCardContainer]}>
-                  <View style={localStyles.debtItemRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>{_("Advance")}</Text>
-                      <Text style={{ fontSize: 12, color: palette.muted, marginTop: 4 }}>{new Date().toLocaleDateString('en-GB')}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Rs. {Number(ledger.advanceTaken || 0).toLocaleString()}</Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            }
+            const formatDateLocalized = (date: Date) => {
+              const day = date.getDate().toString().padStart(2, '0');
+              const month = date.getMonth();
+              const year = date.getFullYear();
+              const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+              const monthsSi = ["ජන", "පෙබ", "මාර්", "අප්", "මැයි", "ජූනි", "ජූලි", "අගෝ", "සැප්", "ඔක්", "නොවැ", "දෙසැ"];
+              const monthName = lang === 'si' ? monthsSi[month] : monthsEn[month];
+              return `${day} ${monthName} ${year}`;
+            };
 
             const groups: Record<string, { label: string, icon: string, color: string, amount: number, date: Date, items: any[] }> = {};
             
@@ -1388,8 +1452,11 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
               if (itemDate > groups[key].date) groups[key].date = itemDate;
             });
 
-            return rows.concat(Object.values(groups).map((group, idx) => {
-              const dateStr = group.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            // Sort groups descending by date (newest first)
+            const sortedGroups = Object.values(groups).sort((a, b) => b.date.getTime() - a.date.getTime());
+
+            return sortedGroups.map((group, idx) => {
+              const dateStr = formatDateLocalized(group.date);
               const isExpanded = expandedCategory === group.label;
               
               return (
@@ -1419,21 +1486,46 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
                   {isExpanded && (
                     <View style={localStyles.expandedContent}>
                       <View style={localStyles.divider} />
-                      {group.items.map((item, iIdx) => (
-                        <View key={iIdx} style={localStyles.subItemRow}>
-                          <Text style={localStyles.subItemTitle}>{item.description?.replace(/FERTILIZER: /g, '') || group.label}</Text>
-                          <Text style={localStyles.subItemVal}>Rs. {Number(item.amount || 0).toLocaleString()}</Text>
-                        </View>
-                      ))}
+                      {group.items.map((item, iIdx) => {
+                        let cleanDesc = item.description || group.label;
+                        const upper = cleanDesc.toUpperCase();
+                        
+                        if (upper.startsWith("FERTILIZER:")) {
+                          cleanDesc = cleanDesc.substring("FERTILIZER:".length).trim();
+                        } else if (upper.startsWith("LEAF_BAG:") || upper === "LEAF_BAG") {
+                          cleanDesc = _("Leaf Bags");
+                        } else if (upper.startsWith("TOOL_PURCHASE:") || upper.startsWith("TOOL_RENT:")) {
+                          cleanDesc = cleanDesc.substring(cleanDesc.indexOf(":") + 1).trim() || _("Tools");
+                        } else if (upper.startsWith("TRANSPORT:")) {
+                          cleanDesc = cleanDesc.substring("TRANSPORT:".length).trim();
+                        } else if (upper === "ADVANCE") {
+                          cleanDesc = _("Advance");
+                        }
+
+                        return (
+                          <View key={iIdx} style={[localStyles.subItemRow, { alignItems: 'flex-start' }]}>
+                            <View style={{ flex: 1, paddingRight: 10 }}>
+                              <Text style={localStyles.subItemTitle}>{cleanDesc}</Text>
+                              <Text style={{ fontSize: 11, color: palette.muted, marginTop: 4 }}>
+                                {formatDateLocalized(new Date(item.transactionDate))}
+                              </Text>
+                            </View>
+                            <Text style={localStyles.subItemVal}>Rs. {Number(item.amount || 0).toLocaleString()}</Text>
+                          </View>
+                        );
+                      })}
                       
-                      <Pressable style={localStyles.historyLink}>
+                      <Pressable 
+                        onPress={() => navigation.navigate("Requests", { initialTab: group.rawKey })}
+                        style={localStyles.historyLink}
+                      >
                         <Text style={localStyles.historyLinkText}>Full Transaction History →</Text>
                       </Pressable>
                     </View>
                   )}
                 </View>
               );
-            }));
+            });
           })()
         )}
 
@@ -1526,7 +1618,13 @@ export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) 
             <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Contact Support")}</Text><Text style={styles.settingItemSub}>{_("Extension Officer")}</Text></View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
           </View>
-          <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Login")}>
+          <Pressable 
+            style={styles.settingItem} 
+            onPress={async () => {
+              await AsyncStorage.removeItem("dalupotha_session");
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+            }}
+          >
             <View style={[styles.settingIconBg, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}><Ionicons name="log-out-outline" size={20} color={palette.muted} /></View>
             <View style={{ flex: 1 }}><Text style={styles.settingItemTitle}>{_("Sign Out")}</Text><Text style={styles.settingItemSub}>{user?.fullName} · SH-{user?.userId?.slice(-4)}</Text></View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />

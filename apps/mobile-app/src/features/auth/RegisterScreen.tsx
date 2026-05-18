@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { palette, styles } from "../../ui/theme";
 import { AuthAPI, apiPost, apiGet } from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export function RegisterScreen({ route, navigation }: any) {
   const { width, height } = useWindowDimensions();
@@ -38,7 +39,7 @@ export function RegisterScreen({ route, navigation }: any) {
       "Re-enter PIN": "PIN අංකය නැවත ඇතුළත් කරන්න",
       "PINs do not match": "PIN අංක නොගැලපේ",
       "EMPLOYEE ID (TA) *": "සේවක හැඳුනුම්පත (TA) *",
-      "Register & Verify OTP →": "ලියාපදිංචි වී OTP තහවුරු කරන්න →",
+      "Register Account →": "ලියාපදිංචි වන්න →",
       "← Back to Login": "← ආපසු පිවිසුමට",
       "Select Estate": "වත්ත තෝරන්න",
       "No estates found.": "වතු හමු නොවීය.",
@@ -191,20 +192,12 @@ export function RegisterScreen({ route, navigation }: any) {
         }
       }
 
-      // Early uniqueness check: pass contact and passbook to sendOtp for backend validation
-      console.log("👉 [DEBUG] Calling sendOtp with:", fullContact);
-      const otpRes: any = await apiPost(AuthAPI.sendOtp, {
-        contact: fullContact,
-        purpose: "REGISTRATION",
-        passbookNo: role === "supplier" ? passbookNo.trim() : undefined,
-      });
-      console.log("👉 [DEBUG] sendOtp success!");
-
       // Build registration payload
       const registerData: any = {
         contact: fullContact,
         fullName: fullName.trim(),
         estateId: selectedEstate?.estateId,
+        otpCode: "MANUAL", // bypass OTP check in backend
       };
 
       if (role === "supplier") {
@@ -224,17 +217,19 @@ export function RegisterScreen({ route, navigation }: any) {
         });
       }
 
-      // Navigate to OTP verification
-      navigation.navigate("Otp", {
-        role,
-        contact: fullContact,
-        isRegistering: true,
-        registerData,
-        lang,
-        otpCode: otpRes?.otpCode
-      });
+      // Direct registration call, bypassing OTP verification screen
+      const endpoint = role === "supplier" ? AuthAPI.registerSmallHolder : AuthAPI.registerAgent;
+      console.log("👉 [DEBUG] Directly registering at endpoint:", endpoint);
+      const res: any = await apiPost(endpoint, registerData);
+      console.log("👉 [DEBUG] Direct registration success:", res);
+
+      // Token received — save session and navigate to main tabs directly
+      await AsyncStorage.setItem("dalupotha_session", JSON.stringify({ role, token: res.token, user: res }));
+      
+      // Navigate to MainTabs
+      navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
-      setErrorMsg(err.message ?? "Could not send OTP. Please check your phone number and try again.");
+      setErrorMsg(err.message ?? "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -331,7 +326,7 @@ export function RegisterScreen({ route, navigation }: any) {
                       value={passbookNo}
                       onChangeText={setPassbookNo}
                       style={styles.inputField}
-                      placeholder="PB-XXXX"
+                      placeholder="e.g. 05497"
                       placeholderTextColor="#7d93b4"
                       autoCapitalize="characters"
                     />
@@ -514,7 +509,7 @@ export function RegisterScreen({ route, navigation }: any) {
                 {loading
                   ? <ActivityIndicator color="#fff" />
                   : <Text style={[styles.primaryBtnText, compact && styles.primaryBtnTextCompact]}>
-                      {_("Register & Verify OTP →")}
+                      {_("Register Account →")}
                     </Text>
                 }
               </Pressable>

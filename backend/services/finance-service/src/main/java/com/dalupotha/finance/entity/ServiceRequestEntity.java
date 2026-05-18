@@ -57,6 +57,9 @@ public class ServiceRequestEntity {
     @Column(name = "requested_amount", precision = 12, scale = 2)
     private BigDecimal requestedAmount;
 
+    @Column(name = "approved_amount", precision = 12, scale = 2)
+    private BigDecimal approvedAmount;
+
     @Column(name = "supplier_name")
     private String supplierName;
 
@@ -252,5 +255,13 @@ public class ServiceRequestEntity {
 
     public void setAssignedAgentId(UUID assignedAgentId) {
         this.assignedAgentId = assignedAgentId;
+    }
+
+    public BigDecimal getApprovedAmount() {
+        return approvedAmount;
+    }
+
+    public void setApprovedAmount(BigDecimal approvedAmount) {
+        this.approvedAmount = approvedAmount;
     }
 }

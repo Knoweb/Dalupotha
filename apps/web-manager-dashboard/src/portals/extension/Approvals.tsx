@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck } from "lucide-react"
+import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck, Pencil, Check } from "lucide-react"
 import { CollectionAPI, FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
 import { useNotifications } from "../../hooks/useNotifications"
 import { useLanguage } from "../../hooks/useLanguage"
@@ -124,13 +124,14 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
 }) {
   const { t, lang } = useLanguage();
   const [comment, setComment] = useState("")
-  const [customAmount, setCustomAmount] = useState<string>(req.requestedAmount?.toString() || "")
+  const [customAmount, setCustomAmount] = useState<string>(req.approvedAmount?.toString() || req.requestedAmount?.toString() || "")
   const [dailyRate, setDailyRate] = useState<string>("")
   const [creatorInfo, setCreatorInfo] = useState<{ fullName: string; employeeId?: string; role?: string } | null>(null)
   const [approverInfo, setApproverInfo] = useState<{ fullName: string; role?: string } | null>(null)
   const [inventoryItem, setInventoryItem] = useState<InventoryItem | null>(null)
   const [fetchingPrice, setFetchingPrice] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [isAmountEditable, setIsAmountEditable] = useState(false)
 
   useEffect(() => {
     if (!req.createdById) return
@@ -149,28 +150,57 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
   }, [req.approverId])
 
   useEffect(() => {
-    if (!req.itemId || req.requestType === "ADVANCE") return;
-    
-    setFetchingPrice(true);
-    setFetchError(null);
-    
-    InventoryAPI.getItem(req.itemId)
-      .then(item => {
-        if (item) {
-          setInventoryItem(item);
-          if (req.requestType !== 'TOOL_RENT' && (!req.requestedAmount || Number(req.requestedAmount) === 0)) {
-            const calculated = (Number(item.unitCost) || 0) * (Number(req.quantity) || 1);
-            setCustomAmount(calculated.toString());
+    const fetchPrices = async () => {
+      if (req.requestType === "ADVANCE") return;
+      
+      setFetchingPrice(true);
+      setFetchError(null);
+      
+      try {
+        let total = 0;
+        let mainItem: InventoryItem | null = null;
+
+        // Handle List of items (JSON)
+        if (req.itemDetails) {
+          try {
+            const items = JSON.parse(req.itemDetails);
+            if (Array.isArray(items)) {
+              for (const it of items) {
+                const inv = await InventoryAPI.getItem(it.itemId || it.id);
+                if (inv) total += (Number(inv.unitCost) || 0) * (Number(it.quantity) || 0);
+              }
+            }
+          } catch (e) { console.error("JSON parse error", e); }
+        } 
+        
+        // Handle Single item fallback
+        if (total === 0 && req.itemId) {
+          const inv = await InventoryAPI.getItem(req.itemId);
+          if (inv) {
+            mainItem = inv;
+            total = (Number(inv.unitCost) || 0) * (Number(req.quantity) || 1);
           }
-        } else {
-          setFetchError("Item not found in inventory");
         }
-      })
-      .catch(err => {
+
+        if (total > 0) {
+          setInventoryItem(mainItem); // Set main item for UI if single
+          const currentAmount = Number(req.approvedAmount || req.requestedAmount || 0);
+          // Only auto-sync if we don't have a valid stored amount or if it's 0
+          if (currentAmount === 0 || !req.approvedAmount) {
+            setCustomAmount(total.toString());
+          } else {
+            setCustomAmount(currentAmount.toString());
+          }
+        }
+      } catch (err) {
         setFetchError("Connection error to inventory service");
-      })
-      .finally(() => setFetchingPrice(false));
-  }, [req.itemId, req.requestType, req.requestedAmount, req.quantity])
+      } finally {
+        setFetchingPrice(false);
+      }
+    };
+
+    fetchPrices();
+  }, [req.itemId, req.itemDetails, req.requestType, req.requestedAmount, req.approvedAmount, req.quantity])
 
 
   const debtVal = debt ?? 0
@@ -201,13 +231,17 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
               { label: t("Supplier"),     value: req.supplierName || "---" },
               { label: t("Passbook ID"),  value: req.passbookNo || "---" },
               { label: t("Request Type"), value: t(meta.label) },
-              { label: req.requestType === 'ADVISORY' ? t("Subject") : t("Amount / Qty"), value: getAmountQty(req, t) },
-              { label: t("Date"),         value: formatDate(req.requestDate, lang) },
+              { label: t("Requested At"), value: (
+                <div className="flex flex-col items-end">
+                  <span>{formatDate(req.requestDate, lang)}</span>
+                  <span className="text-[10px] text-slate-500 font-medium -mt-1">{formatTime(req.requestDate)}</span>
+                </div>
+              )},
               { label: t("Assigned Agent"), value: req.assignedAgentName || t("Not Assigned") },
             ].map(row => (
               <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
                 <span className="text-[11px] font-medium text-slate-950">{row.label}</span>
-                <span className={`text-sm font-bold ${row.label === t('Assigned Agent') ? (req.assignedAgentName ? 'text-blue-600' : 'text-slate-900') : 'text-slate-800'}`}>{row.value}</span>
+                <div className={`text-sm font-bold ${row.label === t('Assigned Agent') ? (req.assignedAgentName ? 'text-blue-600' : 'text-slate-900') : 'text-slate-800'}`}>{row.value}</div>
               </div>
             ))}
           </div>
@@ -250,16 +284,22 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
                   </div>
                   <div className="pt-2 border-t border-blue-100 flex flex-col gap-1">
                     <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Transport Fee (Rs.)')}</p>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
-                      <input 
-                        type="number" 
-                        value={customAmount}
-                        onChange={e => setCustomAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-white border border-blue-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                      />
-                    </div>
+                    {isPending ? (
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
+                        <input 
+                          type="number" 
+                          value={customAmount}
+                          onChange={e => setCustomAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full bg-white border border-blue-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-white/50 border border-blue-100 rounded-lg px-3 py-2">
+                        <p className="text-base font-black text-blue-700">Rs. {Number(req.approvedAmount || 0).toLocaleString()}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : req.requestType === 'TOOL_RENT' ? (
@@ -276,19 +316,25 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
                   </div>
                   <div className="pt-2 border-t border-purple-100 flex flex-col gap-1">
                     <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Total Rental Fee (Rs.)')}</p>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
-                      <input 
-                        type="number" 
-                        value={customAmount}
-                        onChange={e => setCustomAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-white border border-purple-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-purple-100"
-                      />
-                    </div>
+                    {isPending ? (
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
+                        <input 
+                          type="number" 
+                          value={customAmount}
+                          onChange={e => setCustomAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full bg-white border border-purple-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-purple-100"
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-white/50 border border-purple-100 rounded-lg px-3 py-2">
+                         <p className="text-base font-black text-purple-700">Rs. {Number(req.approvedAmount || 0).toLocaleString()}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ) : inventoryItem && (
+              ) : (inventoryItem || req.itemDetails) && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
                   <div className="flex gap-3 items-center">
                     <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
@@ -296,13 +342,15 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
                     </div>
                     <div className="flex-1">
                       <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Inventory Pricing')}</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">{t(inventoryItem.itemName)}</p>
-                      <p className="text-xs font-semibold text-slate-950">Rs. {Number(inventoryItem.unitCost).toLocaleString()} / {t(inventoryItem.unit || 'unit')}</p>
+                      <p className="text-sm font-bold text-slate-800 leading-none">
+                        {inventoryItem ? t(inventoryItem.itemName) : t('Multiple Items List')}
+                      </p>
+                      {inventoryItem && <p className="text-xs font-semibold text-slate-950">Rs. {Number(inventoryItem.unitCost).toLocaleString()} / {t(inventoryItem.unit || 'unit')}</p>}
                     </div>
                   </div>
                   <div className="pt-1.5 border-t border-blue-100 flex justify-between items-center">
                     <span className="text-[10px] font-bold text-slate-900 uppercase">{t('Calculated Total')}</span>
-                    <span className="text-base font-black text-blue-700">Rs. {((Number(inventoryItem.unitCost) || 0) * (Number(req.quantity) || 1)).toLocaleString()}</span>
+                    <span className="text-base font-black text-blue-700">Rs. {Number(customAmount).toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -330,17 +378,17 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
             
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight">{isDirect ? t('Passbook') : t('Emp ID')}</p>
+                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight">{t('Requested Item')}</p>
                 <p className="text-sm font-bold text-slate-800 leading-tight">
-                  {creatorInfo?.employeeId || (isDirect ? req.passbookNo : (req.creatorId || "---"))}
+                   {t(inventoryItem?.itemName || req.itemType || meta.label)}
                 </p>
               </div>
+              <div className="h-8 w-[1px] bg-slate-200 mx-2" />
               <div>
-                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight text-right">{t('Requested At')}</p>
-                <div className="flex items-center gap-1.5 justify-end">
-                   <p className="text-sm font-bold text-slate-800">{formatDate(req.requestDate, lang)}</p>
-                   <p className="text-xs text-slate-900 font-bold">{formatTime(req.requestDate)}</p>
-                </div>
+                <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest leading-tight">{t('Quantity')}</p>
+                <p className="text-sm font-bold text-slate-800 leading-tight">
+                   {getAmountQty(req, t)}
+                </p>
               </div>
             </div>
           </div>
@@ -399,7 +447,14 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
           <div className="px-7 pb-4 grid grid-cols-3 gap-4">
             {req.requestType !== 'ADVISORY' && (
               <div className="col-span-1">
-                <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest mb-2">{t('Final Deduction (Rs.)')}</p>
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-[10px] font-semibold text-slate-900 uppercase tracking-widest">{t('Final Deduction (Rs.)')}</p>
+                  {inventoryItem && (
+                    <span className="text-[9px] text-slate-600 font-bold bg-slate-100 px-1.5 py-0.5 rounded">
+                      Rs. {Number(inventoryItem.unitCost).toLocaleString()} x {req.quantity || 1}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-sm">Rs.</span>
                   <input 
@@ -407,8 +462,20 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
                     value={customAmount} 
                     onChange={e => setCustomAmount(e.target.value)} 
                     placeholder="0"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-lg font-black text-slate-800 outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] transition-all" 
+                    readOnly={!isAmountEditable}
+                    className={`w-full border rounded-xl pl-12 pr-10 py-3 text-lg font-black text-slate-800 outline-none transition-all ${isAmountEditable ? "bg-white border-blue-400 ring-2 ring-blue-100 shadow-sm" : "bg-slate-50 border-slate-200 cursor-not-allowed"}`} 
                   />
+                  <button 
+                    onClick={() => setIsAmountEditable(!isAmountEditable)}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors group ${isAmountEditable ? "bg-green-100 hover:bg-green-200" : "hover:bg-blue-50"}`}
+                    title={isAmountEditable ? t("Confirm Amount") : t("Edit Amount")}
+                  >
+                    {isAmountEditable ? (
+                      <Check size={14} className="text-green-600" />
+                    ) : (
+                      <Pencil size={14} className="text-slate-400 group-hover:text-blue-500" />
+                    )}
+                  </button>
                 </div>
               </div>
             )}
@@ -740,6 +807,11 @@ export default function ApprovalsPage() {
                       </td>
                       <td className={TD}>
                         <p className="text-sm font-semibold text-slate-800 leading-tight">{req.supplierName || "---"}</p>
+                        {req.passbookNo && (
+                          <span className="text-[10px] text-slate-500 block mt-0.5 font-medium">
+                            {req.passbookNo}
+                          </span>
+                        )}
                       </td>
                       <td className={TD}><span className={`text-sm ${meta.color}`}>{t(meta.label)}</span></td>
                       <td className={TD}><span className="text-sm font-semibold text-slate-800">{getAmountQty(req, t)}</span></td>
@@ -776,37 +848,14 @@ export default function ApprovalsPage() {
                       </td>
                       <td className={TD}>
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-900"}`}>
-                          {t(req.status.replace(/_/g, ' '))}
+                          {req.status === 'APPROVED_BY_EXT' ? t('APPROVED BY MGR') : t(req.status.replace(/_/g, ' '))}
                         </span>
                       </td>
                       <td className={`${TD} text-right`}>
                         <div className="inline-flex items-center gap-1">
-                          <button onClick={() => setViewReq({ req, code: `REQ-${String(i + 1).padStart(3, "0")}` })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                            <Eye size={14} /> {t('View')}
+                          <button onClick={() => setViewReq({ req, code: `REQ-${String(i + 1).padStart(3, "0")}` })} className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
+                            <Eye size={14} /> {req.status === 'PENDING' ? t('View & Process') : t('View')}
                           </button>
-                          
-                          {userRole === 'store-keeper' ? (
-                            req.status === "APPROVED_BY_EXT" && (
-                              <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "DISPATCHED")} className="inline-flex items-center gap-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                <Package size={14} /> {t('Dispatch')}
-                              </button>
-                            )
-                          ) : (
-                            statusFilter === "PENDING" && (
-                              req.requestType === 'ADVISORY' ? (
-                                <span className="text-[10px] text-slate-900 italic mr-2">{t('Open to respond')}</span>
-                              ) : (
-                                <>
-                                  <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "APPROVED_BY_EXT")} className="inline-flex items-center gap-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                    <CheckCircle2 size={14} /> {t('Approve')}
-                                  </button>
-                                  <button disabled={isProcessing} onClick={() => handleAction(req.requestId!, "REJECTED")} className="inline-flex items-center gap-1.5 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                    <XCircle size={14} /> {t('Reject')}
-                                  </button>
-                                </>
-                              )
-                            )
-                          )}
                         </div>
                       </td>
                     </tr>

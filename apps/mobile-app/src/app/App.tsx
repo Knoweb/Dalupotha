@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { Platform, Pressable, Text, View, ActivityIndicator } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { palette, styles } from "../ui/theme";
 
 import { LoginScreen, OtpScreen } from "../features/auth/AuthScreens";
@@ -88,7 +89,7 @@ function MainTabNavigator({ route, navigation }: any) {
           <Tab.Screen name="Supply" children={() => <SupplierSupplyScreen user={user} token={token} navigation={navigation} lang={lang} />} />
           <Tab.Screen name="Requests" children={(props: any) => <RequestsScreen {...props} navigation={navigation} user={user} token={token} role={role} lang={lang} />} />
           <Tab.Screen name="Payments" children={() => <SupplierPaymentsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
-          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} navigation={navigation} lang={lang} />} />
+          <Tab.Screen name="Debts" children={() => <SupplierDebtsScreen user={user} token={token} navigation={navigation} lang={lang} />} />
           <Tab.Screen name="Profile" children={() => <SupplierProfileScreen user={user} navigation={navigation} lang={lang} setLang={setLang} />} />
         </>
       ) : (
@@ -107,6 +108,25 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     Alakamanda: require("../../assests/Alakamanda.ttf"),
   });
+
+  const [session, setSession] = React.useState<{role: Role, token: string, user: any} | null>(null);
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("dalupotha_session");
+        if (stored) {
+          setSession(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.error("Failed to load session", e);
+      } finally {
+        setIsReady(true);
+      }
+    };
+    loadSession();
+  }, []);
 
   React.useEffect(() => {
     if (Platform.OS !== "web") return;
@@ -153,7 +173,7 @@ export default function App() {
     document.head.appendChild(style);
   }, []);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !isReady) {
     return (
       <View style={{ flex: 1, backgroundColor: palette.bgOuter, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator color={palette.accentGreen} size="large" />
@@ -164,11 +184,21 @@ export default function App() {
   return (
     <NavigationContainer>
       <StatusBar style="light" />
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Navigator 
+        screenOptions={{ headerShown: false }}
+        initialRouteName={session ? "MainTabs" : "Login"}
+      >
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen} 
+        />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Otp" component={OtpScreen} />
-        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen 
+          name="MainTabs" 
+          component={MainTabNavigator} 
+          initialParams={session ? { role: session.role, token: session.token, user: session.user } : undefined}
+        />
         <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
         <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
         <Stack.Screen name="Circulars" children={(props) => <CircularsScreen {...props} lang={props.route.params?.lang || 'en'} />} />

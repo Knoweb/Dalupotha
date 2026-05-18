@@ -345,6 +345,8 @@ public class AuthService {
     // ────────────────────────────────────────────
     @Transactional
     public AuthResponse registerSmallHolder(SmallHolderRegisterRequest request) {
+        // [BYPASSED BY USER REQUEST] OTP verification bypassed for now. Directly registers user.
+        /*
         if (!"MANUAL".equals(request.getOtpCode())) {
             OtpCode otpCode = otpRepository
                     .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
@@ -358,6 +360,7 @@ public class AuthService {
             otpCode.setUsed(true);
             otpRepository.save(otpCode);
         }
+        */
 
         if (userRepository.existsByContact(request.getContact())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -426,6 +429,8 @@ public class AuthService {
     // ────────────────────────────────────────────
     @Transactional
     public AuthResponse registerAgent(AgentRegisterRequest request) {
+        // [BYPASSED BY USER REQUEST] OTP verification bypassed for now. Directly registers user.
+        /*
         if (!"MANUAL".equals(request.getOtpCode())) {
             OtpCode otpCode = otpRepository
                     .findTopByContactAndIsUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
@@ -439,6 +444,7 @@ public class AuthService {
             otpCode.setUsed(true);
             otpRepository.save(otpCode);
         }
+        */
 
         if (userRepository.existsByContact(request.getContact())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,

@@ -255,9 +255,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
   },
 });

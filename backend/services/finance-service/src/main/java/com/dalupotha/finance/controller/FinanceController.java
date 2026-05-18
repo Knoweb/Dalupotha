@@ -58,7 +58,7 @@ public class FinanceController {
             @RequestParam(required = false) RequestStatus status,
             @RequestParam(required = false) Integer limit
     ) {
-        return financeService.getRequests(createdById, supplierId, requestType, status, limit);
+        return financeService.getRequests(createdById, supplierId, null, requestType, status, null, limit);
     }
 
     @PatchMapping("/api/services/request/{requestId}/status")
@@ -67,5 +67,26 @@ public class FinanceController {
             @Valid @RequestBody UpdateRequestStatusRequest request
     ) {
         return financeService.updateRequestStatus(requestId, request);
+    }
+
+    // ── Configuration Endpoints ─────────────────────────────────────
+    @GetMapping("/api/finance/leaf-price")
+    public java.util.Map<String, Object> getLeafPrice() {
+        return financeService.getCurrentLeafPrice();
+    }
+
+    @PostMapping("/api/finance/leaf-price")
+    public java.util.Map<String, Object> setLeafPrice(@RequestBody com.dalupotha.finance.dto.LeafPriceRequest request) {
+        return financeService.setLeafPrice(request.pricePerKg());
+    }
+
+    @GetMapping("/api/finance/advance-limit")
+    public java.util.Map<String, Object> getAdvanceLimit() {
+        return financeService.getAdvanceLimit();
+    }
+
+    @PostMapping("/api/finance/advance-limit")
+    public java.util.Map<String, Object> setAdvanceLimit(@RequestBody com.dalupotha.finance.dto.AdvanceLimitRequest request) {
+        return financeService.setAdvanceLimit(request.advanceLimit());
     }
 }

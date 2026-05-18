@@ -29,6 +29,7 @@ export interface ServiceRequest {
   notes?: string;
   approverId?: string;
   approverComment?: string;
+  approvedAmount?: number;
 }
 
 export const FinanceAPI = {
@@ -39,11 +40,11 @@ export const FinanceAPI = {
     return res.json() as Promise<ServiceRequest[]>;
   },
   
-  updateStatus: async (requestId: string, status: RequestStatus, approverId: string, approverComment?: string) => {
+  updateStatus: async (requestId: string, status: RequestStatus, approverId: string, approverComment?: string, approvedAmount?: number) => {
     const res = await fetch(`${API_BASE}/services/request/${requestId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, approverId, approverComment })
+      body: JSON.stringify({ status, approverId, approverComment, amount: approvedAmount })
     });
     if (!res.ok) throw new Error('Failed to update request status');
     return res.json() as Promise<ServiceRequest>;

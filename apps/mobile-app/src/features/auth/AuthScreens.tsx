@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { palette, styles } from "../../ui/theme";
 import { AuthAPI, apiPost } from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Role = "agent" | "supplier";
 
@@ -103,7 +104,7 @@ export function LoginScreen({ navigation }: any) {
     ? _("Access your supply history, debts and payments")
     : _("Access field collections and sync status");
   const idLabel       = role === "supplier" ? _("SUPPLIER ID / PASSBOOK") : _("AGENT ID");
-  const idPlaceholder = role === "supplier" ? "e.g. PB-0934" : "TA-XXXX";
+  const idPlaceholder = role === "supplier" ? "e.g. 05497" : "TA-XXXX";
 
   // ── Supplier: PIN login ───────────────────────────────────────────────────
   const handleSupplierLogin = async () => {
@@ -130,6 +131,7 @@ export function LoginScreen({ navigation }: any) {
         passbookNo: id.trim(),
         pin:        pin.trim(),
       });
+      await AsyncStorage.setItem("dalupotha_session", JSON.stringify({ role, token: res.token, user: res }));
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
       const { field, display } = parseLoginError(err.message ?? "", true);
@@ -168,6 +170,7 @@ export function LoginScreen({ navigation }: any) {
         employeeId: normalizedId,
         password:   normalizedPin,
       });
+      await AsyncStorage.setItem("dalupotha_session", JSON.stringify({ role, token: res.token, user: res }));
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
       const { field, display } = parseLoginError(err.message ?? "", false);
@@ -407,6 +410,7 @@ export function OtpScreen({ route, navigation }: any) {
         });
       }
       // Token received — navigate to main
+      await AsyncStorage.setItem("dalupotha_session", JSON.stringify({ role, token: res.token, user: res }));
       navigation.navigate("MainTabs", { role, token: res.token, user: res });
     } catch (err: any) {
       setErrorMsg(err.message ?? "Invalid or expired OTP.");

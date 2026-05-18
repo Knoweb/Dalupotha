@@ -7,6 +7,8 @@ import com.dalupotha.auth.entity.UserRole;
 import com.dalupotha.auth.entity.UserStatus;
 import com.dalupotha.auth.repository.EstateRepository;
 import com.dalupotha.auth.repository.UserRepository;
+import com.dalupotha.auth.repository.TransportAgentRepository;
+import com.dalupotha.auth.entity.TransportAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,7 @@ public class EstateController {
     private final EstateRepository estateRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TransportAgentRepository transportAgentRepository;
 
     @GetMapping
     public List<Estate> getAllEstates() {
@@ -81,10 +84,17 @@ public class EstateController {
         List<User> agents = userRepository.findByEstate_EstateIdAndRoleAndStatus(
                 estateId, UserRole.TA, UserStatus.ACTIVE);
         List<Map<String, Object>> result = agents.stream()
-                .map(u -> Map.<String, Object>of(
-                        "userId", u.getUserId().toString(),
-                        "fullName", u.getFullName() != null ? u.getFullName() : "",
-                        "employeeId", u.getEmployeeId() != null ? u.getEmployeeId() : ""))
+                .map(u -> {
+                    String routeName = transportAgentRepository.findByUser(u)
+                            .map(TransportAgent::getRouteName)
+                            .orElse("");
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("userId", u.getUserId().toString());
+                    map.put("fullName", u.getFullName() != null ? u.getFullName() : "");
+                    map.put("employeeId", u.getEmployeeId() != null ? u.getEmployeeId() : "");
+                    map.put("routeName", routeName);
+                    return map;
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }

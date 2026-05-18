@@ -1,0 +1,116 @@
+﻿#1 [internal] load local bake definitions
+#1 reading from stdin 1.84kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 350B 0.0s done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+#3 ...
+
+#4 [internal] load metadata for docker.io/library/maven:3.9.9-eclipse-temurin-21
+#4 DONE 0.4s
+
+#3 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+#3 DONE 1.9s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 DONE 0.0s
+
+#7 [stage-1 1/3] FROM docker.io/library/eclipse-temurin:21-jre@sha256:010e0a06bd4e0184dec58626afb3ba727b42c56c91b977e2f0a9e0837e0fa3fb
+#7 resolve docker.io/library/eclipse-temurin:21-jre@sha256:010e0a06bd4e0184dec58626afb3ba727b42c56c91b977e2f0a9e0837e0fa3fb 0.1s done
+#7 DONE 0.1s
+
+#8 [build 1/6] FROM docker.io/library/maven:3.9.9-eclipse-temurin-21@sha256:3a4ab3276a087bf276f79cae96b1af04f53731bec53fb2e651aca79e4b10211e
+#8 resolve docker.io/library/maven:3.9.9-eclipse-temurin-21@sha256:3a4ab3276a087bf276f79cae96b1af04f53731bec53fb2e651aca79e4b10211e 0.1s done
+#8 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 3.96kB 0.0s done
+#6 DONE 0.0s
+
+#9 [build 2/6] WORKDIR /app
+#9 CACHED
+
+#10 [build 3/6] COPY pom.xml .
+#10 CACHED
+
+#11 [build 4/6] RUN mvn -q -DskipTests dependency:go-offline
+#11 CACHED
+
+#12 [build 5/6] COPY src ./src
+#12 CACHED
+
+#13 [build 6/6] RUN mvn -q -DskipTests clean package
+#13 13.10 [ERROR] COMPILATION ERROR : 
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[141,19] cannot find symbol
+#13 13.10   symbol:   method setRequestId(java.util.UUID)
+#13 13.10   location: variable ledger of type com.dalupotha.finance.entity.FinancialLedgerEntity
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[176,40] method search in interface com.dalupotha.finance.repository.ServiceRequestRepository cannot be applied to given types;
+#13 13.10   required: java.util.UUID,java.util.UUID,com.dalupotha.finance.model.RequestType,com.dalupotha.finance.model.RequestStatus,org.springframework.data.domain.Pageable
+#13 13.10   found:    java.util.UUID,java.util.UUID,java.lang.String,com.dalupotha.finance.model.RequestType,com.dalupotha.finance.model.RequestStatus,java.util.UUID,org.springframework.data.domain.PageRequest
+#13 13.10   reason: actual and formal argument lists differ in length
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[226,83] cannot find symbol
+#13 13.10   symbol:   method findOptionalByRequestId(java.util.UUID)
+#13 13.10   location: variable financialLedgerRepository of type com.dalupotha.finance.repository.FinancialLedgerRepository
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[237,46] cannot find symbol
+#13 13.10   symbol:   variable REJECTED
+#13 13.10   location: class com.dalupotha.finance.model.LedgerStatus
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[250,19] cannot find symbol
+#13 13.10   symbol:   method setRequestId(java.util.UUID)
+#13 13.10   location: variable ledger of type com.dalupotha.finance.entity.FinancialLedgerEntity
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[323,23] cannot find symbol
+#13 13.10   symbol:   method getRequestId()
+#13 13.10   location: variable entity of type com.dalupotha.finance.entity.FinancialLedgerEntity
+#13 13.10 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[345,74] cannot find symbol
+#13 13.10   symbol:   variable AWAITING_APPROVAL
+#13 13.10   location: class com.dalupotha.finance.model.LedgerStatus
+#13 13.10 [ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project finance-service: Compilation failure: Compilation failure: 
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[141,19] cannot find symbol
+#13 13.11 [ERROR]   symbol:   method setRequestId(java.util.UUID)
+#13 13.11 [ERROR]   location: variable ledger of type com.dalupotha.finance.entity.FinancialLedgerEntity
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[176,40] method search in interface com.dalupotha.finance.repository.ServiceRequestRepository cannot be applied to given types;
+#13 13.11 [ERROR]   required: java.util.UUID,java.util.UUID,com.dalupotha.finance.model.RequestType,com.dalupotha.finance.model.RequestStatus,org.springframework.data.domain.Pageable
+#13 13.11 [ERROR]   found:    java.util.UUID,java.util.UUID,java.lang.String,com.dalupotha.finance.model.RequestType,com.dalupotha.finance.model.RequestStatus,java.util.UUID,org.springframework.data.domain.PageRequest
+#13 13.11 [ERROR]   reason: actual and formal argument lists differ in length
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[226,83] cannot find symbol
+#13 13.11 [ERROR]   symbol:   method findOptionalByRequestId(java.util.UUID)
+#13 13.11 [ERROR]   location: variable financialLedgerRepository of type com.dalupotha.finance.repository.FinancialLedgerRepository
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[237,46] cannot find symbol
+#13 13.11 [ERROR]   symbol:   variable REJECTED
+#13 13.11 [ERROR]   location: class com.dalupotha.finance.model.LedgerStatus
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[250,19] cannot find symbol
+#13 13.11 [ERROR]   symbol:   method setRequestId(java.util.UUID)
+#13 13.11 [ERROR]   location: variable ledger of type com.dalupotha.finance.entity.FinancialLedgerEntity
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[323,23] cannot find symbol
+#13 13.11 [ERROR]   symbol:   method getRequestId()
+#13 13.11 [ERROR]   location: variable entity of type com.dalupotha.finance.entity.FinancialLedgerEntity
+#13 13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[345,74] cannot find symbol
+#13 13.11 [ERROR]   symbol:   variable AWAITING_APPROVAL
+#13 13.11 [ERROR]   location: class com.dalupotha.finance.model.LedgerStatus
+#13 13.11 [ERROR] -> [Help 1]
+#13 13.11 [ERROR] 
+#13 13.12 [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+#13 13.12 [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+#13 13.12 [ERROR] 
+#13 13.12 [ERROR] For more information about the errors and possible solutions, please read the following articles:
+#13 13.12 [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+#13 ERROR: process "/bin/sh -c mvn -q -DskipTests clean package" did not complete successfully: exit code: 1
+------
+ > [build 6/6] RUN mvn -q -DskipTests clean package:
+13.11 [ERROR] /app/src/main/java/com/dalupotha/finance/service/FinanceService.java:[345,74] cannot find symbol
+13.11 [ERROR]   symbol:   variable AWAITING_APPROVAL
+13.11 [ERROR]   location: class com.dalupotha.finance.model.LedgerStatus
+13.11 [ERROR] -> [Help 1]
+13.11 [ERROR] 
+13.12 [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+13.12 [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+13.12 [ERROR] 
+13.12 [ERROR] For more information about the errors and possible solutions, please read the following articles:
+13.12 [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+------
