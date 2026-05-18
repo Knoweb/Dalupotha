@@ -23,6 +23,14 @@ const dictionary: Record<string, Record<string, string>> = {
     "TRI Circulars": "TRI චක්‍රලේඛ",
     "Reports": "වාර්තා",
     "User Management": "පරිශීලක කළමනාකරණය",
+    "Route Management": "මාර්ග කළමනාකරණය",
+    "Collection Route Management": "එකතු කිරීමේ මාර්ග කළමනාකරණය",
+    "Total Estate Routes": "මුළු වතු මාර්ග ගණන",
+    "Unique Area Codes": "අනන්‍ය ප්‍රදේශ කේත",
+    "Define Collection Route": "එකතු කිරීමේ මාර්ගය ඇතුල් කරන්න",
+    "Route Division Name": "මාර්ගයේ නම",
+    "Route Prefix Code": "මාර්ගයේ කේතය",
+    "Add Route": "මාර්ගයක් එක් කරන්න",
     "Settings": "සැකසුම්",
     "Sign Out": "පිටවන්න",
     "Manager": "කළමනාකරු",
@@ -231,6 +239,8 @@ const dictionary: Record<string, Record<string, string>> = {
     "WEIGHT (KG)": "බර (kg)",
     "NET (KG)": "ශුද්ධ බර (kg)",
     "TRANSPORT AGENT": "ට්රාන්ස්පෝර්ට් නියෝජිතයා",
+    "Collection Route": "එකතු කිරීමේ මාර්ගය",
+    "Select Collection Route": "මාර්ගය තෝරන්න",
     "GPS": "GPS",
     "TIME": "වේලාව",
     "SYNC": "සමමුහුර්ත කිරීම",
@@ -770,7 +780,6 @@ const dictionary: Record<string, Record<string, string>> = {
     "Location details": "ස්ථාන විස්තර",
     "Master Admin Email": "ප්‍රධාන පරිපාලක විද්‍යුත් තැපෑල",
     "Administrator Password": "පරිපාලක මුරපදය",
-    "Confirm Password": "මුරපදය තහවුරු කරන්න",
     "Confirm & Register": "තහවුරු කර ලියාපදිංචි වන්න",
     "Estate onboarded successfully! Access cleared for management.": "වතුයාය සාර්ථකව ලියාපදිංචි කරන ලදී! කළමනාකරණය සඳහා ප්‍රවේශය ලබා දී ඇත.",
     "Registration failed. Please check your connection.": "ලියාපදිංචිය අසාර්ථක විය. කරුණාකර ඔබේ සම්බන්ධතාවය පරීක්ෂා කරන්න.",
@@ -781,7 +790,7 @@ const dictionary: Record<string, Record<string, string>> = {
     "4. Physical Address": "4. භෞතික ලිපිනය",
     "5. Master Admin Email": "5. ප්‍රධාන පරිපාලක විද්‍යුත් තැපෑල",
     "6. Administrator Password": "6. පරිපාලක මුරපදය",
-    "7. Confirm Password": "7. මුරපදය තහවුරු කරන්න",
+    "7. Confirm Password": "7. මුරපදය තහවුරු කරන්න"
   }
 };
 

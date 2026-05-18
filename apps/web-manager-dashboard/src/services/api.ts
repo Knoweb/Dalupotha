@@ -159,6 +159,7 @@ export interface DetailedUser extends UserSummary {
   arcs?: number;
   inChargeName?: string;
   inChargeId?: string;
+  routeName?: string;
 }
 
 export const AuthAPI = {
@@ -250,8 +251,38 @@ export const AuthAPI = {
       headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to update user');
+    if (!res.ok) {
+      let errMsg = `Update failed (${res.status})`;
+      try { const body = await res.json(); errMsg = body.message || body.error || JSON.stringify(body); } catch {}
+      throw new Error(errMsg);
+    }
+    try { return await res.json(); } catch { return; }
+  },
+
+  getEstateRoutes: async (estateId: string) => {
+    const res = await fetch(`${API_BASE}/auth/estates/${estateId}/routes`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch estate routes');
+    return res.json() as Promise<Array<{ routeId: string; name: string; code: string }>>;
+  },
+
+  createEstateRoute: async (estateId: string, data: { name: string; code: string }) => {
+    const res = await fetch(`${API_BASE}/auth/estates/${estateId}/routes`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create route');
     return res.json();
+  },
+
+  deleteEstateRoute: async (estateId: string, routeId: string) => {
+    const res = await fetch(`${API_BASE}/auth/estates/${estateId}/routes/${routeId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete route');
   },
 };
 

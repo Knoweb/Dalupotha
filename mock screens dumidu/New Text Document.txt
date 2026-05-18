@@ -17,4 +17,4 @@ Store keeper(email=dinuka@gmail.com    Password=Dinuka@123)
 
  https://ta-sh-dashboard-react.vercel.app/
 
- Manager Dashboard: https://"mg-dashboard-react.vercel.app
+ Manager Dashboard: https://mg-dashboard-react.vercel.app

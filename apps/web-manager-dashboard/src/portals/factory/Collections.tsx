@@ -12,6 +12,10 @@ export default function CollectionsPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
   const [selectedCollection, setSelectedCollection] = useState<CollectionItem | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    return new Date().toLocaleString('en-US', { month: 'short' });
+  })
+  const [supplierRoute, setSupplierRoute] = useState<string | null>(null)
 
   const fetchCollections = useCallback(async () => {
     setLoading(true)
@@ -44,6 +48,22 @@ export default function CollectionsPage() {
     return () => { supabase.removeChannel(channel) }
   }, [fetchCollections])
 
+  useEffect(() => {
+    if (!selectedCollection?.supplierId) {
+      setSupplierRoute(null);
+      return;
+    }
+    fetch(`/api/auth/suppliers/${selectedCollection.supplierId}/profile`)
+      .then(res => res.json())
+      .then(data => {
+        setSupplierRoute(data.routeName || null);
+      })
+      .catch(err => {
+        console.error('Failed to fetch supplier route:', err);
+        setSupplierRoute(null);
+      });
+  }, [selectedCollection]);
+
   const filtered = useMemo(() => {
     return collections.filter(c => {
       const matchesSearch = !search || 
@@ -51,13 +71,28 @@ export default function CollectionsPage() {
         c.passbookNo.toLowerCase().includes(search.toLowerCase()) ||
         (agentsMap[c.transportAgentId] || '').toLowerCase().includes(search.toLowerCase());
       
+      if (!matchesSearch) return false;
+
+      const date = new Date(c.collectedAt);
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const cMonth = monthNames[date.getMonth()];
+      const cYear = date.getFullYear().toString();
+
       if (filter === 'Today') {
-        const today = new Date().toISOString().split('T')[0]
-        return matchesSearch && c.collectedAt.startsWith(today)
+        const today = new Date().toISOString().split('T')[0];
+        return c.collectedAt.startsWith(today);
+      } else if (filter === 'This Week') {
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return date >= oneWeekAgo;
+      } else if (filter === 'This Month') {
+        return cMonth === selectedMonth && cYear === new Date().getFullYear().toString();
       }
-      return matchesSearch
+      
+      // Default: If filter is 'All', let the Month/Year dropdown filter it!
+      return cMonth === selectedMonth && cYear === new Date().getFullYear().toString();
     })
-  }, [collections, search, filter, agentsMap])
+  }, [collections, search, filter, agentsMap, selectedMonth])
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -78,6 +113,15 @@ export default function CollectionsPage() {
              <FilterBtn key={f} label={t(f)} active={filter === f} onClick={() => setFilter(f)} />
            ))}
         </div>
+        <select 
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-xs font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-green-500/10 cursor-pointer"
+        >
+          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => (
+            <option key={m} value={m}>{t(m)} {new Date().getFullYear()}</option>
+          ))}
+        </select>
         <button className="flex items-center gap-2 bg-white border border-slate-100 px-4 py-2.5 rounded-lg text-slate-600 text-xs font-bold shadow-sm hover:bg-slate-50">
            <Download size={14} className="text-slate-900" />
            <span>{t('Export')}</span>
@@ -168,12 +212,25 @@ export default function CollectionsPage() {
 
                  {/* Supplier & Agent */}
                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                       <User size={14} className="text-green-500 mb-2" />
-                       <p className="text-[10px] font-bold text-slate-900 uppercase">{t('Supplier')}</p>
-                       <p className="text-sm font-bold text-slate-800">{selectedCollection.supplierName}</p>
-                       <p className="text-[10px] text-slate-900">{selectedCollection.passbookNo}</p>
-                    </div>
+                     <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between min-h-[120px]">
+                        <div>
+                           <User size={14} className="text-green-500 mb-2" />
+                           <p className="text-[10px] font-bold text-slate-900 uppercase">{t('Supplier')}</p>
+                           <p className="text-sm font-bold text-slate-800 leading-tight">{selectedCollection.supplierName}</p>
+                           <p className="text-[11px] font-medium text-slate-500 mt-0.5">{selectedCollection.passbookNo}</p>
+                        </div>
+                        {supplierRoute && (
+                           <div className="mt-3 pt-2 border-t border-slate-100/80 flex items-center justify-between">
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('Route')}</span>
+                              <span className="text-xs font-bold text-green-600 bg-green-50/80 border border-green-100 px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm shadow-green-100/20">
+                                 📍 {(() => {
+                                    const match = supplierRoute.match(/\(([^)]+)\)/);
+                                    return match ? match[1].toUpperCase() : supplierRoute;
+                                 })()}
+                              </span>
+                           </div>
+                        )}
+                     </div>
                     <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
                        <User size={14} className="text-blue-500 mb-2" />
                        <p className="text-[10px] font-bold text-slate-900 uppercase">{t('TRANSPORT AGENT')}</p>

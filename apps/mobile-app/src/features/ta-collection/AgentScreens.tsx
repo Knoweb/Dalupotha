@@ -31,6 +31,9 @@ type CollectionCardItem = {
   supplierName: string;
   passbookNo?: string;
   grossWeight: number;
+  netWeight?: number;
+  gpsLat?: number;
+  gpsLng?: number;
   collectedAt: string;
   syncStatus: "QUEUED" | "SYNCING" | "SYNCED" | "FAILED";
   gpsStatus: "GPS" | "NO_GPS" | "MANUAL";
@@ -124,6 +127,9 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         supplierName: item.supplierName,
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
+        netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
+        gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
+        gpsLng: item.gpsLng != null ? Number(item.gpsLng) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -136,6 +142,8 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         supplierName: item.supplierName || "Unknown Supplier",
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
+        gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
+        gpsLng: item.gpsLng != null ? Number(item.gpsLng) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -391,7 +399,11 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
             ? `${nameParts[nameParts.length - 1]}, ${nameParts[0].charAt(0)}.`
             : item.supplierName;
           return (
-            <View key={item.key || idx} style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+            <Pressable 
+              key={item.key || idx} 
+              onPress={() => navigation.navigate("CollectionDetail", { item, token })}
+              style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
+            >
               <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
                 <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>{initial}</Text>
               </View>
@@ -413,7 +425,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
                 <Text style={{ color: isSynced ? "#1fbe57" : "#fff", fontSize: 15, fontWeight: "800" }}>{`${Number(item.grossWeight).toFixed(1)} kg`}</Text>
                 <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{formatDateTime(item.collectedAt)}</Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
 
@@ -458,6 +470,9 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         supplierName: item.supplierName,
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
+        netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
+        gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
+        gpsLng: item.gpsLng != null ? Number(item.gpsLng) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -470,6 +485,8 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         supplierName: item.supplierName || "Unknown Supplier",
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
+        gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
+        gpsLng: item.gpsLng != null ? Number(item.gpsLng) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -1804,8 +1821,111 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
 // Profile Screen
 // ─────────────────────────────────────────────────────────────
 
-export function ProfileScreen({ user, navigation }: any) {
+export function ProfileScreen({ user, token, navigation }: any) {
   const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
+  
+  const getShortRoutes = (routeName: string | undefined | null) => {
+    if (!routeName) return "";
+    const matches = [...routeName.matchAll(/\(([^)]+)\)/g)];
+    if (matches.length > 0) {
+      return matches.map(m => m[1]).join(", ");
+    }
+    return routeName;
+  };
+
+  const estatePart = user?.estateName ? `${user.estateName} · ` : "";
+  const routesPart = getShortRoutes(user?.routeName) || "No route assigned";
+
+  const [stats, setStats] = useState({ todayKg: 0, supplierCount: 0, monthKg: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const loadStats = async () => {
+        if (!token || !user?.userId) {
+          setLoadingStats(false);
+          return;
+        }
+        try {
+          const offlineQueue = await getOfflineCollections(user.userId);
+          let serverHistory: ApiCollectionHistory[] = [];
+          try {
+            const data = await apiGet<ApiCollectionHistory[]>(`${CollectionAPI.agentHistory(user.userId)}?limit=250`, token);
+            serverHistory = Array.isArray(data) ? data : [];
+          } catch (e) {
+            console.log("Server sync unreachable for Profile stats.");
+          }
+
+          const serverItems: CollectionCardItem[] = serverHistory.map((item) => ({
+            key: item.collectionId,
+            supplierId: item.supplierId,
+            supplierName: item.supplierName,
+            grossWeight: Number(item.grossWeight || 0),
+            netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
+            gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
+            gpsLng: item.gpsLng != null ? Number(item.gpsLng) : undefined,
+            collectedAt: item.collectedAt,
+            syncStatus: item.syncStatus,
+            gpsStatus: item.gpsStatus,
+            manualOverride: !!item.manualOverride,
+          }));
+
+          const queuedItems: CollectionCardItem[] = offlineQueue.map((item) => ({
+            key: item.clientRef,
+            supplierId: item.supplierId,
+            supplierName: item.supplierName || "Unknown Supplier",
+            grossWeight: Number(item.grossWeight || 0),
+            netWeight: undefined,
+            gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
+            gpsLng: item.gpsLng != null ? Number(item.gpsLng) : undefined,
+            collectedAt: item.collectedAt,
+            syncStatus: item.syncStatus,
+            gpsStatus: item.gpsStatus,
+            manualOverride: item.manualOverride,
+          }));
+
+          const merged = [...queuedItems, ...serverItems];
+
+          // 1. Calculate today's total weight
+          const now = new Date();
+          const tKg = merged
+            .filter((item) => {
+              const d = new Date(item.collectedAt);
+              return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+            })
+            .reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
+
+          // 2. Calculate month's total weight
+          const mKg = merged
+            .filter((item) => {
+              const d = new Date(item.collectedAt);
+              return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            })
+            .reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);
+
+          // 3. Calculate unique suppliers count
+          const sCount = new Set(merged.map((item) => item.supplierId)).size;
+
+          if (active) {
+            setStats({ todayKg: tKg, supplierCount: sCount, monthKg: mKg });
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          if (active) {
+            setLoadingStats(false);
+          }
+        }
+      };
+
+      loadStats();
+      return () => {
+        active = false;
+      };
+    }, [token, user?.userId])
+  );
+
   return (
     <View style={styles.dashboardWrap}>
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
@@ -1824,23 +1944,47 @@ export function ProfileScreen({ user, navigation }: any) {
             <Text style={styles.profileAvatarBigText}>{initials}</Text>
           </View>
           <Text style={styles.profileName}>{user?.fullName || "Agent"}</Text>
-          <Text style={styles.profileRole}>Transport Agent · {user?.routeName || "No route assigned"}</Text>
-          <View style={styles.profileIdBadge}>
+          
+          <Text style={[styles.profileRole, { fontWeight: "800", color: "#fff", fontSize: 15, textTransform: "uppercase", letterSpacing: 0.5 }]}>
+            Transport Agent
+          </Text>
+          
+          <Text style={[styles.profileRole, { fontSize: 12, color: palette.muted, marginTop: 4, fontWeight: "600" }]}>
+             📍 {user?.estateName || "Dalupotha Estate"}   •   Routes: {routesPart}
+          </Text>
+
+          <View style={[styles.profileIdBadge, { marginTop: 12 }]}>
             <Text style={styles.profileIdText}>{user?.employeeId || "TA-XXX"}</Text>
           </View>
         </View>
 
         <View style={styles.profileStatsRow}>
           <View style={styles.profileStatBox}>
-            <Text style={styles.profileStatValue}>1,240</Text>
+            {loadingStats ? (
+              <ActivityIndicator color={palette.accentGreen} size="small" />
+            ) : (
+              <Text style={styles.profileStatValue}>
+                {stats.todayKg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+              </Text>
+            )}
             <Text style={styles.profileStatLabel}>KG TODAY</Text>
           </View>
           <View style={[styles.profileStatBox, { marginHorizontal: 10 }]}>
-            <Text style={styles.profileStatValue}>14</Text>
+            {loadingStats ? (
+              <ActivityIndicator color={palette.accentBlue} size="small" />
+            ) : (
+              <Text style={styles.profileStatValue}>{stats.supplierCount}</Text>
+            )}
             <Text style={styles.profileStatLabel}>SUPPLIERS</Text>
           </View>
           <View style={styles.profileStatBox}>
-            <Text style={styles.profileStatValue}>22,450</Text>
+            {loadingStats ? (
+              <ActivityIndicator color="#9b59b6" size="small" />
+            ) : (
+              <Text style={styles.profileStatValue}>
+                {stats.monthKg.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+              </Text>
+            )}
             <Text style={styles.profileStatLabel}>KG MONTH</Text>
           </View>
         </View>
@@ -2122,10 +2266,24 @@ export function CollectionDetailScreen({ route, navigation }: any) {
     return name.substring(0, 1).toUpperCase();
   };
 
-  // Extract bag id and deductions if any (mock for now since it's not in the base payload)
-  const bagId = "LB-009";
-  const deduction = "-2.5 kg";
-  const netWeight = (item.grossWeight - 2.5).toFixed(1);
+  // Check if factory quality assessment is completed / processed
+  const isProcessed = item.netWeight != null && Number(item.netWeight) > 0;
+
+  const collectionIdCode = (() => {
+    const id = item.collectionId || item.key;
+    if (!id) return "Pending";
+    if (item.syncStatus === "QUEUED" || id.startsWith("cl-")) {
+      return "Queued";
+    }
+    return id.slice(0, 4).toUpperCase();
+  })();
+
+  const deduction = isProcessed 
+    ? `-${Number(Math.max(0, item.grossWeight - item.netWeight)).toFixed(1)} kg` 
+    : "Pending";
+  const netWeight = isProcessed 
+    ? `${Number(item.netWeight).toFixed(1)} kg` 
+    : "Pending";
 
   return (
     <View style={styles.dashboardWrap}>
@@ -2191,17 +2349,17 @@ export function CollectionDetailScreen({ route, navigation }: any) {
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
              <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>DEDUCTION</Text>
-             <Text style={{ color: "#ff6b6b", fontSize: 18, fontWeight: "800" }}>{deduction}</Text>
+             <Text style={{ color: isProcessed ? "#ff6b6b" : palette.muted, fontSize: 18, fontWeight: "800" }}>{deduction}</Text>
           </View>
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
              <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>NET WEIGHT</Text>
-             <Text style={{ color: palette.accentGreen, fontSize: 18, fontWeight: "800" }}>{netWeight} kg</Text>
+             <Text style={{ color: isProcessed ? palette.accentGreen : palette.muted, fontSize: 18, fontWeight: "800" }}>{netWeight}</Text>
           </View>
 
           <View style={[styles.collectionItemCard, { width: "48%", padding: 16, alignItems: "center", justifyContent: "center", flexDirection: "column" }]}>
-             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>LEAF BAG</Text>
-             <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>{bagId}</Text>
+             <Text style={[styles.cardItemSub, { fontSize: 11, marginBottom: 6, letterSpacing: 1 }]}>COLLECTION ID</Text>
+             <Text style={{ color: collectionIdCode !== "Queued" && collectionIdCode !== "Pending" ? "#fff" : palette.muted, fontSize: 18, fontWeight: "800" }}>{collectionIdCode}</Text>
           </View>
 
         </View>
@@ -2209,9 +2367,11 @@ export function CollectionDetailScreen({ route, navigation }: any) {
         {/* GPS Location explicitly shown */}
         <View style={[styles.collectionItemCard, { padding: 20, alignItems: "center", marginBottom: 15, flexDirection: "column" }]}>
           <Ionicons name="location-outline" size={32} color={palette.accentBlue} style={{ marginBottom: 10 }} />
-          {item.gpsStatus === "GPS" ? (
+          {item.gpsStatus === "GPS" && item.gpsLat && item.gpsLng ? (
             <>
-              <Text style={{ color: palette.accentGreen, fontSize: 16, fontWeight: "700", marginBottom: 4 }}>GPS: 7.3012, 80.6417</Text>
+              <Text style={{ color: palette.accentGreen, fontSize: 16, fontWeight: "700", marginBottom: 4 }}>
+                GPS: {Number(item.gpsLat).toFixed(4)}, {Number(item.gpsLng).toFixed(4)}
+              </Text>
               <Text style={styles.cardItemSub}>Accuracy: ±4m</Text>
             </>
           ) : (

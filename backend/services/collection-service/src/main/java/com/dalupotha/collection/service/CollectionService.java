@@ -228,7 +228,9 @@ public class CollectionService {
                 lc.getTransportAgentId(),
                 agentName,
                 lc.getProcessedByName(),
-                lc.getProcessedAt() != null ? lc.getProcessedAt().toInstant() : null
+                lc.getProcessedAt() != null ? lc.getProcessedAt().toInstant() : null,
+                lc.getGpsLat(),
+                lc.getGpsLong()
         );
     }
 
@@ -261,8 +263,14 @@ public class CollectionService {
         return lat != null && lon != null;
     }
 
-    public List<CollectionHistoryItemResponse> getRecentCollections(Integer limit) {
+    public List<CollectionHistoryItemResponse> getRecentCollections(UUID estateId, Integer limit) {
         int pageSize = normalizeLimit(limit, 50, 200);
+        if (estateId != null) {
+            return leafCollectionRepository.findBySupplierEstate(estateId, PageRequest.of(0, pageSize))
+                    .stream()
+                    .map(this::toHistoryResponse)
+                    .toList();
+        }
         return leafCollectionRepository.findAll(PageRequest.of(0, pageSize, org.springframework.data.domain.Sort.by("collectedAt").descending()))
                 .stream()
                 .map(this::toHistoryResponse)

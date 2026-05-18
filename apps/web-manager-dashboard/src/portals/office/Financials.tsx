@@ -34,10 +34,16 @@ export default function FinancialsPage() {
   const [activeTab, setActiveTab] = useState<'balance' | 'advances' | 'approvals'>('balance');
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('en-GB', { month: 'short' }));
-  const [globalDueDate, setGlobalDueDate] = useState<string>('2026-05-28');
+  const [globalDueDate, setGlobalDueDate] = useState<string>(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-28`;
+  });
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [payouts, setPayouts] = useState<PayoutData[]>([]);
+  const [serviceRequests, setServiceRequests] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
 
   // Modal State
@@ -94,7 +100,7 @@ export default function FinancialsPage() {
           const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           // selectedMonth might be just "May" or "Apr" based on line 247
           const monthIdx = monthNames.findIndex(m => selectedMonth.includes(m));
-          const year = 2026; // Defaulting to 2026 as per the dropdown options
+          const year = new Date().getFullYear();
           
           const startOfMonth = new Date(year, monthIdx, 1).getTime();
           const endOfMonth = new Date(year, monthIdx + 1, 1).getTime();
@@ -149,7 +155,7 @@ export default function FinancialsPage() {
       // Calculate trend data for the last 6 months based on selected month
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const monthIdx = monthNames.findIndex(m => selectedMonth.includes(m));
-      const year = 2026; // Defaulting to 2026
+      const year = new Date().getFullYear();
       
       const last6Months = [];
       for (let i = 5; i >= 0; i--) {
@@ -177,6 +183,7 @@ export default function FinancialsPage() {
       
       setTrendData(trend);
       setPayouts(data);
+      setServiceRequests(requests.filter((r: any) => r.requestType === 'ADVANCE' && ['APPROVED', 'APPROVED_BY_EXT', 'DISPATCHED', 'COMPLETED', 'CLEARED'].includes(r.status)));
     } catch (err) {
       console.error("Failed to fetch financial data", err);
     } finally {
@@ -251,6 +258,13 @@ export default function FinancialsPage() {
     } else {
       return true;
     }
+  });
+
+  const filteredAdvances = serviceRequests.filter(r => {
+    const name = r.supplierName || '';
+    const passbook = r.passbookNo || '';
+    const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || passbook.toLowerCase().includes(search.toLowerCase());
+    return matchesSearch;
   });
 
   return (
@@ -379,7 +393,11 @@ export default function FinancialsPage() {
               onClick={() => setActiveTab('advances')}
               className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all rounded-t-lg ${activeTab === 'advances' ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
             >
-              <CreditCard size={14} /> {t('Advances')}
+              <CreditCard size={14} /> {t('Advances')} {serviceRequests.length > 0 && (
+                <span className="ml-1 bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {serviceRequests.length}
+                </span>
+              )}
             </button>
             <button 
               onClick={() => setActiveTab('approvals')}
@@ -412,7 +430,7 @@ export default function FinancialsPage() {
               className="px-4 py-2 bg-white border-2 border-slate-300 rounded-xl text-sm font-medium text-black focus:border-emerald-600 outline-none"
             >
               {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => (
-                <option key={m} value={m}>{m} 2026</option>
+                <option key={m} value={m}>{m} {new Date().getFullYear()}</option>
               ))}
             </select>
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 hover:bg-slate-50">
@@ -424,25 +442,55 @@ export default function FinancialsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-100 border-b-2 border-slate-200 text-[10px] font-medium text-black uppercase tracking-widest">
-                <th className="px-6 py-4">{t('PAYMENT ID')}</th>
-                <th className="px-6 py-4">{t('SUPPLIER')}</th>
-                <th className="px-6 py-4 text-right">{t('GROSS (RS.)')}</th>
-                <th className="px-6 py-4 text-right">{t('ADVANCE DED.')}</th>
-                <th className="px-6 py-4 text-right">{t('DEBT DED.')}</th>
-                <th className="px-6 py-4 text-right">{t('NET PAY')}</th>
-                <th className="px-6 py-4 text-center">{t('STATUS')}</th>
-                <th className="px-6 py-4 text-center">{t('DUE/PAID')}</th>
-                <th className="px-6 py-4 text-right">{t('ACTION')}</th>
-              </tr>
+              {activeTab === 'advances' ? (
+                <tr className="bg-slate-100 border-b-2 border-slate-200 text-[10px] font-medium text-slate-800 uppercase tracking-widest">
+                  <th className="px-6 py-4">{t('ADVANCE ID')}</th>
+                  <th className="px-6 py-4">{t('SUPPLIER')}</th>
+                  <th className="px-6 py-4">{t('AMOUNT')}</th>
+                  <th className="px-6 py-4">{t('DATE')}</th>
+                  <th className="px-6 py-4">{t('APPROVED BY')}</th>
+                  <th className="px-6 py-4">{t('STATUS')}</th>
+                  <th className="px-6 py-4 text-right">{t('ACTIONS')}</th>
+                </tr>
+              ) : (
+                <tr className="bg-slate-100 border-b-2 border-slate-200 text-[10px] font-medium text-black uppercase tracking-widest">
+                  <th className="px-6 py-4">{t('PAYMENT ID')}</th>
+                  <th className="px-6 py-4">{t('SUPPLIER')}</th>
+                  <th className="px-6 py-4 text-right">{t('GROSS (RS.)')}</th>
+                  <th className="px-6 py-4 text-right">{t('ADVANCE DED.')}</th>
+                  <th className="px-6 py-4 text-right">{t('DEBT DED.')}</th>
+                  <th className="px-6 py-4 text-right">{t('NET PAY')}</th>
+                  <th className="px-6 py-4 text-center">{t('STATUS')}</th>
+                  <th className="px-6 py-4 text-center">{t('DUE/PAID')}</th>
+                  <th className="px-6 py-4 text-right">{t('ACTION')}</th>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-slate-50">
               {fetchLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={9} className="px-6 py-4"><Skeleton variant="text" /></td>
+                    <td colSpan={activeTab === 'advances' ? 7 : 9} className="px-6 py-4"><Skeleton variant="text" /></td>
                   </tr>
                 ))
+              ) : activeTab === 'advances' ? (
+                filteredAdvances.length > 0 ? (
+                  filteredAdvances.map((r, index) => (
+                    <AdvanceItem 
+                      key={r.requestId}
+                      index={index}
+                      request={r}
+                      t={t}
+                      onViewStatement={() => openStatement({ id: r.supplierId, name: r.supplierName, sid: r.passbookNo })}
+                    />
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-900 font-bold uppercase tracking-widest text-xs">
+                      {t('No active advances found')}
+                    </td>
+                  </tr>
+                )
               ) : filteredPayouts.length > 0 ? (
                 filteredPayouts.map((p) => (
                   <PayoutItem 
@@ -459,7 +507,7 @@ export default function FinancialsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-slate-900 font-bold uppercase tracking-widest text-xs">
+                  <td colSpan={activeTab === 'advances' ? 7 : 9} className="px-6 py-12 text-center text-slate-900 font-bold uppercase tracking-widest text-xs">
                     {t('No pending payouts found')}
                   </td>
                 </tr>
@@ -574,7 +622,7 @@ export default function FinancialsPage() {
 
             {/* Official Statement Summary */}
             <Typography variant="subtitle2" sx={{ mt: 3, mb: 1.5, fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>
-              {t('OFFICIAL STATEMENT SUMMARY')} ({selectedMonth} 2026)
+              {t('OFFICIAL STATEMENT SUMMARY')} ({selectedMonth} {new Date().getFullYear()})
             </Typography>
             <Box sx={{ p: 2.5, borderRadius: '16px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
@@ -713,6 +761,68 @@ function StatCard({ icon, value, label, sub, color }: any) {
       <p className="text-[12px] font-bold text-black uppercase tracking-widest">{label}</p>
       <p className="text-[13px] text-black font-medium mt-1">{sub}</p>
     </div>
+  );
+}
+
+function AdvanceItem({ index, request, t, onViewStatement }: any) {
+  const advanceId = `ADV-${String(index + 1).padStart(3, '0')}`;
+  
+  const getStatusDisplay = () => {
+    const s = request.status;
+    if (s === 'PENDING') {
+      return { label: 'REVIEW', color: 'bg-[#FEF3C7] text-[#B45309]' };
+    }
+    if (s === 'APPROVED' || s === 'APPROVED_BY_EXT') {
+      return { label: 'APPROVED', color: 'bg-[#D1FAE5] text-[#065F46]' };
+    }
+    if (s === 'DISPATCHED' || s === 'COMPLETED') {
+      return { label: 'CLEARED', color: 'bg-[#D1FAE5] text-[#065F46]' };
+    }
+    return { label: s || 'REVIEW', color: 'bg-[#FEF3C7] text-[#B45309]' };
+  };
+
+  const statusInfo = getStatusDisplay();
+  
+  const dateStr = request.requestDate ? new Date(request.requestDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Active';
+  
+  const approverDisplay = request.status === 'PENDING' ? 'Pending' : `MG-00${(request.approverId ? request.approverId.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0) % 2 + 1 : 1)}`;
+
+  return (
+    <tr className="hover:bg-slate-50/50 transition-colors group">
+      <td className="px-6 py-4 text-xs font-black text-slate-800">
+        {advanceId}
+      </td>
+      <td className="px-6 py-4">
+        <p className="text-sm font-black text-slate-900 leading-none">
+          {request.supplierName || 'Unknown Supplier'}
+        </p>
+        <p className="text-[11px] font-bold text-slate-400 mt-2 tracking-wider">
+          {request.passbookNo || 'SH-XXXX'}
+        </p>
+      </td>
+      <td className="px-6 py-4 text-sm font-black text-slate-900">
+        Rs. {Number(request.approvedAmount || request.requestedAmount || 0).toLocaleString()}
+      </td>
+      <td className="px-6 py-4 text-xs font-bold text-slate-500">
+        {dateStr}
+      </td>
+      <td className="px-6 py-4 text-xs font-bold text-slate-600">
+        {approverDisplay}
+      </td>
+      <td className="px-6 py-4">
+        <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wide ${statusInfo.color}`}>
+          {t(statusInfo.label)}
+        </span>
+      </td>
+      <td className="px-6 py-4 text-right">
+        <button 
+          onClick={onViewStatement}
+          className="px-4 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-black text-slate-700 hover:bg-slate-50 shadow-sm transition-all"
+        >
+          {t('Detail')}
+        </button>
+      </td>
+    </tr>
   );
 }
 

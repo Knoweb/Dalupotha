@@ -587,12 +587,20 @@ public class AuthService {
             res.setEstateName(user.getEstate().getName());
         }
 
+        if (user.getRole() == UserRole.TA) {
+            transportAgentRepository.findByUser(user).ifPresent(ta -> {
+                res.setRouteName(ta.getRouteName());
+                res.setId(ta.getEmployeeId());
+            });
+        }
+
         if (user.getRole() == UserRole.SH) {
             smallHolderRepository.findByUser(user).ifPresent(sh -> {
                 res.setPassbookNo(sh.getPassbookNo());
                 res.setLandName(sh.getLandName());
                 res.setAddress(sh.getAddress());
                 res.setArcs(sh.getArcs());
+                res.setRouteName(sh.getRouteName());
                 if (sh.getInCharge() != null) {
                     res.setInChargeName(sh.getInCharge().getFullName());
                     res.setInChargeId(sh.getInCharge().getUserId());
@@ -628,12 +636,23 @@ public class AuthService {
                 sh.setLandName(request.getLandName());
                 sh.setAddress(request.getAddress());
                 sh.setArcs(request.getArcs());
+                sh.setRouteName(request.getRouteName());
                 if (request.getInChargeId() != null) {
                     userRepository.findById(request.getInChargeId()).ifPresent(sh::setInCharge);
+                } else {
+                    sh.setInCharge(null);
                 }
                 smallHolderRepository.save(sh);
             });
         }
+
+        if (user.getRole() == UserRole.TA) {
+            transportAgentRepository.findByUser(user).ifPresent(ta -> {
+                ta.setRouteName(request.getRouteName());
+                transportAgentRepository.save(ta);
+            });
+        }
+        
         userRepository.save(user);
     }
 
@@ -647,10 +666,25 @@ public class AuthService {
         }
         java.util.Map<UUID, String> supplierIds = new java.util.HashMap<>();
         java.util.Map<UUID, String> shPassbooks = new java.util.HashMap<>();
+        java.util.Map<UUID, String> shInCharges = new java.util.HashMap<>();
+        java.util.Map<UUID, String> shRoutes = new java.util.HashMap<>();
         smallHolderRepository.findAll().forEach(sh -> {
             if (sh.getUser() != null) {
                 shPassbooks.put(sh.getUser().getUserId(), sh.getPassbookNo());
                 supplierIds.put(sh.getUser().getUserId(), sh.getSupplierId().toString());
+                if (sh.getInCharge() != null) {
+                    shInCharges.put(sh.getUser().getUserId(), sh.getInCharge().getUserId().toString());
+                }
+                if (sh.getRouteName() != null) {
+                    shRoutes.put(sh.getUser().getUserId(), sh.getRouteName());
+                }
+            }
+        });
+
+        java.util.Map<UUID, String> taRoutes = new java.util.HashMap<>();
+        transportAgentRepository.findAll().forEach(ta -> {
+            if (ta.getUser() != null) {
+                taRoutes.put(ta.getUser().getUserId(), ta.getRouteName());
             }
         });
 
@@ -673,7 +707,9 @@ public class AuthService {
                     u.getFullName(),
                     u.getRole().name(),
                     u.getStatus().name(),
-                    getTimeAgo(u.getLastActive() != null ? u.getLastActive() : u.getUpdatedAt())
+                    getTimeAgo(u.getLastActive() != null ? u.getLastActive() : u.getUpdatedAt()),
+                    u.getRole() == UserRole.SH ? shInCharges.get(u.getUserId()) : null,
+                    u.getRole() == UserRole.TA ? taRoutes.get(u.getUserId()) : shRoutes.get(u.getUserId())
                 );
             }).toList();
     }
@@ -765,6 +801,7 @@ public class AuthService {
             result.put("inChargeId", sh.getInCharge().getUserId().toString());
             result.put("inChargeName", sh.getInCharge().getFullName());
         }
+        result.put("routeName", sh.getRouteName());
         return result;
     }
 }

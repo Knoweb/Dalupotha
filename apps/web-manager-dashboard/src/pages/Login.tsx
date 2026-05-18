@@ -70,6 +70,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
         const data = await res.json();
         sessionStorage.setItem("current_user_id", data.userId || data.id || "");
         sessionStorage.setItem("current_estate_id", data.estateId || "");
+        sessionStorage.setItem("estate_id", data.estateId || "");
         if (data.token) sessionStorage.setItem("auth_token", data.token);
         const mappedRole = roleMap[data.role?.toLowerCase()] || data.role?.toLowerCase();
         onLogin({ role: mappedRole as UserRole, fullName: data.fullName, estateName: data.estateName || '', estateId: data.estateId, employeeId: data.employeeId });

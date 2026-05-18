@@ -44,6 +44,9 @@ public class SmallHolder {
     @JoinColumn(name = "estate_id")
     private Estate estate;
 
+    @Column(name = "route_name")
+    private String routeName;
+
     @Column(name = "arcs", precision = 10, scale = 2)
     private BigDecimal arcs;
 

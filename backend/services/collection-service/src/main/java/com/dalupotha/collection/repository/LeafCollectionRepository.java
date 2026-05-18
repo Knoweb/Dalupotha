@@ -39,4 +39,17 @@ public interface LeafCollectionRepository extends JpaRepository<LeafCollection, 
             @Param("supplierId") UUID supplierId,
             Pageable pageable
     );
+
+    @Query("""
+        select lc
+        from LeafCollection lc
+        left join fetch lc.supplier sh
+        left join fetch sh.user u
+        where sh.estateId = :estateId
+        order by lc.collectedAt desc
+        """)
+    List<LeafCollection> findBySupplierEstate(
+            @Param("estateId") UUID estateId,
+            Pageable pageable
+    );
 }

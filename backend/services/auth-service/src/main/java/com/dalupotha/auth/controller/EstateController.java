@@ -8,7 +8,9 @@ import com.dalupotha.auth.entity.UserStatus;
 import com.dalupotha.auth.repository.EstateRepository;
 import com.dalupotha.auth.repository.UserRepository;
 import com.dalupotha.auth.repository.TransportAgentRepository;
+import com.dalupotha.auth.repository.CollectionRouteRepository;
 import com.dalupotha.auth.entity.TransportAgent;
+import com.dalupotha.auth.entity.CollectionRoute;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +33,7 @@ public class EstateController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final TransportAgentRepository transportAgentRepository;
+    private final CollectionRouteRepository collectionRouteRepository;
 
     @GetMapping
     public List<Estate> getAllEstates() {
@@ -171,5 +174,43 @@ public class EstateController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Internal Error: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/{estateId}/routes")
+    public ResponseEntity<List<CollectionRoute>> getRoutesByEstate(@PathVariable UUID estateId) {
+        return ResponseEntity.ok(collectionRouteRepository.findByEstate_EstateId(estateId));
+    }
+
+    @PostMapping("/{estateId}/routes")
+    @Transactional
+    public ResponseEntity<?> addRouteToEstate(@PathVariable UUID estateId, @RequestBody Map<String, String> payload) {
+        String name = payload.get("name");
+        String code = payload.get("code");
+        if (name == null || name.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Route name is required");
+        }
+        
+        Estate estate = estateRepository.findById(estateId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Estate not found"));
+
+        if (collectionRouteRepository.existsByNameAndEstate_EstateId(name, estateId)) {
+            return ResponseEntity.badRequest().body("Route name already exists in this estate");
+        }
+
+        CollectionRoute route = CollectionRoute.builder()
+                .name(name)
+                .code(code)
+                .estate(estate)
+                .build();
+        collectionRouteRepository.save(route);
+        return ResponseEntity.ok(route);
+    }
+
+    @DeleteMapping("/{estateId}/routes/{routeId}")
+    @Transactional
+    public ResponseEntity<?> deleteRouteFromEstate(@PathVariable UUID estateId, @PathVariable UUID routeId) {
+        collectionRouteRepository.deleteById(routeId);
+        return ResponseEntity.ok().build();
     }
 }

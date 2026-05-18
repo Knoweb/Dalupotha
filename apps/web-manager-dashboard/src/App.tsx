@@ -25,13 +25,14 @@ import InventoryPage from './portals/store-keeper/Inventory'
 // Extension Portal
 import ApprovalsPage from './portals/extension/Approvals'
 import CircularsPage from './portals/extension/Circulars'
+import RoutesPage from './portals/manager/Routes'
 
 export type UserRole = 'manager' | 'super-admin' | 'extension-officer' | 'store-keeper' | 'factory-staff' | 'office-staff';
 
 // Which nav tabs each role can access
 export const ROLE_TABS: Record<UserRole, string[]> = {
-  'manager':           ['dashboard', 'collections', 'quality', 'financials', 'inventory', 'approvals', 'tracking', 'circulars', 'reports', 'users', 'settings'],
-  'extension-officer': ['approvals', 'financials', 'collections', 'circulars', 'reports', 'settings'],
+  'manager':           ['dashboard', 'collections', 'quality', 'financials', 'inventory', 'approvals', 'tracking', 'circulars', 'reports', 'users', 'routes', 'settings'],
+  'extension-officer': ['approvals', 'financials', 'collections', 'settings'],
   'office-staff':      ['collections', 'financials', 'reports', 'settings'],
   'store-keeper':      ['inventory', 'approvals', 'settings'],
   'factory-staff':     ['quality', 'collections', 'settings'],
@@ -58,7 +59,10 @@ export default function App() {
     sessionStorage.setItem('user_role', data.role);
     sessionStorage.setItem('user_name', data.fullName);
     sessionStorage.setItem('estate_name', data.estateName);
-    if (data.estateId) sessionStorage.setItem('current_estate_id', data.estateId);
+    if (data.estateId) {
+      sessionStorage.setItem('current_estate_id', data.estateId);
+      sessionStorage.setItem('estate_id', data.estateId);
+    }
     if (data.employeeId) sessionStorage.setItem('employee_id', data.employeeId);
     else sessionStorage.removeItem('employee_id');
     // Land on the first allowed tab for this role
@@ -92,6 +96,7 @@ export default function App() {
       case 'circulars':   return <CircularsPage />;
       case 'reports':     return <ReportsPage />;
       case 'users':       return <UsersPage />;
+      case 'routes':      return <RoutesPage />;
       case 'quality':     return <QualityPage />;
       case 'settings':    return <SettingsPage />;
       default:            return <DashboardPage />;

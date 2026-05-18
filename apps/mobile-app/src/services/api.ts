@@ -73,6 +73,7 @@ export const AuthAPI = {
   registerSmallHolder:`${API_BASE}/auth/small-holder/register`, // POST — Register Small Holder
   registerAgent:      `${API_BASE}/auth/agent/register`,        // POST — Register Transport Agent
   getEstates:         `${API_BASE}/auth/estates`,               // GET — fetch estate list
+  getEstateRoutes:    (estateId: string) => `${API_BASE}/auth/estates/${estateId}/routes`, // GET — routes for estate
 };
 
 // ── 3. Field Collection & Logistics ──────────────────────────────────────────

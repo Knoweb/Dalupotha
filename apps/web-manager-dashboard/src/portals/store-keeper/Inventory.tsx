@@ -85,7 +85,7 @@ export default function InventoryPage() {
     const fertilizerTotal = items.filter(i => i.itemCategory === 'FERTILIZER').reduce((sum, i) => sum + i.quantityInStock, 0)
     const bagsTotal = items.filter(i => i.itemCategory === 'LEAF_BAG').reduce((sum, i) => sum + i.quantityInStock, 0)
     const toolsTotal = items.filter(i => i.itemCategory === 'TOOLS').reduce((sum, i) => sum + i.quantityInStock, 0)
-    const lowStockAlerts = items.filter(i => i.quantityInStock < 500).length
+    const lowStockAlerts = items.filter(i => i.quantityInStock <= i.reorderLevel).length
 
     return { fertilizerTotal, bagsTotal, toolsTotal, lowStockAlerts }
   }, [items])

@@ -237,7 +237,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
         />
 
         {/* ── Persistent Service Request Alert Banner (Summarized) ─────────────────── */}
-        {['manager', 'extension-officer', 'store-keeper'].includes(userRole || '') && pendingRequestCount > 0 && (
+        {['manager', 'extension-officer', 'store-keeper'].includes(userRole || '') && pendingRequestCount > 0 && pendingRequestAlerts.length > 0 && (
           <div className="flex-shrink-0 bg-indigo-50 border-b-2 border-indigo-200 px-6 py-2.5 flex items-center gap-3 shadow-sm">
             <span className="relative flex-shrink-0">
               <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-indigo-400 opacity-75"></span>

@@ -20,6 +20,8 @@ public record CollectionHistoryItemResponse(
         String transportAgentName,
         String processedByName,
         @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
-        java.time.Instant processedAt
+        java.time.Instant processedAt,
+        BigDecimal gpsLat,
+        BigDecimal gpsLong
 ) {
 }

@@ -4,5 +4,6 @@ public enum LedgerStatus {
     PENDING,
     APPROVED,
     CLEARED,
-    REJECTED
+    REJECTED,
+    AWAITING_APPROVAL
 }

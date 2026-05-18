@@ -4,6 +4,19 @@ import { createPortal } from 'react-dom';
 import { AuthAPI, UserSummary, DetailedUser } from '../../services/api';
 import { useLanguage } from '../../hooks/useLanguage';
 
+const COLLECTION_ROUTES = [
+  "Panawenna Route (PA)",
+  "Bulugahapitiya Route (BG)",
+  "Ginigathhena Route (GG)",
+  "Deniyaya Route (DH)",
+  "Silvakanda Route (SL)",
+  "Hiniduma Route (HE)",
+  "Karawita Route (KR)",
+  "Wataraka Route (WD)",
+  "Yatalamatta Route (YT)",
+  "Pelawatta Route (PG)"
+];
+
 export default function UsersPage() {
   const { t } = useLanguage();
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -36,6 +49,24 @@ export default function UsersPage() {
   const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [estates, setEstates] = useState<{estateId:string, name:string}[]>([]);
   const [transportAgents, setTransportAgents] = useState<UserSummary[]>([]);
+  const [estateRoutes, setEstateRoutes] = useState<Array<{ routeId: string; name: string; code: string }>>([]);
+
+  const toggleTaRoute = (routeVal: string) => {
+    const current = taData.routeName ? taData.routeName.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const updated = current.includes(routeVal)
+      ? current.filter(x => x !== routeVal)
+      : [...current, routeVal];
+    setTaData({ ...taData, routeName: updated.join(', ') });
+  };
+
+  const toggleDetailedUserRoute = (routeVal: string) => {
+    if (!detailedUser) return;
+    const current = detailedUser.routeName ? detailedUser.routeName.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const updated = current.includes(routeVal)
+      ? current.filter(x => x !== routeVal)
+      : [...current, routeVal];
+    setDetailedUser({ ...detailedUser, routeName: updated.join(', ') });
+  };
 
   const [taData, setTaData] = useState({
     fullName: '',
@@ -43,7 +74,8 @@ export default function UsersPage() {
     contact: '',
     pin: '',
     confirmPin: '',
-    estateId: ''
+    estateId: '',
+    routeName: ''
   });
 
   const [shData, setShData] = useState({
@@ -89,6 +121,13 @@ export default function UsersPage() {
     fetch('/api/auth/estates', { headers: { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } })
        .then(r => r.json())
        .then(setEstates).catch(console.error);
+
+    const estId = sessionStorage.getItem('current_estate_id');
+    if (estId) {
+      AuthAPI.getEstateRoutes(estId)
+         .then(setEstateRoutes)
+         .catch(console.error);
+    }
   }, []);
 
   const handleCreateStaff = async (e: React.FormEvent) => {
@@ -146,7 +185,7 @@ export default function UsersPage() {
     setShowPin(false);
     setShowConfirmPin(false);
     setFormData({ fullName: '', employeeId: '', username: '', email: '', contact: '', nic: '', birthdate: '', role: 'ST', password: '', confirmPassword: '', estateId: '' });
-    setTaData({ fullName: '', employeeId: '', contact: '', pin: '', confirmPin: '', estateId: '' });
+    setTaData({ fullName: '', employeeId: '', contact: '', pin: '', confirmPin: '', estateId: '', routeName: '' });
     setShData({ fullName: '', passbookNo: '', contact: '', pin: '', confirmPin: '', landName: '', inChargeId: '', estateId: '' });
   };
 
@@ -156,7 +195,6 @@ export default function UsersPage() {
       const data = await AuthAPI.getDetailedUser(userId);
       setDetailedUser(data);
       setIsProfileModalOpen(true);
-      // Load transport agents for this estate when viewing a supplier profile
       if (data.role === 'SH') {
         const estateId = data.estateId || sessionStorage.getItem('current_estate_id') || '';
         const allUsers = await AuthAPI.getUsers(estateId || undefined);
@@ -195,12 +233,40 @@ export default function UsersPage() {
   const handleUpdateUser = async () => {
     if (!detailedUser) return;
     try {
-       await AuthAPI.updateUser(detailedUser.userId, detailedUser);
+       const isTA = detailedUser.role === 'TA' || detailedUser.role === 'Transport Agent';
+       const isSH = detailedUser.role === 'SH' || detailedUser.role === 'Supplier';
+       
+       const clean = (val: any) => (val === '' || val === undefined) ? null : val;
+       
+       // Send only what the backend's DetailedUserResponse DTO expects
+       const payload: Record<string, any> = {
+         name:       clean(detailedUser.name),
+         contact:    clean(detailedUser.contact),
+         email:      clean(detailedUser.email),
+         estateId:   clean(detailedUser.estateId),
+         nic:        clean(detailedUser.nic),
+         // Supplier-specific
+         ...(isSH && {
+           passbookNo: clean(detailedUser.passbookNo),
+           landName:   clean(detailedUser.landName),
+           address:    clean(detailedUser.address),
+           arcs:       clean(detailedUser.arcs),
+           inChargeId: clean(detailedUser.inChargeId),
+           routeName:  clean(detailedUser.routeName),
+         }),
+         // Transport agent specific
+         ...(isTA && {
+           routeName: clean(detailedUser.routeName),
+         }),
+       };
+       await AuthAPI.updateUser(detailedUser.userId, payload);
        setIsEditing(false);
        handleViewProfile(detailedUser.userId);
        fetchUsers();
-    } catch (err) {
-       alert("Failed to update user.");
+    } catch (err: any) {
+       console.error("Update user error:", err);
+       const msg = err?.message || "Failed to update user.";
+       alert(msg);
     }
   };
 
@@ -444,6 +510,32 @@ export default function UsersPage() {
                        {estates.map(es => <option key={es.estateId} value={es.estateId}>{es.name}</option>)}
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-950 uppercase mb-2">{t('Collection Route(s)')}</label>
+                    {estateRoutes.length === 0 ? (
+                      <p className="text-slate-500 text-xs italic bg-slate-50 border border-slate-150 rounded-lg p-3">
+                        {t('No routes defined. Go to "Route Management" sidebar to define estate routes.')}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        {estateRoutes.map(r => {
+                          const routeVal = `${r.name} (${r.code})`;
+                          const isChecked = taData.routeName ? taData.routeName.split(',').map(s => s.trim()).includes(routeVal) : false;
+                          return (
+                            <label key={r.routeId} className="flex items-center gap-2 cursor-pointer p-1">
+                              <input 
+                                type="checkbox" 
+                                checked={isChecked}
+                                onChange={() => toggleTaRoute(routeVal)}
+                                className="rounded text-[#2d6a4f] focus:ring-[#2d6a4f] w-4 h-4"
+                              />
+                              <span className="text-xs font-semibold text-slate-700">{r.name} ({r.code})</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-950 uppercase mb-1">Create PIN <span className="text-red-500">*</span></label>
@@ -542,37 +634,33 @@ export default function UsersPage() {
       {isProfileModalOpen && detailedUser && document.body && createPortal(
         <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="relative h-32 bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] p-8">
-               <button onClick={() => { setIsProfileModalOpen(false); setIsEditing(false); }} className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors">
-                 <X size={24} />
+            {/* Header — avatar + name side-by-side, no overlap */}
+             <div className="bg-gradient-to-r from-[#1b4332] to-[#2d6a4f] px-8 py-6">
+               <button onClick={() => { setIsProfileModalOpen(false); setIsEditing(false); }} className="absolute top-5 right-6 text-white/70 hover:text-white transition-colors">
+                 <X size={22} />
                </button>
-               <div className="absolute -bottom-12 left-10 w-24 h-24 rounded-2xl bg-white shadow-xl flex items-center justify-center border-4 border-white overflow-hidden">
-                  <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-900">
-                    <User size={48} />
-                  </div>
+               <div className="flex items-center gap-5">
+                 <div className="w-20 h-20 rounded-2xl bg-white/20 border-2 border-white/30 flex items-center justify-center flex-shrink-0 shadow-lg">
+                   <User size={38} className="text-white" />
+                 </div>
+                 <div className="min-w-0">
+                   <h2 className="text-2xl font-black text-white truncate">{detailedUser.name}</h2>
+                   <p className="text-white/80 font-semibold text-sm mt-0.5">{getFullRoleName(detailedUser.role)} • {detailedUser.id}</p>
+                   <div className="mt-2 flex items-center gap-2 flex-wrap">
+                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                       (detailedUser.status === 'ACTIVE' || detailedUser.status === 'Active') ? 'bg-green-400/30 text-green-100 border border-green-400/40' : 'bg-red-400/30 text-red-100 border border-red-400/40'
+                     }`}>{detailedUser.status}</span>
+                     {(detailedUser.role === 'TA' || detailedUser.role === 'Transport Agent') && (
+                       <span className="px-2.5 py-0.5 rounded-full bg-blue-400/30 text-blue-100 border border-blue-400/40 text-[10px] font-black uppercase tracking-widest">Transport Agent</span>
+                     )}
+                   </div>
+                 </div>
                </div>
-            </div>
+             </div>
 
             {/* Profile Content */}
-            <div className="pt-16 px-10 pb-10 overflow-y-auto w-full">
-               <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900">{detailedUser.name}</h2>
-                    <p className="text-slate-950 font-bold">{getFullRoleName(detailedUser.role)} • {detailedUser.id}</p>
-                    {(detailedUser.role === 'TA' || detailedUser.role === 'Transport Agent') && (
-                      <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest">
-                        <span>Agent ID</span>
-                        <span className="font-mono">{detailedUser.id}</span>
-                      </div>
-                    )}
-                    <div className="mt-2 flex items-center gap-2">
-                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                          (detailedUser.status === 'ACTIVE' || detailedUser.status === 'Active') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                       }`}>{detailedUser.status}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
+            <div className="px-10 pt-8 pb-10 overflow-y-auto w-full">
+               <div className="flex justify-end items-center mb-6 gap-2">
                     {!isEditing ? (
                        <>
                          <button 
@@ -597,7 +685,6 @@ export default function UsersPage() {
                        </button>
                     )}
                   </div>
-               </div>
 
                <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-4">
@@ -606,7 +693,7 @@ export default function UsersPage() {
                         <div>
                            <label className="text-xs font-bold text-slate-900">{t('Full Name')}</label>
                            {isEditing ? (
-                              <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.name} onChange={e => setDetailedUser({...detailedUser, name: e.target.value})} />
+                              <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.name ?? ''} onChange={e => setDetailedUser({...detailedUser, name: e.target.value})} />
                            ) : (
                               <p className="text-sm font-bold text-slate-700">{detailedUser.name}</p>
                            )}
@@ -614,7 +701,7 @@ export default function UsersPage() {
                         <div>
                            <label className="text-xs font-bold text-slate-900">{t('Phone Number')}</label>
                            {isEditing ? (
-                              <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.contact} onChange={e => setDetailedUser({...detailedUser, contact: e.target.value})} />
+                              <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.contact ?? ''} onChange={e => setDetailedUser({...detailedUser, contact: e.target.value})} />
                            ) : (
                               <p className="text-sm font-bold text-slate-700">{detailedUser.contact}</p>
                            )}
@@ -622,7 +709,7 @@ export default function UsersPage() {
                         <div>
                            <label className="text-xs font-bold text-slate-900">{t('Email Address')}</label>
                            {isEditing ? (
-                              <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.email} onChange={e => setDetailedUser({...detailedUser, email: e.target.value})} />
+                              <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.email ?? ''} onChange={e => setDetailedUser({...detailedUser, email: e.target.value})} />
                            ) : (
                               <p className="text-sm font-bold text-slate-700">{detailedUser.email || 'N/A'}</p>
                            )}
@@ -644,6 +731,38 @@ export default function UsersPage() {
                               <p className="text-sm font-bold text-slate-700">{detailedUser.estateName || 'Not Assigned'}</p>
                            )}
                         </div>
+                        {detailedUser.role === 'TA' && (
+                           <div>
+                              <label className="text-xs font-bold text-slate-900 mt-3 block">{t('Collection Route(s)')}</label>
+                              {isEditing ? (
+                                 estateRoutes.length === 0 ? (
+                                    <p className="text-slate-500 text-xs italic bg-slate-50 border border-slate-150 rounded-lg p-2 mt-1">
+                                       {t('No routes defined. Go to "Route Management" sidebar.')}
+                                    </p>
+                                 ) : (
+                                    <div className="grid grid-cols-2 gap-2 max-h-[100px] overflow-y-auto bg-slate-50 border border-slate-200 rounded-lg p-2.5 mt-1">
+                                       {estateRoutes.map(r => {
+                                          const routeVal = `${r.name} (${r.code})`;
+                                          const isChecked = detailedUser.routeName ? detailedUser.routeName.split(',').map(s => s.trim()).includes(routeVal) : false;
+                                          return (
+                                             <label key={r.routeId} className="flex items-center gap-2 cursor-pointer p-0.5">
+                                                <input 
+                                                   type="checkbox" 
+                                                   checked={isChecked}
+                                                   onChange={() => toggleDetailedUserRoute(routeVal)}
+                                                   className="rounded text-[#2d6a4f] focus:ring-[#2d6a4f] w-3.5 h-3.5"
+                                                />
+                                                <span className="text-xs font-semibold text-slate-700">{r.name} ({r.code})</span>
+                                             </label>
+                                          );
+                                       })}
+                                    </div>
+                                 )
+                              ) : (
+                                 <p className="text-sm font-bold text-slate-700 mt-1">{detailedUser.routeName || t('Not Assigned')}</p>
+                              )}
+                           </div>
+                        )}
                         {detailedUser.role === 'SH' && (
                            <>
                               <div>
@@ -656,7 +775,15 @@ export default function UsersPage() {
                                    <select
                                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]"
                                      value={detailedUser.inChargeId || ''}
-                                     onChange={e => setDetailedUser({ ...detailedUser, inChargeId: e.target.value })}
+                                     onChange={e => {
+                                       const selectedAgentId = e.target.value;
+                                       const agent = transportAgents.find(ta => ta.userId === selectedAgentId);
+                                       setDetailedUser({
+                                         ...detailedUser,
+                                         inChargeId: selectedAgentId || null,
+                                         inChargeName: agent ? agent.name : ''
+                                       });
+                                     }}
                                    >
                                      <option value="">— {t('Not Assigned')} —</option>
                                      {transportAgents.map(ta => (
@@ -669,8 +796,43 @@ export default function UsersPage() {
                                    <p className="text-sm font-bold text-slate-700">{detailedUser.inChargeName || t('Not Appointed')}</p>
                                  )}
                               </div>
+                              <div>
+                                 <label className="text-xs font-bold text-slate-900">Collection Route</label>
+                                 {isEditing ? (
+                                   estateRoutes.length === 0 ? (
+                                     <p className="text-slate-400 text-xs italic mt-1">No routes defined. Go to Route Management.</p>
+                                   ) : (
+                                     <select
+                                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]"
+                                       value={detailedUser.routeName || ''}
+                                       onChange={e => {
+                                         setDetailedUser({
+                                           ...detailedUser,
+                                           routeName: e.target.value || ''
+                                         });
+                                       }}
+                                     >
+                                       <option value="">— Not Assigned —</option>
+                                       {estateRoutes.map(r => (
+                                         <option key={r.routeId} value={`${r.name} (${r.code})`}>{r.name} ({r.code})</option>
+                                       ))}
+                                     </select>
+                                   )
+                                 ) : (
+                                   detailedUser.routeName ? (
+                                     <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-[11px] font-black text-emerald-700 uppercase tracking-wide">
+                                         📍 {detailedUser.routeName}
+                                       </span>
+                                     </div>
+                                   ) : (
+                                     <p className="text-sm text-slate-400 italic mt-1">{t('Not Assigned')}</p>
+                                   )
+                                 )}
+                              </div>
                            </>
                         )}
+
                      </div>
                   </div>
                </div>
@@ -680,7 +842,7 @@ export default function UsersPage() {
                      <div>
                         <label className="text-xs font-bold text-slate-900">{t('Land Name')}</label>
                         {isEditing ? (
-                            <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.landName} onChange={e => setDetailedUser({...detailedUser, landName: e.target.value})} />
+                            <input className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.landName ?? ''} onChange={e => setDetailedUser({...detailedUser, landName: e.target.value})} />
                         ) : (
                            <p className="text-sm font-bold text-slate-700">{detailedUser.landName}</p>
                         )}
@@ -688,7 +850,7 @@ export default function UsersPage() {
                      <div>
                         <label className="text-xs font-bold text-slate-900">{t('Total Arcs')}</label>
                         {isEditing ? (
-                            <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.arcs} onChange={e => setDetailedUser({...detailedUser, arcs: Number(e.target.value)})} />
+                            <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm mt-1 outline-none focus:ring-2 focus:ring-[#2d6a4f]" value={detailedUser.arcs ?? ''} onChange={e => setDetailedUser({...detailedUser, arcs: Number(e.target.value)})} />
                         ) : (
                            <p className="text-sm font-bold text-slate-700">{detailedUser.arcs} {t('Arcs')}</p>
                         )}

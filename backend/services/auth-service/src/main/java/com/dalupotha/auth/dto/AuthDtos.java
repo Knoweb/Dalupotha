@@ -190,6 +190,9 @@ public class AuthDtos {
         private BigDecimal arcs;
         private String inChargeName;
         private UUID inChargeId;
+        
+        // Transport Agent specific
+        private String routeName;
     }
 
     @Data
@@ -203,6 +206,8 @@ public class AuthDtos {
         private String role;
         private String status;
         private String active;
+        private String inChargeId; // UUID string of assigned Transport Agent
+        private String routeName;   // Route(s) assigned to TA
     }
 
     @Data

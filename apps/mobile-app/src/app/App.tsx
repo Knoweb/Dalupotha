@@ -97,7 +97,7 @@ function MainTabNavigator({ route, navigation }: any) {
           <Tab.Screen name="Dashboard"   children={(props) => <DashboardScreen   {...props} user={user} role={role} token={route.params?.token} lang={lang} />} />
           <Tab.Screen name="Collections" children={(props) => <CollectionsScreen  {...props} user={user} token={route.params?.token} lang={lang} />} />
           <Tab.Screen name="Requests"    children={(props) => <RequestsScreen     {...props} user={user} token={route.params?.token} role={role} lang={lang} />} />
-          <Tab.Screen name="Profile"     children={(props) => <ProfileScreen      {...props} user={user} lang={lang} setLang={setLang} />} />
+          <Tab.Screen name="Profile"     children={(props) => <ProfileScreen      {...props} user={user} token={route.params?.token} lang={lang} setLang={setLang} />} />
         </>
       )}
     </Tab.Navigator>

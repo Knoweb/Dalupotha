@@ -44,7 +44,13 @@ export function RegisterScreen({ route, navigation }: any) {
       "Select Estate": "වත්ත තෝරන්න",
       "No estates found.": "වතු හමු නොවීය.",
       "Retry": "නැවත උත්සාහ කරන්න",
-      "Select Field In-Charge": "ක්ෂේත්‍ර භාරකරු තෝරන්න"
+      "Select Field In-Charge": "ක්ෂේත්‍ර භාරකරු තෝරන්න",
+      "COLLECTION ROUTE": "එකතු කිරීමේ මාර්ගය",
+      "Select Collection Route...": "මාර්ගය තෝරන්න...",
+      "Loading routes...": "මාර්ග පූරණය වෙමින්...",
+      "COLLECTION ROUTE(S) *": "එකතු කිරීමේ මාර්ග *",
+      "No routes defined for this estate": "මෙම වත්තේ මාර්ග නිර්වචනය කර නොමැත",
+      "Select at least one collection route": "අවම වශයෙන් එක් මාර්ගයක් තෝරන්න"
     }
   };
   const _ = (k: string) => (lang === 'si' && dict.si[k]) ? dict.si[k] : k;
@@ -91,6 +97,37 @@ export function RegisterScreen({ route, navigation }: any) {
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [agentsLoading, setAgentsLoading] = useState(false);
 
+  // Route-based assignment state (supplier)
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const [showRouteModal, setShowRouteModal] = useState(false);
+
+  // Agent multi-route selection state
+  const [estateRoutes, setEstateRoutes] = useState<Array<{ routeId: string; name: string; code: string }>>([]);
+  const [agentSelectedRoutes, setAgentSelectedRoutes] = useState<string[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(false);
+
+  const toggleAgentRoute = (routeVal: string) => {
+    setAgentSelectedRoutes(prev =>
+      prev.includes(routeVal) ? prev.filter(r => r !== routeVal) : [...prev, routeVal]
+    );
+  };
+
+  // Filter routes from transport agents (handles comma-separated route lists)
+  const availableRoutes = React.useMemo(() => {
+    const allRoutes: string[] = [];
+    agents.forEach((a: any) => {
+      if (a.routeName && a.routeName.trim() !== "") {
+        a.routeName.split(",").forEach((part: string) => {
+          const trimmed = part.trim();
+          if (trimmed !== "") {
+            allRoutes.push(trimmed);
+          }
+        });
+      }
+    });
+    return Array.from(new Set(allRoutes));
+  }, [agents]);
+
   const fetchEstates = React.useCallback(async () => {
     setEstatesLoading(true);
     setEstatesError(null);
@@ -123,15 +160,25 @@ export function RegisterScreen({ route, navigation }: any) {
     fetchEstates();
   }, [fetchEstates]);
 
-  // Fetch transport agents when estate is selected
+  // Fetch transport agents (and estate routes for agents) when estate is selected
   React.useEffect(() => {
     if (!selectedEstate?.estateId) return;
     setAgentsLoading(true);
     setSelectedAgent(null);
+    setSelectedRoute(null);
+    setAgentSelectedRoutes([]);
+    setEstateRoutes([]);
+    // fetch agents for supplier route-pairing
     apiGet<any[]>(`${AuthAPI.getEstates}/${selectedEstate.estateId}/agents`, "")
       .then((data) => setAgents(Array.isArray(data) ? data : []))
       .catch(() => setAgents([]))
       .finally(() => setAgentsLoading(false));
+    // fetch dynamic routes for agent multi-select
+    setRoutesLoading(true);
+    apiGet<any[]>(AuthAPI.getEstateRoutes(selectedEstate.estateId), "")
+      .then((data) => setEstateRoutes(Array.isArray(data) ? data : []))
+      .catch(() => setEstateRoutes([]))
+      .finally(() => setRoutesLoading(false));
   }, [selectedEstate?.estateId]);
 
   const handleRegister = async () => {
@@ -158,6 +205,10 @@ export function RegisterScreen({ route, navigation }: any) {
     } else {
       if (!employeeId.trim() || !pin.trim()) {
         setErrorMsg("Agent ID and PIN are required.");
+        return;
+      }
+      if (agentSelectedRoutes.length === 0) {
+        setErrorMsg("Please select at least one collection route.");
         return;
       }
     }
@@ -214,6 +265,7 @@ export function RegisterScreen({ route, navigation }: any) {
         Object.assign(registerData, {
           employeeId: employeeId.trim(),
           pin: pin.trim(),
+          routeName: agentSelectedRoutes.join(', '),
         });
       }
 
@@ -331,7 +383,7 @@ export function RegisterScreen({ route, navigation }: any) {
                       autoCapitalize="characters"
                     />
                   </View>
-                  <Text style={styles.label}>{_("LAND NAME")}</Text>
+                  <Text style={styles.label}>{_("LAND NAME")} <Text style={{ color: palette.muted, fontWeight: '400', fontSize: 10 }}>(optional)</Text></Text>
                   <View style={styles.inputContainer}>
                     <TextInput
                       value={landName}
@@ -345,7 +397,7 @@ export function RegisterScreen({ route, navigation }: any) {
                   <Text style={styles.label}>{_("FIELD IN-CHARGE (TRANSPORT AGENT) *")}</Text>
                   <Pressable
                     style={styles.inputContainer}
-                    onPress={() => agents.length > 0 && setShowAgentModal(true)}
+                    onPress={() => { if (agents.length > 0) setShowAgentModal(true); }}
                     disabled={agentsLoading || agents.length === 0}
                   >
                     <Ionicons name="person-outline" size={20} color={palette.muted} />
@@ -358,9 +410,38 @@ export function RegisterScreen({ route, navigation }: any) {
                             ? _("No agents in this estate")
                             : _("Select Transport Agent")}
                     </Text>
-                    {selectedAgent
-                      ? <Pressable onPress={() => setSelectedAgent(null)}><Ionicons name="close-circle" size={18} color={palette.muted} /></Pressable>
-                      : <Ionicons name="chevron-down" size={20} color={palette.muted} />}
+                    {selectedAgent ? (
+                      <Pressable onPress={() => { setSelectedAgent(null); setSelectedRoute(null); }}>
+                        <Ionicons name="close-circle" size={18} color={palette.muted} />
+                      </Pressable>
+                    ) : (
+                      <Ionicons name="chevron-down" size={20} color={palette.muted} />
+                    )}
+                  </Pressable>
+
+                  <Text style={styles.label}>{_("COLLECTION ROUTE")}</Text>
+                  <Pressable
+                    style={styles.inputContainer}
+                    onPress={() => estateRoutes.length > 0 && setShowRouteModal(true)}
+                    disabled={routesLoading || estateRoutes.length === 0}
+                  >
+                    <Ionicons name="map-outline" size={20} color={palette.muted} />
+                    <Text style={{ flex: 1, color: selectedRoute ? "white" : palette.muted, marginLeft: 10 }}>
+                      {routesLoading
+                        ? _("Loading routes...")
+                        : selectedRoute
+                          ? selectedRoute
+                          : estateRoutes.length === 0
+                            ? "No routes available"
+                            : _("Select Collection Route...")}
+                    </Text>
+                    {selectedRoute ? (
+                      <Pressable onPress={() => setSelectedRoute(null)}>
+                        <Ionicons name="close-circle" size={18} color={palette.muted} />
+                      </Pressable>
+                    ) : (
+                      <Ionicons name="chevron-down" size={20} color={palette.muted} />
+                    )}
                   </Pressable>
 
                   <Text style={styles.label}>{_("CREATE LOGIN PIN *")}</Text>
@@ -430,6 +511,73 @@ export function RegisterScreen({ route, navigation }: any) {
                       autoCapitalize="characters"
                     />
                   </View>
+
+                  {/* ── Collection Route Multi-Select ── */}
+                  <Text style={styles.label}>{_("COLLECTION ROUTE(S) *")}</Text>
+                  {routesLoading ? (
+                    <View style={[styles.inputContainer, { paddingVertical: 12 }]}>
+                      <ActivityIndicator size="small" color={palette.accentBlue} />
+                      <Text style={{ color: palette.muted, marginLeft: 10 }}>{_("Loading routes...")}</Text>
+                    </View>
+                  ) : estateRoutes.length === 0 ? (
+                    <View style={[styles.inputContainer, { paddingVertical: 12 }]}>
+                      <Ionicons name="map-outline" size={18} color={palette.muted} />
+                      <Text style={{ color: palette.muted, marginLeft: 10, fontSize: 13 }}>
+                        {_("No routes defined for this estate")}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{
+                      borderWidth: 1,
+                      borderColor: agentSelectedRoutes.length > 0 ? "rgba(46,204,113,0.4)" : "rgba(255,255,255,0.12)",
+                      borderRadius: 12,
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      marginBottom: 12,
+                      overflow: "hidden",
+                    }}>
+                      {estateRoutes.map((r, idx) => {
+                        const routeVal = `${r.name} (${r.code})`;
+                        const checked = agentSelectedRoutes.includes(routeVal);
+                        return (
+                          <Pressable
+                            key={r.routeId}
+                            onPress={() => toggleAgentRoute(routeVal)}
+                            style={[{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              padding: 13,
+                              gap: 12,
+                              backgroundColor: checked ? "rgba(46,204,113,0.08)" : "transparent",
+                            }, idx > 0 && { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" }]}
+                          >
+                            <View style={{
+                              width: 22, height: 22, borderRadius: 6,
+                              borderWidth: 2,
+                              borderColor: checked ? "#2ecc71" : "rgba(255,255,255,0.25)",
+                              backgroundColor: checked ? "rgba(46,204,113,0.2)" : "transparent",
+                              alignItems: "center", justifyContent: "center",
+                            }}>
+                              {checked && <Ionicons name="checkmark" size={14} color="#2ecc71" />}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: checked ? "#fff" : "#cbd5e1", fontWeight: checked ? "700" : "400", fontSize: 14 }}>
+                                {r.name}
+                              </Text>
+                              {r.code ? (
+                                <Text style={{ color: palette.muted, fontSize: 11, marginTop: 1 }}>Code: {r.code}</Text>
+                              ) : null}
+                            </View>
+                            {checked && <Ionicons name="checkmark-circle" size={18} color="#2ecc71" />}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                  {agentSelectedRoutes.length > 0 && (
+                    <Text style={{ color: "#2ecc71", fontSize: 11, marginTop: -8, marginBottom: 10 }}>
+                      ✓ {agentSelectedRoutes.length} route{agentSelectedRoutes.length > 1 ? 's' : ''} selected
+                    </Text>
+                  )}
 
                   <Text style={styles.label}>{_("CREATE LOGIN PIN *")}</Text>
                   <View style={[styles.inputContainer, pin.length > 0 && pin.length < 6 && { borderColor: "#f39c12" }, pin.length === 6 && { borderColor: "#2ecc71" }]}>
@@ -586,6 +734,62 @@ export function RegisterScreen({ route, navigation }: any) {
                   <Text style={{ color: palette.muted, fontSize: 12, marginTop: 4 }}>{agent.employeeId || "Transport Agent"}</Text>
                 </Pressable>
               ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Collection Route Selection Modal */}
+      <Modal visible={showRouteModal} animationType="slide" transparent={true}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 }}>
+          <View style={[styles.authCard, { maxHeight: "70%" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={styles.cardTitle}>{_("Select Collection Route...")}</Text>
+              <Pressable onPress={() => setShowRouteModal(false)}>
+                <Ionicons name="close" size={24} color={palette.muted} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {estateRoutes.length === 0 ? (
+                <View style={{ paddingVertical: 24, alignItems: "center" }}>
+                  <Ionicons name="map-outline" size={32} color={palette.muted} style={{ marginBottom: 10 }} />
+                  <Text style={{ color: palette.muted, textAlign: "center" }}>
+                    No collection routes defined for this estate yet.
+                  </Text>
+                </View>
+              ) : (
+                estateRoutes.map((r: any, idx: number) => (
+                  <Pressable
+                    key={r.routeId ?? idx}
+                    style={[{
+                      padding: 15,
+                      borderBottomWidth: 1,
+                      borderBottomColor: "rgba(255,255,255,0.05)",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }, selectedRoute === `${r.name} (${r.code})` && { backgroundColor: "rgba(46,204,113,0.08)" }]}
+                    onPress={() => {
+                      setSelectedRoute(`${r.name} (${r.code})`);
+                      setShowRouteModal(false);
+                    }}
+                  >
+                    <Ionicons
+                      name={selectedRoute === `${r.name} (${r.code})` ? "checkmark-circle" : "radio-button-off"}
+                      size={20}
+                      color={selectedRoute === `${r.name} (${r.code})` ? "#2ecc71" : palette.muted}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: selectedRoute === `${r.name} (${r.code})` ? "#fff" : "#cbd5e1", fontSize: 16, fontWeight: selectedRoute === `${r.name} (${r.code})` ? "700" : "500" }}>
+                        {r.name}
+                      </Text>
+                      {r.code ? (
+                        <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>Code: {r.code}</Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ))
+              )}
             </ScrollView>
           </View>
         </View>

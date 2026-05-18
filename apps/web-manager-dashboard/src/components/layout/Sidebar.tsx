@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import {
   LayoutGrid, Leaf, CircleDollarSign, Package, CheckSquare,
   Truck, BookOpen, BarChart3, Users, Settings, LogOut, ChevronLeft,
-  FlaskConical, Bell
+  FlaskConical, Bell, MapPin
 } from 'lucide-react'
 import { ROLE_TABS, UserRole } from '../../App'
 import { AppNotification } from '../../hooks/useNotifications'
@@ -34,6 +33,7 @@ const ALL_NAV = [
   { key: 'circulars',   icon: <BookOpen size={18}/>,         label: 'TRI Circulars' },
   { key: 'reports',     icon: <BarChart3 size={18}/>,        label: 'Reports' },
   { key: 'users',       icon: <Users size={18}/>,            label: 'User Management' },
+  { key: 'routes',      icon: <MapPin size={18}/>,           label: 'Route Management' },
   { key: 'settings',    icon: <Settings size={18}/>,         label: 'Settings' },
 ];
 

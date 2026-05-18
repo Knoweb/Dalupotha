@@ -44,9 +44,10 @@ public class CollectionController {
 
     @GetMapping("/recent")
     public List<CollectionHistoryItemResponse> getRecentCollections(
+            @RequestParam(required = false) UUID estateId,
             @RequestParam(required = false) Integer limit
     ) {
-        return collectionService.getRecentCollections(limit);
+        return collectionService.getRecentCollections(estateId, limit);
     }
 
     @GetMapping("/history/agent/{transportAgentId}")
