@@ -32,6 +32,18 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
   const token = route?.params?.token as string | undefined;
   const user = route?.params?.user as any;
 
+  const getRouteCode = (passbookNo: string) => {
+    if (!passbookNo) return "None";
+    const pb = passbookNo.trim().toUpperCase().replace("-", "").replace(" ", "");
+    if (pb === "PB0088" || pb === "PB0093" || pb === "PB0099") {
+      return "BG";
+    }
+    if (pb === "PB0098") {
+      return "BO";
+    }
+    return "None";
+  };
+
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierSummary | null>(null);
   const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
   const [isSuppliersLoading, setIsSuppliersLoading] = useState(false);
@@ -338,7 +350,7 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
         {selectedSupplier && (
           <View style={[styles.infoBox, { flexDirection: "column", gap: 4, marginBottom: 20, marginTop: -5 }]}> 
             <Text style={{ color: palette.muted, fontSize: 12 }}>Passbook: {selectedSupplier.passbookNo}</Text>
-            <Text style={{ color: palette.muted, fontSize: 12 }}>Land: {selectedSupplier.landName}</Text>
+            <Text style={{ color: palette.muted, fontSize: 12 }}>Route: {getRouteCode(selectedSupplier.passbookNo)}</Text>
           </View>
         )}
 
@@ -493,7 +505,7 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
                 >
                   <View>
                     <Text style={{ color: "white", fontSize: 16, fontWeight: "500" }}>{sup.fullName}</Text>
-                    <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{sup.passbookNo} • {sup.landName}</Text>
+                    <Text style={{ color: palette.muted, fontSize: 12, marginTop: 2 }}>{sup.passbookNo} • {getRouteCode(sup.passbookNo)}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color={palette.muted} />
                 </Pressable>

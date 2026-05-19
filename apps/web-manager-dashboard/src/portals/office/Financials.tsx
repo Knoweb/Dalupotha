@@ -61,6 +61,12 @@ export default function FinancialsPage() {
   const [statements, setStatements] = useState<any[]>([]);
   const [statementLoading, setStatementLoading] = useState(false);
 
+  // Profile Drawer State
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [selectedSupplierForProfile, setSelectedSupplierForProfile] = useState<any>(null);
+  const [profileTransactions, setProfileTransactions] = useState<any[]>([]);
+  const [profileLoading, setProfileLoading] = useState(false);
+
   // Role detection
   const userRole = sessionStorage.getItem('user_role') || 'office-staff';
   const isManager = userRole === 'manager' || userRole === 'admin';
@@ -221,6 +227,20 @@ export default function FinancialsPage() {
       console.error("Failed to fetch statement", err);
     } finally {
       setStatementLoading(false);
+    }
+  };
+
+  const openProfile = async (supplier: any) => {
+    setSelectedSupplierForProfile(supplier);
+    setProfileOpen(true);
+    setProfileLoading(true);
+    try {
+      const data = await FinanceAPI.getLedgerTransactions(supplier.id);
+      setProfileTransactions(data);
+    } catch (err) {
+      console.error("Failed to fetch supplier profile transactions", err);
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -501,6 +521,7 @@ export default function FinancialsPage() {
                     globalDueDate={globalDueDate}
                     onAction={() => openPayoutModal(p)}
                     onViewStatement={() => openStatement(p)}
+                    onViewProfile={() => openProfile(p)}
                     loading={loading}
                     isManager={isManager}
                   />
@@ -743,6 +764,182 @@ export default function FinancialsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Supplier Profile Pop-up Sheet ───────────────────── */}
+      <Dialog 
+        open={profileOpen} 
+        onClose={() => setProfileOpen(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{ 
+          '& .MuiDialog-paper': { borderRadius: '28px', overflow: 'hidden', padding: 0, bgcolor: '#f8fafc' }
+        }}
+      >
+        <div className="flex flex-col md:flex-row h-full min-h-[500px]">
+          {/* LEFT PANEL: PROFILE SUMMARY (40% width) */}
+          <div className="w-full md:w-[40%] bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 p-8 text-white flex flex-col justify-between border-r border-slate-700">
+            <div>
+              {/* Header Close button */}
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full">
+                    {t('Supplier Profile')}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 text-slate-300 border border-white/15 px-3 py-1 rounded-full">
+                    {selectedMonth.toUpperCase()}{/\d{4}/.test(selectedMonth) ? '' : ` ${new Date().getFullYear()}`}
+                  </span>
+                </div>
+                <IconButton onClick={() => setProfileOpen(false)} sx={{ color: 'white', p: 0.5 }}>
+                  <X size={18} />
+                </IconButton>
+              </div>
+
+              {/* Avatar and Info */}
+              <div className="flex items-center gap-4 mt-6 mb-8">
+                <div className="w-16 h-16 rounded-3xl bg-emerald-500 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-emerald-500/20">
+                  {selectedSupplierForProfile?.name ? selectedSupplierForProfile.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'SH'}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight text-white">{selectedSupplierForProfile?.name}</h3>
+                  <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider mt-1">{selectedSupplierForProfile?.sid}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-700/60 my-6"></div>
+
+              {/* Monthly Stats Summary */}
+              <div className="space-y-5">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('Gross Earnings')} ({selectedMonth})</span>
+                  <p className="text-xl font-extrabold text-white mt-1">Rs. {selectedSupplierForProfile?.gross.toLocaleString()}</p>
+                  <p className="text-[10px] text-emerald-400 font-medium mt-1">
+                    {selectedSupplierForProfile?.leafKg || 0} kg @ Rs. {selectedSupplierForProfile?.rate || 0}/kg
+                  </p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('Outstanding Debt')}</span>
+                  <p className="text-xl font-extrabold text-rose-400 mt-1">Rs. {(selectedSupplierForProfile?.debt + selectedSupplierForProfile?.adv || 0).toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1">
+                    {t('Advances')}: Rs. {selectedSupplierForProfile?.adv.toLocaleString()} | {t('Service Debts')}: Rs. {selectedSupplierForProfile?.debt.toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 border border-emerald-500/20 rounded-2xl p-4 shadow-inner">
+                  <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-widest">{t('Net Payout Estimate')}</span>
+                  <p className="text-2xl font-black text-emerald-400 mt-1">Rs. {selectedSupplierForProfile?.netPay.toLocaleString()}</p>
+                  <span className={`inline-block mt-2 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${selectedSupplierForProfile?.status === 'APPROVED' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-slate-900'}`}>
+                    {t(selectedSupplierForProfile?.status)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-8">
+              Dalupotha Estate Financials
+            </div>
+          </div>
+
+          {/* RIGHT PANEL: CATEGORIZED DEBT PORTFOLIO (60% width) */}
+          <div className="w-full md:w-[60%] p-8 flex flex-col justify-between overflow-y-auto max-h-[600px]">
+            <div>
+              {/* Section 1: Debt Portfolio */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-950 mb-4">{t('Categorized Debt Portfolio')}</h4>
+                
+                {profileLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
+                ) : (() => {
+                  const debts = profileTransactions.filter(t => 
+                    (t.transactionType === 'DEBT' || t.transactionType === 'ADVANCE') && 
+                    t.amount > 0 && t.status !== 'FAILED'
+                  );
+                  
+                  if (debts.length === 0) {
+                    return (
+                      <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-150">
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('No Outstanding Debts')}</p>
+                        <p className="text-slate-500 text-xs mt-1">{t('This supplier has a clean financial sheet with no deductions.')}</p>
+                      </div>
+                    );
+                  }
+
+                  // Helper function to categorize into pure, exact category names
+                  const getCategoryInfo = (desc: string) => {
+                    const d = desc?.toUpperCase() || '';
+                    if (d.includes('FERTILIZER')) return { label: t('Fertilizer'), color: 'bg-emerald-500' };
+                    if (d.includes('BAG') || d.includes('LEAF_BAG')) return { label: t('Leaf Bags'), color: 'bg-blue-500' };
+                    if (d.includes('TRANSPORT')) return { label: t('Transport'), color: 'bg-orange-500' };
+                    if (d.includes('TOOL') || d.includes('MACHINE')) return { label: t('Tools & Machinery'), color: 'bg-purple-500' };
+                    // Default fallback to advances for anything else like requested via mobile, need now, advance, etc.
+                    return { label: t('Advances'), color: 'bg-amber-500' };
+                  };
+
+                  // Group by category and month of the transaction
+                  const categories: Record<string, { amount: number; color: string; label: string; monthStr: string }> = {};
+                  debts.forEach(d => {
+                    const info = getCategoryInfo(d.description || d.transactionType);
+                    const txDate = new Date(d.transactionDate);
+                    const monthName = txDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    const key = `${info.label}-${monthName}`;
+                    if (!categories[key]) {
+                      categories[key] = { amount: 0, color: info.color, label: info.label, monthStr: monthName };
+                    }
+                    categories[key].amount += Number(d.amount);
+                  });
+
+                  const totalDebt = Object.values(categories).reduce((sum, c) => sum + c.amount, 0);
+
+                  return (
+                    <div className="space-y-4">
+                      {Object.values(categories).map((c, idx) => {
+                        const pct = totalDebt > 0 ? (c.amount / totalDebt) * 100 : 0;
+                        return (
+                          <div key={idx} className="bg-white border border-slate-150 rounded-2xl p-4 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <span className="text-sm font-black text-slate-900 block">{c.label}</span>
+                                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 block">{c.monthStr}</span>
+                              </div>
+                              <span className="text-sm font-black text-slate-950">Rs. {c.amount.toLocaleString()}</span>
+                            </div>
+                            {/* Modern slider / progress bar */}
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-3">
+                              <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                            </div>
+                            <div className="flex justify-between mt-2 text-[10px] text-slate-500 font-medium">
+                              <span>{pct.toFixed(0)}% of total deductions</span>
+                              <span>Active</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Footer close action */}
+            <div className="pt-6 border-t border-slate-150 flex justify-end mt-8">
+              <Button 
+                onClick={() => setProfileOpen(false)}
+                variant="contained" 
+                sx={{ 
+                  borderRadius: '16px', 
+                  px: 4,
+                  py: 1, 
+                  fontWeight: 500, 
+                  bgcolor: '#0f172a',
+                  '&:hover': { bgcolor: '#1e293b' }
+                }}
+              >
+                {t('Done')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -826,7 +1023,7 @@ function AdvanceItem({ index, request, t, onViewStatement }: any) {
   );
 }
 
-function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, date, t, onAction, onViewStatement, loading, isManager, month, globalDueDate }: any) {
+function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, date, t, onAction, onViewStatement, onViewProfile, loading, isManager, month, globalDueDate }: any) {
   const statusColors: any = {
     PENDING: 'bg-[#FEF3C7] text-[#B45309] font-bold',
     AWAITING_APPROVAL: 'bg-[#FEF3C7] text-[#B45309] font-bold',
@@ -887,26 +1084,34 @@ function PayoutItem({ id, name, sid, gross, adv, debt, qual, netPay, status, dat
         </span>
       </td>
       <td className="px-6 py-4 text-right">
-        {status !== 'PAID' && status !== 'SETTLED' && getActionLabel() ? (
+        <div className="flex items-center justify-end gap-2">
           <button 
-            onClick={onAction}
-            disabled={loading || net <= 0 || (status === 'AWAITING_APPROVAL' && !isManager)}
-            className={`px-3 py-1.5 rounded-xl text-[10px] font-medium uppercase tracking-widest transition-all shadow-md
-              ${status === 'AWAITING_APPROVAL' 
-                ? 'bg-amber-600 text-white hover:bg-amber-700 disabled:bg-slate-100 disabled:text-slate-400' 
-                : net <= 0 
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                  : 'bg-black text-white hover:bg-slate-900'
-              }`}
+            onClick={onViewProfile}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-sm border border-slate-200 whitespace-nowrap"
           >
-            {loading ? <RefreshCw className="animate-spin" size={10} /> : getActionLabel()}
+            {t('Profile')}
           </button>
-        ) : (status === 'PAID' || status === 'SETTLED') ? (
-          <div className="flex items-center justify-end gap-1 text-emerald-600">
-            <CheckCircle2 size={14} />
-            <span className="text-[10px] font-medium uppercase tracking-widest">{t('SETTLED')}</span>
-          </div>
-        ) : null}
+          {status !== 'PAID' && status !== 'SETTLED' && getActionLabel() ? (
+            <button 
+              onClick={onAction}
+              disabled={loading || net <= 0 || (status === 'AWAITING_APPROVAL' && !isManager)}
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-medium uppercase tracking-widest transition-all shadow-md whitespace-nowrap
+                ${status === 'AWAITING_APPROVAL' 
+                  ? 'bg-amber-600 text-white hover:bg-amber-700 disabled:bg-slate-100 disabled:text-slate-400' 
+                  : net <= 0 
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                    : 'bg-black text-white hover:bg-slate-900'
+                }`}
+            >
+              {loading ? <RefreshCw className="animate-spin" size={10} /> : getActionLabel()}
+            </button>
+          ) : (status === 'PAID' || status === 'SETTLED') ? (
+            <div className="flex items-center justify-end gap-1 text-emerald-600">
+              <CheckCircle2 size={14} />
+              <span className="text-[10px] font-medium uppercase tracking-widest">{t('SETTLED')}</span>
+            </div>
+          ) : null}
+        </div>
       </td>
     </tr>
   );

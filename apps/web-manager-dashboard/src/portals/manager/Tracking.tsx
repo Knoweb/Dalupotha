@@ -19,6 +19,7 @@ export default function TrackingPage() {
   const [timeFilter, setTimeFilter] = useState<string>('All')
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => new Date().toISOString().substring(0, 7))
   
   // Real agent data filters state
   const [agentSearch, setAgentSearch] = useState<string>("")
@@ -64,6 +65,15 @@ export default function TrackingPage() {
     setLoading(true)
     fetchData()
   }, [fetchData])
+
+  // Keep daily date filter aligned with the selected month
+  useEffect(() => {
+    if (selectedMonth && selectedDate) {
+      if (!selectedDate.startsWith(selectedMonth)) {
+        setSelectedDate(`${selectedMonth}-01`)
+      }
+    }
+  }, [selectedMonth, selectedDate])
 
   const handleRefetch = async () => {
     setRefetching(true)
@@ -125,7 +135,7 @@ export default function TrackingPage() {
 
   // Stats computation
   const stats = useMemo(() => {
-    const selectedCollections = collections.filter(c => c.collectedAt && c.collectedAt.startsWith(selectedDate))
+    const selectedCollections = collections.filter(c => c.collectedAt && c.collectedAt.startsWith(selectedMonth))
     const activeAgentIds = new Set(selectedCollections.map(c => c.transportAgentId))
     const syncPending = selectedCollections.filter(c => c.syncStatus === 'QUEUED' || c.syncStatus === 'PENDING').length
     const totalSelectedKg = selectedCollections.reduce((sum, c) => sum + (c.grossWeight || 0), 0)
@@ -136,12 +146,16 @@ export default function TrackingPage() {
       offlineTAs: Math.max(0, agents.length - activeAgentIds.size),
       totalKg: totalSelectedKg.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
     }
-  }, [collections, agents, selectedDate])
+  }, [collections, agents, selectedMonth])
 
   // Agent table row calculation
   const agentRows = useMemo(() => {
     return agents.map((agent, index) => {
-      const agentColls = collections.filter(c => c.transportAgentId === agent.userId)
+      const agentColls = collections.filter(c => 
+        c.transportAgentId === agent.userId && 
+        c.collectedAt && 
+        c.collectedAt.startsWith(selectedMonth)
+      )
       const totalWeight = agentColls.reduce((sum, c) => sum + (c.grossWeight || 0), 0)
       const times = agentColls.map(c => c.collectedAt ? new Date(c.collectedAt).getTime() : 0)
       const lastSync = times.length > 0
@@ -185,7 +199,7 @@ export default function TrackingPage() {
         status
       }
     })
-  }, [agents, collections])
+  }, [agents, collections, selectedMonth])
 
   const filteredAgentRows = useMemo(() => {
     return agentRows.filter(agent => {
@@ -384,6 +398,23 @@ export default function TrackingPage() {
           <p className="text-slate-600 text-sm mt-0.5">{t('Real-time GPS visibility for leaf collection fleet in')} <span className="font-bold text-green-700">{estateName}</span></p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-sm">
+            <Calendar size={15} className="text-green-600 animate-pulse" />
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="text-sm font-bold text-slate-700 bg-transparent border-none focus:outline-none cursor-pointer pr-2"
+            >
+              <option value="2026-06">{t('June 2026')}</option>
+              <option value="2026-05">{t('May 2026')}</option>
+              <option value="2026-04">{t('April 2026')}</option>
+              <option value="2026-03">{t('March 2026')}</option>
+              <option value="2026-02">{t('February 2026')}</option>
+              <option value="2026-01">{t('January 2026')}</option>
+              <option value="2025-12">{t('December 2025')}</option>
+            </select>
+          </div>
+
           <button 
             onClick={handleRefetch}
             disabled={refetching}
@@ -397,10 +428,10 @@ export default function TrackingPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard label={t("Active TAs")} value={loading ? "..." : stats.activeTAs} sub={t("GPS tracking live")} icon={<Navigation className="text-green-500"/>} />
-        <StatCard label={t("Sync Pending")} value={loading ? "..." : stats.syncPending} sub={t("Records not yet synced")} icon={<Clock className="text-orange-500"/>} />
-        <StatCard label={t("Offline TAs")} value={loading ? "..." : stats.offlineTAs} sub={t("No signal detected")} icon={<AlertCircle className="text-red-500"/>} />
-        <StatCard label={t("Total Collected")} value={loading ? "..." : `${stats.totalKg} ${t('kg')}`} sub={t("Real weight telemetry")} icon={<TrendingUp className="text-blue-500"/>} />
+        <StatCard label={t("Active Agents")} value={loading ? "..." : stats.activeTAs} sub={t("Active this month")} icon={<Navigation className="text-green-500"/>} />
+        <StatCard label={t("Sync Pending")} value={loading ? "..." : stats.syncPending} sub={t("Pending this month")} icon={<Clock className="text-orange-500"/>} />
+        <StatCard label={t("Offline Agents")} value={loading ? "..." : stats.offlineTAs} sub={t("No collections this month")} icon={<AlertCircle className="text-red-500"/>} />
+        <StatCard label={t("Total Collected")} value={loading ? "..." : `${stats.totalKg} ${t('kg')}`} sub={t("Total weight this month")} icon={<TrendingUp className="text-blue-500"/>} />
       </div>
 
       {/* Map Filter Controls Bar */}

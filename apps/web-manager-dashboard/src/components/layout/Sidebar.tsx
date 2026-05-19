@@ -101,10 +101,6 @@ export default function Sidebar({
       </nav>
 
       <div className="p-6 border-t border-white/10">
-        <div className="mb-3 px-1">
-          <p className="text-white font-bold text-sm truncate">{userInfo.fullName}</p>
-          {userInfo.employeeId && <p className="text-white/50 text-[10px] font-mono tracking-wider">{userInfo.employeeId}</p>}
-        </div>
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 text-white/60 hover:text-white hover:bg-black/10 rounded-xl transition-all text-sm font-semibold group"
