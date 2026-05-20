@@ -1,9 +1,9 @@
-import { ReactNode, useEffect, useState, useCallback } from 'react'
+import { ReactNode, useEffect, useState, useCallback, useRef } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { UserRole } from '../../App'
 import { useNotifications, AppNotification } from '../../hooks/useNotifications'
-import { X, Leaf, CheckSquare } from 'lucide-react'
+import { X, Leaf, CheckSquare, AlertTriangle } from 'lucide-react'
 import { useLanguage } from '../../hooks/useLanguage'
 
 interface DashboardLayoutProps {
@@ -28,7 +28,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
   const { t } = useLanguage();
   const {
     notifications, unreadCount, markRead, markAllRead, clearAll,
-    dismissAlert, pendingCollectionAlerts, pendingRequestAlerts, addFromApi, addRequestFromApi,
+    dismissAlert, pendingCollectionAlerts, pendingRequestAlerts, addFromApi, addRequestFromApi, addPayoutFromApi,
   } = useNotifications();
 
   // ── Fetch actual pending (unprocessed) collections from API on mount ──────
@@ -86,6 +86,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
          setPendingRequestCount(count);
 
          // 3. Fetch pending payouts count
+         let activePayoutIds = new Set<string>();
          try {
            const estateId = sessionStorage.getItem('estate_id');
            const usersRes = await fetch(`/api/auth/users${estateId ? `?estateId=${estateId}` : ''}`);
@@ -100,8 +101,19 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
                  const txRes = await fetch(`/api/finance/ledger/${targetId}/transactions`);
                  if (txRes.ok) {
                    const transactions: any[] = await txRes.json();
-                   const hasPending = transactions.some((t: any) => t.transactionType === 'PAYOUT' && t.status === 'AWAITING_APPROVAL');
-                   if (hasPending) pendingPayoutsCount++;
+                   const pendingTxs = transactions.filter((t: any) => t.transactionType === 'PAYOUT' && t.status === 'AWAITING_APPROVAL');
+                   pendingPayoutsCount += pendingTxs.length;
+
+                   pendingTxs.forEach((pt: any) => {
+                     const txId = pt.transactionId || pt.id || `${targetId}_payout_${pt.transactionDate}`;
+                     activePayoutIds.add(txId);
+                     addPayoutFromApi({
+                       transactionId: txId,
+                       supplierName: s.fullName || 'Supplier',
+                       amount: pt.amount,
+                       timestamp: pt.transactionDate || new Date().toISOString()
+                     });
+                   });
                  }
                } catch (e) { /* ignore */ }
              }));
@@ -113,9 +125,15 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
          const activeIds = new Set(filtered.map(r => r.requestId));
          
          // Clear stale alerts
-         pendingRequestAlerts.forEach(alert => {
+         notifications.forEach(alert => {
+           // Clear stale service requests
            const rid = alert.meta?.requestId;
-           if (rid && !activeIds.has(rid)) {
+           if (rid && !activeIds.has(rid) && alert.type === 'service_request' && alert.meta?.requestId) {
+             dismissAlert(alert.id);
+           }
+           // Clear stale payouts
+           const txId = alert.meta?.transactionId;
+           if (txId && !activePayoutIds.has(txId) && alert.type === 'service_request' && alert.meta?.transactionId) {
              dismissAlert(alert.id);
            }
          });
@@ -135,7 +153,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
         setPendingRequestCount(0);
       }
     } catch (err) { console.error("[AlertSync] Fetch error:", err); }
-  }, [isAlertRole, addFromApi, userRole, pendingRequestAlerts, dismissAlert, addRequestFromApi]);
+  }, [isAlertRole, addFromApi, userRole, notifications, dismissAlert, addRequestFromApi, addPayoutFromApi]);
 
   // ── Auto-sync Estate Name from Backend ───────────────────────────────────
   useEffect(() => {
@@ -193,18 +211,32 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
     syncEstateName();
   }, []);
 
+  const prevLengthRef = useRef(notifications.length);
   // Re-fetch counts when a new notification arrives (Real-time update)
   useEffect(() => {
     if (!isAlertRole) return;
     
     // Check if the latest notification is a service request
     const latest = notifications[0];
-    if (latest && latest.type === 'service_request' && !latest.read) {
+    if (latest && latest.type === 'service_request' && !latest.read && !latest.meta?.fromApi && notifications.length > prevLengthRef.current) {
       fetchPending();
     }
+    prevLengthRef.current = notifications.length;
   }, [notifications.length, isAlertRole]);
 
+  const handleNotificationClick = (notification: any) => {
+    if (notification.meta?.transactionId) {
+      sessionStorage.setItem('financials_active_tab', 'approvals');
+      onTabChange('financials');
+      window.dispatchEvent(new CustomEvent('financials-tab-redirect', { detail: 'approvals' }));
+    } else if (notification.meta?.requestId) {
+      onTabChange('approvals');
+      window.dispatchEvent(new CustomEvent('approvals-tab-redirect'));
+    }
+  };
+
   const showBanner = pendingCollectionAlerts.length > 0 && isAlertRole;
+  const pendingSystemAlerts = notifications.filter(n => n.type === 'system' && !n.dismissed);
 
   return (
     <div className="flex h-screen bg-[#f1f5f9] text-slate-900 font-sans overflow-hidden">
@@ -222,7 +254,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
         pendingPayoutCount={pendingPayoutCount}
         pendingCollectionCount={apiPending.length}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-y-auto">
         <Header
           activeTab={activeTab}
           userInfo={userInfo}
@@ -232,8 +264,11 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
           onMarkAllRead={markAllRead}
           onMarkRead={markRead}
           onClearAll={clearAll}
+          onDismiss={dismissAlert}
           pendingRequestCount={pendingRequestCount}
           pendingCollectionCount={apiPending.length}
+          pendingPayoutCount={pendingPayoutCount}
+          onNotificationClick={handleNotificationClick}
         />
 
         {/* ── Persistent Service Request Alert Banner (Summarized) ─────────────────── */}
@@ -260,6 +295,37 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
               onClick={() => pendingRequestAlerts.forEach(a => dismissAlert(a.id))}
               className="p-1 text-indigo-400 hover:text-indigo-700 rounded transition-colors"
               title={t("Dismiss all request alerts")}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
+        {/* ── Persistent System Alert Banner (e.g. Refill) ─────────────────── */}
+        {userRole === 'manager' && pendingSystemAlerts.length > 0 && (
+          <div className="flex-shrink-0 bg-amber-50 border-b-2 border-amber-200 px-6 py-2.5 flex items-center gap-3 shadow-sm">
+            <span className="relative flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0" />
+            <p className="flex-1 text-sm font-bold text-amber-950">
+              <span className="font-bold italic">{t('Refill Alert')}:</span>
+              <span className="font-bold ml-1 text-amber-900">
+                {pendingSystemAlerts[0].message}
+                {pendingSystemAlerts.length > 1 && ` (+${pendingSystemAlerts.length - 1} more)`}
+              </span>
+            </p>
+            <button
+              onClick={() => onTabChange('inventory')}
+              className="px-3 py-1 bg-amber-600 text-white text-[10px] font-black rounded-lg hover:bg-amber-700 transition-all uppercase tracking-wide shadow-sm"
+            >
+              {t('Go to Inventory')}
+            </button>
+            <button
+              onClick={() => pendingSystemAlerts.forEach(a => dismissAlert(a.id))}
+              className="p-1 text-amber-400 hover:text-amber-700 rounded transition-colors"
+              title={t("Dismiss all refill alerts")}
             >
               <X size={13} />
             </button>
@@ -305,7 +371,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 bg-[#f8fafc]">
+        <main className="flex-1 p-4 bg-[#f8fafc]">
           {children}
         </main>
       </div>

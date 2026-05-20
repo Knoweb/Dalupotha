@@ -1,7 +1,6 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck, Pencil, Check } from "lucide-react"
 import { CollectionAPI, FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
-import { useNotifications } from "../../hooks/useNotifications"
 import { useLanguage } from "../../hooks/useLanguage"
 
 const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Transport", "Machine Rent", "Tools", "Advisory", "Leaf Bags"]
@@ -69,8 +68,7 @@ function getAmountQty(req: ServiceRequest, t: any): string {
   if (req.requestType === "FERTILIZER") return `${Number(req.quantity || 0)} kg`
   if (req.requestType === "LEAF_BAG") return `${Number(req.quantity || 0)} ${t('bags')}`
   if (req.requestType === "TOOL_RENT") {
-    const d = (req as any).days || req.quantity || 0;
-    return `${d} ${t('days')}`;
+    return `${Number(req.quantity || 1)} ${t('units')}`;
   }
   if (req.requestType === "ADVISORY") return t(req.itemType || req.notes || "Soil query")
   if (req.requestType === "TRANSPORT") return t("Provision")
@@ -124,14 +122,18 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
 }) {
   const { t, lang } = useLanguage();
   const [comment, setComment] = useState("")
-  const [customAmount, setCustomAmount] = useState<string>(req.approvedAmount?.toString() || req.requestedAmount?.toString() || "")
+  const [customAmount, setCustomAmount] = useState<string>(
+    req.approvedAmount?.toString() || 
+    (req.requestType === "TOOL_RENT" ? "" : req.requestedAmount?.toString()) || 
+    ""
+  )
   const [dailyRate, setDailyRate] = useState<string>("")
   const [creatorInfo, setCreatorInfo] = useState<{ fullName: string; employeeId?: string; role?: string } | null>(null)
   const [approverInfo, setApproverInfo] = useState<{ fullName: string; role?: string } | null>(null)
   const [inventoryItem, setInventoryItem] = useState<InventoryItem | null>(null)
   const [fetchingPrice, setFetchingPrice] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
-  const [isAmountEditable, setIsAmountEditable] = useState(false)
+  const [isAmountEditable, setIsAmountEditable] = useState(req.requestType === "TOOL_RENT")
 
   useEffect(() => {
     if (!req.createdById) return
@@ -148,7 +150,6 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
       .then(d => { if (d) setApproverInfo({ fullName: d.fullName, role: d.role }) })
       .catch(() => {})
   }, [req.approverId])
-
   useEffect(() => {
     const fetchPrices = async () => {
       if (req.requestType === "ADVANCE") return;
@@ -167,7 +168,10 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
             if (Array.isArray(items)) {
               for (const it of items) {
                 const inv = await InventoryAPI.getItem(it.itemId || it.id);
-                if (inv) total += (Number(inv.unitCost) || 0) * (Number(it.quantity) || 0);
+                if (inv) {
+                  const itemDays = req.requestType === "TOOL_RENT" ? (Number(it.days || req.days || 1)) : 1;
+                  total += (Number(inv.unitCost) || 0) * (Number(it.quantity) || 0) * itemDays;
+                }
               }
             }
           } catch (e) { console.error("JSON parse error", e); }
@@ -178,18 +182,23 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
           const inv = await InventoryAPI.getItem(req.itemId);
           if (inv) {
             mainItem = inv;
-            total = (Number(inv.unitCost) || 0) * (Number(req.quantity) || 1);
+            const itemDays = req.requestType === "TOOL_RENT" ? (Number(req.days || 1)) : 1;
+            total = (Number(inv.unitCost) || 0) * (Number(req.quantity) || 1) * itemDays;
           }
         }
 
-        if (total > 0) {
+        if (total > 0 || req.itemId) {
           setInventoryItem(mainItem); // Set main item for UI if single
           const currentAmount = Number(req.approvedAmount || req.requestedAmount || 0);
-          // Only auto-sync if we don't have a valid stored amount or if it's 0
-          if (currentAmount === 0 || !req.approvedAmount) {
-            setCustomAmount(total.toString());
+          if (req.requestType === "TOOL_RENT") {
+            setCustomAmount(req.approvedAmount ? req.approvedAmount.toString() : "");
           } else {
-            setCustomAmount(currentAmount.toString());
+            // Only auto-sync if we don't have a valid stored amount or if it's 0
+            if (currentAmount === 0 || !req.approvedAmount) {
+              setCustomAmount(total.toString());
+            } else {
+              setCustomAmount(currentAmount.toString());
+            }
           }
         }
       } catch (err) {
@@ -200,13 +209,11 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
     };
 
     fetchPrices();
-  }, [req.itemId, req.itemDetails, req.requestType, req.requestedAmount, req.approvedAmount, req.quantity])
+  }, [req.itemId, req.itemDetails, req.requestType, req.requestedAmount, req.approvedAmount, req.quantity, req.days])
 
 
   const debtVal = debt ?? 0
   const supplyVal = supplyThisMonth ?? 0
-  const ratio = supplyVal > 0 ? ((debtVal / supplyVal) * 100).toFixed(1) : "0.0"
-  const highRatio = Number(ratio) > 40
   const meta = TYPE_META_KEYS[req.requestType] || { label: req.requestType, color: "text-slate-950 font-medium" }
   const isPending = req.status === "PENDING" || req.status === "REVIEW"
   const userRole = sessionStorage.getItem('user_role');
@@ -246,116 +253,127 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
             ))}
           </div>
 
-          {req.requestType !== 'ADVISORY' && (
-            <div className="flex flex-col gap-3">
-              {!isStoreKeeper && (
-                <div className="bg-slate-50 rounded-xl p-3 flex-1">
-                  <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-2">{t('Financial Standing')}</p>
-                  {[
-                    { label: t("Outstanding Debt"),  value: `Rs. ${debtVal.toLocaleString()}` },
-                    { label: t("Supply This Month"), value: `${supplyVal.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` },
-                    { label: t("Debt/Supply Ratio"), value: `${ratio}%` },
-                  ].map(row => (
-                    <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
-                      <span className="text-[11px] font-medium text-slate-950">{row.label}</span>
-                      <span className="text-sm font-bold text-slate-800">{row.value}</span>
+          {(() => {
+            let parsedDetails: Array<{ type?: string; itemName?: string; quantity: number | string; unit?: string; days?: string }> = [];
+            try {
+              if (req.itemDetails) {
+                const parsed = JSON.parse(req.itemDetails);
+                if (Array.isArray(parsed)) {
+                  parsedDetails = parsed;
+                }
+              }
+            } catch (e) {}
+
+            return (
+              req.requestType !== 'ADVISORY' && (
+                <div className="flex flex-col gap-3">
+                  {!isStoreKeeper && (
+                    <div className="bg-slate-50 rounded-xl p-3 flex-1">
+                      <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-2">{t('Financial Standing')}</p>
+                      {[
+                        { label: t("Outstanding Debt"),  value: `Rs. ${debtVal.toLocaleString()}` },
+                        { label: t("Supply This Month"), value: `${supplyVal.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg` },
+                      ].map(row => (
+                        <div key={row.label} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                          <span className="text-[11px] font-medium text-slate-950">{row.label}</span>
+                          <span className="text-sm font-bold text-slate-800">{row.value}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {highRatio && (
-                    <div className="mt-2 bg-green-50 border border-green-100 rounded-lg p-2 flex gap-2 items-start">
-                      <Lightbulb size={12} className="text-green-600 mt-0.5 shrink-0" />
-                      <p className="text-[11px] text-slate-600 leading-tight font-medium"><span className="font-bold text-green-700">{t('Tip')}: </span>{t('Review debt ratio carefully')}</p>
+                  )}
+                  
+                  {req.requestType === 'TRANSPORT' ? (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
+                      <div className="flex gap-3 items-center">
+                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
+                          <Truck size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Transport Service')}</p>
+                          <p className="text-sm font-bold text-slate-800 leading-none">{t(req.notes || "Standard Transport")}</p>
+                          <p className="text-xs font-semibold text-slate-950">{t('Service Category')}: {t('Logistic')}</p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-blue-100 flex flex-col gap-1">
+                        <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Transport Fee (Rs.)')}</p>
+                        <div className="bg-white/50 border border-blue-100 rounded-lg px-3 py-2">
+                          <p className="text-base font-black text-blue-700">Rs. {Number(isPending ? customAmount : req.approvedAmount || 0).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : req.requestType === 'TOOL_RENT' ? (
+                    <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
+                      <div className="flex gap-3 items-center">
+                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-purple-600 shadow-sm border border-purple-50">
+                          <Clock size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">{t('Rental Configuration')}</p>
+                          <p className="text-sm font-bold text-slate-800 leading-none">{t(inventoryItem?.itemName || "Rental Machine")}</p>
+                          <p className="text-xs font-semibold text-slate-950">{t('Duration')}: {req.days || req.quantity || 0} {t('Days')}</p>
+                        </div>
+                      </div>
+                      {parsedDetails.length > 0 && (
+                        <div className="pt-2 border-t border-purple-100 flex flex-col gap-1">
+                          <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Requested Items')}</p>
+                          <div className="flex flex-col gap-1.5 bg-white/40 border border-purple-100 rounded-lg p-2">
+                            {parsedDetails.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-850">
+                                <span>{t(item.type || item.itemName || '')}</span>
+                                <span className="text-purple-700 font-extrabold">
+                                  {item.quantity} {t(item.unit || 'units')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t border-purple-100 flex flex-col gap-1">
+                        <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Total Rental Fee (Rs.)')}</p>
+                        <div className="bg-white/50 border border-purple-100 rounded-lg px-3 py-2">
+                           <p className="text-base font-black text-purple-700">Rs. {Number(isPending ? customAmount : req.approvedAmount || 0).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (inventoryItem || req.itemDetails) && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
+                      <div className="flex gap-3 items-center">
+                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
+                          <Package size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Inventory Pricing')}</p>
+                          <p className="text-sm font-bold text-slate-800 leading-none">
+                            {inventoryItem ? t(inventoryItem.itemName) : t('Multiple Items List')}
+                          </p>
+                          {inventoryItem && <p className="text-xs font-semibold text-slate-950">Rs. {Number(inventoryItem.unitCost).toLocaleString()} / {t(inventoryItem.unit || 'unit')}</p>}
+                        </div>
+                      </div>
+                      {parsedDetails.length > 0 && (
+                        <div className="pt-2 border-t border-blue-100 flex flex-col gap-1">
+                          <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Requested Items')}</p>
+                          <div className="flex flex-col gap-1.5 bg-white/40 border border-blue-100 rounded-lg p-2">
+                            {parsedDetails.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-850">
+                                <span>{t(item.type || item.itemName || '')}</span>
+                                <span className="text-blue-700 font-extrabold">
+                                  {item.quantity} {t(item.unit || (req.requestType?.startsWith('TOOL') ? 'units' : 'kg'))}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="pt-1.5 border-t border-blue-100 flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-900 uppercase">{t('Calculated Total')}</span>
+                        <span className="text-base font-black text-blue-700">Rs. {Number(customAmount).toLocaleString()}</span>
+                      </div>
                     </div>
                   )}
                 </div>
-              )}
-              
-              {req.requestType === 'TRANSPORT' ? (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
-                  <div className="flex gap-3 items-center">
-                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
-                      <Truck size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Transport Service')}</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">{t(req.notes || "Standard Transport")}</p>
-                      <p className="text-xs font-semibold text-slate-950">{t('Service Category')}: {t('Logistic')}</p>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-blue-100 flex flex-col gap-1">
-                    <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Transport Fee (Rs.)')}</p>
-                    {isPending ? (
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
-                        <input 
-                          type="number" 
-                          value={customAmount}
-                          onChange={e => setCustomAmount(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full bg-white border border-blue-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-white/50 border border-blue-100 rounded-lg px-3 py-2">
-                        <p className="text-base font-black text-blue-700">Rs. {Number(req.approvedAmount || 0).toLocaleString()}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : req.requestType === 'TOOL_RENT' ? (
-                <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
-                  <div className="flex gap-3 items-center">
-                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-purple-600 shadow-sm border border-purple-50">
-                      <Clock size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">{t('Rental Configuration')}</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">{t(inventoryItem?.itemName || "Rental Machine")}</p>
-                      <p className="text-xs font-semibold text-slate-950">{t('Duration')}: {req.days || req.quantity || 0} {t('Days')}</p>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-purple-100 flex flex-col gap-1">
-                    <p className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">{t('Total Rental Fee (Rs.)')}</p>
-                    {isPending ? (
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-900 font-bold text-xs">Rs.</span>
-                        <input 
-                          type="number" 
-                          value={customAmount}
-                          onChange={e => setCustomAmount(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full bg-white border border-purple-200 rounded-lg pl-9 pr-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-purple-100"
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-white/50 border border-purple-100 rounded-lg px-3 py-2">
-                         <p className="text-base font-black text-purple-700">Rs. {Number(req.approvedAmount || 0).toLocaleString()}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (inventoryItem || req.itemDetails) && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
-                  <div className="flex gap-3 items-center">
-                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
-                      <Package size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{t('Inventory Pricing')}</p>
-                      <p className="text-sm font-bold text-slate-800 leading-none">
-                        {inventoryItem ? t(inventoryItem.itemName) : t('Multiple Items List')}
-                      </p>
-                      {inventoryItem && <p className="text-xs font-semibold text-slate-950">Rs. {Number(inventoryItem.unitCost).toLocaleString()} / {t(inventoryItem.unit || 'unit')}</p>}
-                    </div>
-                  </div>
-                  <div className="pt-1.5 border-t border-blue-100 flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-900 uppercase">{t('Calculated Total')}</span>
-                    <span className="text-base font-black text-blue-700">Rs. {Number(customAmount).toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              )
+            );
+          })()}
         </div>
 
         <div className="px-5 pb-3">
@@ -463,7 +481,7 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
                     onChange={e => setCustomAmount(e.target.value)} 
                     placeholder="0"
                     readOnly={!isAmountEditable}
-                    className={`w-full border rounded-xl pl-12 pr-10 py-3 text-lg font-black text-slate-800 outline-none transition-all ${isAmountEditable ? "bg-white border-blue-400 ring-2 ring-blue-100 shadow-sm" : "bg-slate-50 border-slate-200 cursor-not-allowed"}`} 
+                    className={`w-full border rounded-xl pl-12 pr-10 py-3 text-lg font-black text-slate-800 outline-none transition-all ${isAmountEditable ? "bg-white border-blue-400 ring-2 ring-blue-100 shadow-sm" : "bg-slate-50 border-slate-200 cursor-not-allowed"} ${(!customAmount || Number(customAmount) === 0) ? "ring-2 ring-orange-400 border-orange-400 shadow-[0_0_15px_rgba(251,146,60,0.4)] animate-pulse" : ""}`} 
                   />
                   <button 
                     onClick={() => setIsAmountEditable(!isAmountEditable)}
@@ -521,6 +539,8 @@ export default function ApprovalsPage() {
   const { t, lang } = useLanguage();
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const initialLoadedRef = useRef(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState("All Types")
   const [search, setSearch] = useState("")
@@ -531,10 +551,20 @@ export default function ApprovalsPage() {
   const [viewReq, setViewReq] = useState<{ req: ServiceRequest; code: string } | null>(null)
   const [inventoryMap, setInventoryMap] = useState<Record<string, { stock: number; unit: string }>>({})
   const [statusFilter, setStatusFilter] = useState<"PENDING" | "APPROVED" | "REJECTED">("PENDING")
-  const { notifications } = useNotifications()
+
+  useEffect(() => {
+    const handleRedirect = () => {
+      setStatusFilter('PENDING');
+    };
+    window.addEventListener('approvals-tab-redirect', handleRedirect);
+    return () => window.removeEventListener('approvals-tab-redirect', handleRedirect);
+  }, []);
 
   const loadRequests = useCallback(async () => {
-    setLoading(true)
+    if (!initialLoadedRef.current) {
+      setLoading(true)
+    }
+    setRefreshing(true)
     const userRole = sessionStorage.getItem('user_role');
     try {
       const pendingStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
@@ -561,7 +591,10 @@ export default function ApprovalsPage() {
       const dmap: Record<string, number> = {}
       const smap: Record<string, number> = {}
       await Promise.allSettled(activeIds.map(async id => {
-        try { dmap[id] = (await FinanceAPI.getSupplierLedger(id)).currentDebt ?? 0 }
+        try { 
+          const ledger = await FinanceAPI.getSupplierLedger(id);
+          dmap[id] = (ledger.currentDebt ?? 0) + (ledger.advanceTaken ?? 0);
+        }
         catch { dmap[id] = 0 }
 
         try {
@@ -606,16 +639,22 @@ export default function ApprovalsPage() {
       }))
       setCreatorMap(prev => ({ ...prev, ...cmap }))
     } catch (err) { console.error(err) }
-    finally { setLoading(false) }
+    finally {
+      setLoading(false)
+      setRefreshing(false)
+      initialLoadedRef.current = true
+    }
   }, [])
 
   useEffect(() => { loadRequests() }, [loadRequests])
 
+  const prevLengthRef = useRef(notifications.length);
   useEffect(() => {
     const latest = notifications[0];
-    if (latest && latest.type === 'service_request' && !latest.read) {
+    if (latest && latest.type === 'service_request' && !latest.read && notifications.length > prevLengthRef.current) {
       loadRequests();
     }
+    prevLengthRef.current = notifications.length;
   }, [notifications.length, loadRequests]);
 
   const handleAction = async (requestId: string, status: RequestStatus, payload?: string) => {
@@ -724,7 +763,7 @@ export default function ApprovalsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={loadRequests} className="p-1.5 text-slate-900 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
           </button>
           <button className="inline-flex items-center gap-1.5 border border-slate-200 bg-white px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm">
             <Download size={12} /> {t('Export List')}
@@ -778,7 +817,6 @@ export default function ApprovalsPage() {
                 <th className={TH}>{t('Amount / Qty')}</th>
                 {userRole === 'store-keeper' && <th className={TH}>{t('Available')}</th>}
                 <th className={TH}>{t('Date')}</th>
-                <th className={TH}>{t('Debt')}</th>
                 <th className={TH}>{t('Status')}</th>
                 <th className={`${TH} text-right`}>{t('Actions')}</th>
               </tr>
@@ -787,11 +825,11 @@ export default function ApprovalsPage() {
               {loading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {[...Array(8)].map((_, j) => <td key={j} className={TD}><div className="h-3 bg-slate-100 rounded w-3/4" /></td>)}
+                    {[...Array(userRole === 'store-keeper' ? 8 : 7)].map((_, j) => <td key={j} className={TD}><div className="h-3 bg-slate-100 rounded w-3/4" /></td>)}
                   </tr>
                 ))
               ) : applyFilters(statusFilter === "PENDING" ? pending : statusFilter === "APPROVED" ? recentApproved : recentRejected).length === 0 ? (
-                <tr><td colSpan={userRole === 'store-keeper' ? 9 : 8} className="text-center py-10 text-slate-900 text-xs">{t('No requests found')}</td></tr>
+                <tr><td colSpan={userRole === 'store-keeper' ? 8 : 7} className="text-center py-10 text-slate-900 text-xs">{t('No requests found')}</td></tr>
               ) : (
                 applyFilters(statusFilter === "PENDING" ? pending : statusFilter === "APPROVED" ? recentApproved : recentRejected).map((req, i) => {
                   const meta = TYPE_META_KEYS[req.requestType] || { label: req.requestType, color: "text-slate-950 font-medium" }
@@ -835,16 +873,6 @@ export default function ApprovalsPage() {
                       <td className={TD}>
                         <span className="text-xs text-slate-950 block">{formatDate(req.requestDate, lang)}</span>
                         <span className="text-[10px] text-slate-900">{formatTime(req.requestDate)}</span>
-                      </td>
-                      <td className={TD}>
-                        <span className={`text-sm font-semibold ${debt && debt > 0 ? "text-slate-800" : "text-slate-950"}`}>
-                          {debt === null ? "..." : `Rs. ${debt.toLocaleString()}`}
-                        </span>
-                        {supply !== null && (
-                          <span className="block text-[10px] text-slate-900 mt-0.5">
-                            {supply.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg (month)
-                          </span>
-                        )}
                       </td>
                       <td className={TD}>
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[req.status] || "bg-slate-100 text-slate-900"}`}>

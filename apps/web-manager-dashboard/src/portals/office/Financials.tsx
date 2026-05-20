@@ -31,7 +31,26 @@ interface PayoutData {
 
 export default function FinancialsPage() {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<'balance' | 'advances' | 'approvals'>('balance');
+  const [activeTab, setActiveTab] = useState<'balance' | 'advances' | 'approvals'>(() => {
+    const saved = sessionStorage.getItem('financials_active_tab');
+    if (saved === 'balance' || saved === 'advances' || saved === 'approvals') {
+      sessionStorage.removeItem('financials_active_tab');
+      return saved;
+    }
+    return 'balance';
+  });
+
+  useEffect(() => {
+    const handleRedirect = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail === 'approvals' || customEvent.detail === 'advances' || customEvent.detail === 'balance') {
+        setActiveTab(customEvent.detail);
+      }
+    };
+    window.addEventListener('financials-tab-redirect', handleRedirect);
+    return () => window.removeEventListener('financials-tab-redirect', handleRedirect);
+  }, []);
+
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('en-GB', { month: 'short' }));
   const [globalDueDate, setGlobalDueDate] = useState<string>(() => {
@@ -136,7 +155,7 @@ export default function FinancialsPage() {
           
           const pendingPayout = transactions.find((t: any) => t.transactionType === 'PAYOUT' && t.status === 'AWAITING_APPROVAL');
           
-          const status = hasPaidPayout ? 'APPROVED' : (pendingPayout ? 'AWAITING_APPROVAL' : 'PENDING');
+          const status = pendingPayout ? 'AWAITING_APPROVAL' : (hasPaidPayout ? 'APPROVED' : 'PENDING');
 
           return {
             id: targetId,
@@ -424,7 +443,7 @@ export default function FinancialsPage() {
               className={`flex items-center gap-2 px-6 py-3 text-xs font-bold transition-all rounded-t-lg ${activeTab === 'approvals' ? 'bg-emerald-50 text-emerald-700 border-b-2 border-emerald-500' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
             >
               <ShieldCheck size={14} /> {t('Approvals')} {payouts.filter(p => p.status === 'AWAITING_APPROVAL').length > 0 && (
-                <span className="ml-1 bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                <span className="ml-1 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                   {payouts.filter(p => p.status === 'AWAITING_APPROVAL').length}
                 </span>
               )}

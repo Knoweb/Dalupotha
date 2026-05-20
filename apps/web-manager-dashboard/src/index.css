@@ -84,3 +84,88 @@ input[type=number] {
 .animate-slow-pulse {
   animation: slow-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* 
+  Elevate the main container stacking context to z-40 when a modal is open inside it.
+  This allows the modal backdrop (z-50+) to render on top of and blur the header (z-30) and sidebar (z-20).
+*/
+main:has(.fixed.inset-0) {
+  position: relative;
+  z-index: 40;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12px !important;
+  }
+
+  /* Hide everything in root */
+  #root {
+    display: none !important;
+  }
+
+  /* Hide everything in body except our active print modal wrapper */
+  body > *:not(.print-modal-wrapper) {
+    display: none !important;
+  }
+
+  /* Reset print wrapper styles for absolute full-page document rendering */
+  .print-modal-wrapper {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Format modal block into page body */
+  .print-modal-content {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Suppress screen-only components */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Table rules for print margins */
+  .print-modal-content table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+  }
+
+  .print-modal-content tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  .print-modal-content th,
+  .print-modal-content td {
+    padding: 6px 10px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Force background colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

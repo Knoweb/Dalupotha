@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView,
   Text, TextInput, View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { palette, styles } from "../../ui/theme";
@@ -661,7 +662,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
     setInventoryLoading(true);
     try {
       const data = await apiGet<any[]>(ServicesAPI.inventory, token);
-      setInventoryItems(data || []);
+      setInventoryItems(Array.isArray(data) ? data : (Array.isArray((data as any)?.data) ? (data as any).data : []));
     } catch (e) {
       console.error("Failed to fetch inventory", e);
     } finally {
@@ -865,7 +866,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
           passbookNo: formSupplier.passbookNo || "No passbook",
           createdById: user.userId,
           requestType: requestType,
-          requestedAmount: activeTab === "Advance" ? amount : (activeTab === "Fertilizer" ? totalFertilizerCost : (activeTab === "Tools" ? totalToolCost : (activeTab === "Leaf Bags" ? leafBagCost : 0))),
+          requestedAmount: activeTab === "Advance" ? amount : (activeTab === "Fertilizer" ? totalFertilizerCost : (activeTab === "Tools" ? (toolViewMode === "TOOL_RENT" ? 0 : totalToolCost) : (activeTab === "Leaf Bags" ? leafBagCost : 0))),
           quantity: activeTab === "Fertilizer" ? totalFertilizerQuantity : (activeTab === "Tools" ? totalToolQuantity : (activeTab === "Leaf Bags" ? leafBagQty : null)),
           itemId: activeTab === "Leaf Bags" ? selectedInventoryItem?.itemId : (activeTab === "Fertilizer" ? fertilizerItems[0]?.itemId : (activeTab === "Tools" ? toolItems[0]?.itemId : undefined)),
           itemType: activeTab === "Fertilizer" ? (fertilizerItems[0]?.type || formItemType) : (activeTab === "Tools" ? (toolItems[0]?.type || formItemType) : (activeTab === "Leaf Bags" ? (selectedInventoryItem?.itemName || "Leaf Bag") : formItemType)),
@@ -897,7 +898,8 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       type, 
       quantity: String(quantity),
       itemId: selectedInventoryItem?.itemId,
-      unitCost: selectedInventoryItem?.unitCost
+      unitCost: selectedInventoryItem?.unitCost,
+      unit: selectedInventoryItem?.unit || "kg"
     }]);
     setFormItemType("");
     setFormQuantity("");
@@ -915,7 +917,8 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       type, 
       quantity: String(quantity),
       itemId: selectedInventoryItem?.itemId,
-      unitCost: selectedInventoryItem?.unitCost
+      unitCost: selectedInventoryItem?.unitCost,
+      unit: selectedInventoryItem?.unit || "units"
     };
     if (toolViewMode === "TOOL_RENT" && formDays) {
       newItem.days = formDays;
@@ -1397,13 +1400,13 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                                     fetchInventory();
                                     setShowInventoryModal(true);
                                   }}
-                                ><TextInput
+                                ><View pointerEvents="none" style={{ flex: 1 }}><TextInput
                                     style={[styles.inputField, { flex: 1, color: "white", fontSize: 15, fontWeight: "bold" }]}
                                     placeholder="Select Fertilizer"
                                     placeholderTextColor="#7d93b4"
                                     value={formItemType}
                                     editable={false}
-                                  /><Ionicons name="search" size={20} color={palette.accentGreen} /></Pressable></View>
+                                  /></View><Ionicons name="search" size={20} color={palette.accentGreen} /></Pressable></View>
                              </View>
                              <View style={{ flex: 1 }}>
                                <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Quantity (kg)</Text>
@@ -1472,6 +1475,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                                         placeholderTextColor="#7d93b4"
                                         value={formItemType}
                                         editable={false}
+                                        pointerEvents="none"
                                       /><Ionicons name="search" size={18} color={palette.accentBlue} /></Pressable></View>
                                </View>
                                <View style={{ flex: 0.6 }}>
@@ -1489,7 +1493,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                                </View>
                              </View>
                              {toolViewMode === "TOOL_RENT" && (
-                               <View style={{ marginBottom: 15, marginTop: 10 }}>
+                               <View>
                                  <Text style={{ color: palette.muted, fontSize: 12, marginBottom: 8, fontWeight: "bold" }}>Rent Duration (Days)</Text>
                                  <View style={[styles.inputContainer, { height: 48 }]}>
                                    <TextInput
@@ -1505,7 +1509,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                              )}
 
                              {toolItems.length > 0 && (
-                               <View style={{ gap: 8, marginTop: 8 }}>
+                               <View style={{ gap: 8, marginBottom: 15 }}>
                                  {toolItems.map((item, index) => (
                                    <View
                                     key={index}
@@ -1570,6 +1574,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                             placeholderTextColor="#7d93b4"
                             value={formItemType}
                             editable={false}
+                            pointerEvents="none"
                           /><Ionicons name="search" size={20} color={palette.accentBlue} /></Pressable></View>
                       <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Number of Bags Needed</Text>
                       <View style={[styles.inputContainer, { marginBottom: 20 }]}>
@@ -1602,7 +1607,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                     </>
                   )}
 
-                  <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8 }}>Additional Notes</Text>
+                  <Text style={{ color: palette.muted, fontSize: 13, marginBottom: 8, marginTop: 15 }}>Additional Notes</Text>
                   <View style={[styles.inputContainer, { height: 100, alignItems: "flex-start", paddingTop: 10 }]}>
                     <TextInput
                       style={[styles.inputField, { paddingLeft: 15, height: "100%", width: "100%", textAlignVertical: "top" }]}
@@ -1630,110 +1635,8 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
               )}
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Request Detail Modal */}
-      <Modal visible={showDetailModal} animationType="fade" transparent>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", padding: 20 }}>
-          <View style={{ backgroundColor: "#111f38", borderRadius: 24, padding: 25, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>Request Details</Text>
-              <Pressable onPress={() => setShowDetailModal(false)} style={{ padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12 }}>
-                <Ionicons name="close" size={24} color={palette.muted} />
-              </Pressable>
-            </View>
-
-            {selectedRequest && (
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
-                <View style={{ marginBottom: 20 }}>
-                  <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Supplier Information</Text>
-                  <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>{selectedRequest.supplierName || "Unknown Supplier"}</Text>
-                  <Text style={{ color: palette.muted, fontSize: 13, marginTop: 2 }}>{selectedRequest.passbookNo || "No Passbook"}</Text>
-                </View>
-
-                <View style={{ marginBottom: 20 }}>
-                   <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Request Information</Text>
-                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                     <Text style={{ color: palette.muted, fontSize: 13 }}>Type</Text>
-                     <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.requestType}</Text>
-                   </View>
-                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                     <Text style={{ color: palette.muted, fontSize: 13 }}>Status</Text>
-                     <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)", paddingHorizontal: 8 }]}>
-                        <Text style={{ color: statusColor(selectedRequest.status), fontSize: 11, fontWeight: "bold" }}>{selectedRequest.status}</Text>
-                     </View>
-                   </View>
-                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                     <Text style={{ color: palette.muted, fontSize: 13 }}>Date</Text>
-                     <Text style={{ color: "white", fontSize: 13 }}>{new Date(selectedRequest.requestDate || Date.now()).toLocaleDateString()}</Text>
-                   </View>
-                </View>
-
-                {Number(selectedRequest.requestedAmount) > 0 && (
-                  <View style={{ marginBottom: 20, padding: 15, backgroundColor: "rgba(46, 168, 255, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(46, 168, 255, 0.2)" }}>
-                    <Text style={{ color: palette.accentBlue, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Deduction Amount</Text>
-                    <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>{`Rs. ${Number(selectedRequest.requestedAmount).toLocaleString()}`}</Text>
-                  </View>
-                )}
-
-                {selectedRequest.itemDetails && (
-                  <View style={{ marginBottom: 20 }}>
-                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Item Details</Text>
-                    {(() => {
-                      try {
-                        const details = JSON.parse(selectedRequest.itemDetails);
-                        if (Array.isArray(details)) {
-                          return details.map((d: any, i: number) => (
-                            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6, backgroundColor: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                              <Text style={{ color: "white", fontSize: 14 }}>{d.type || d.itemName}</Text>
-                              <Text style={{ color: palette.accentGreen, fontWeight: "bold", fontSize: 14 }}>{`${d.quantity} ${d.unit || "kg"}`}</Text>
-                            </View>
-                          ));
-                        }
-                        return <Text style={{ color: "white", fontSize: 14 }}>{selectedRequest.itemDetails}</Text>;
-                      } catch (e) {
-                        return <Text style={{ color: "white", fontSize: 14 }}>{selectedRequest.itemDetails}</Text>;
-                      }
-                    })()}
-                  </View>
-                )}
-
-                {selectedRequest.notes && (
-                  <View style={{ marginBottom: 20 }}>
-                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Notes</Text>
-                    <View style={{ backgroundColor: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
-                      <Text style={{ color: "white", fontStyle: "italic", lineHeight: 20, fontSize: 14 }}>{`"${selectedRequest.notes}"`}</Text>
-                    </View>
-                  </View>
-                )}
-
-                {(selectedRequest.approverComment || selectedRequest.remark) && (
-                  <View style={{ marginTop: 10, padding: 15, backgroundColor: "rgba(31, 190, 87, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(31, 190, 87, 0.2)" }}>
-                    <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Manager Remark</Text>
-                    <Text style={{ color: "white", lineHeight: 20, fontSize: 14 }}>{selectedRequest.approverComment || selectedRequest.remark}</Text>
-                  </View>
-                )}
-              </ScrollView>
-            )}
-            
-            <Pressable 
-              onPress={() => setShowDetailModal(false)}
-              style={[styles.primaryBtn, { marginTop: 25, backgroundColor: "rgba(255,255,255,0.05)", height: 48 }]}
-            >
-              <Text style={[styles.primaryBtnText, { color: "#fff" }]}>Close Details</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {role !== 'supplier' && (
-        <Pressable style={styles.fab} onPress={openForm}>
-          <Ionicons name="add" size={30} color="white" />
-        </Pressable>
-      )}
-
-      <Modal visible={showInventoryModal} animationType="slide" transparent={true}>
+        {showInventoryModal && (
+        <View style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, zIndex: 9999, elevation: 9999 }}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: "#111f38", height: "70%", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -1755,7 +1658,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                 onChangeText={setInventorySearch}
               />
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {inventoryLoading ? (
                 <View style={{ paddingVertical: 40, alignItems: "center" }}>
                   <ActivityIndicator color={palette.accentGreen} />
@@ -1765,8 +1668,8 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
                 inventoryItems
                   .filter(item => {
                     const cat = activeTab === "Fertilizer" ? "FERTILIZER" : (activeTab === "Tools" ? "TOOLS" : "LEAF_BAG");
-                    if (item.itemCategory !== cat) return false;
-                    if (inventorySearch && !item.itemName.toLowerCase().includes(inventorySearch.toLowerCase())) return false;
+                    if (item.itemCategory?.toUpperCase() !== cat) return false;
+                    if (inventorySearch && !(item.itemName || "").toLowerCase().includes(inventorySearch.toLowerCase())) return false;
                     return true;
                   })
                   .map((item, idx) => (
@@ -1812,7 +1715,119 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
             </ScrollView>
           </View>
         </View>
+      </View>
+      )}
+        </KeyboardAvoidingView>
       </Modal>
+
+      {/* Request Detail Modal */}
+      <Modal visible={showDetailModal} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", padding: 20 }}>
+          <View style={{ backgroundColor: "#111f38", borderRadius: 24, padding: 25, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>Request Details</Text>
+              <Pressable onPress={() => setShowDetailModal(false)} style={{ padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12 }}>
+                <Ionicons name="close" size={24} color={palette.muted} />
+              </Pressable>
+            </View>
+
+            {selectedRequest && (
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+                <View style={{ marginBottom: 20 }}>
+                  <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Supplier Information</Text>
+                  <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>{selectedRequest.supplierName || "Unknown Supplier"}</Text>
+                  <Text style={{ color: palette.muted, fontSize: 13, marginTop: 2 }}>{selectedRequest.passbookNo || "No Passbook"}</Text>
+                </View>
+
+                <View style={{ marginBottom: 20 }}>
+                   <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Request Information</Text>
+                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                     <Text style={{ color: palette.muted, fontSize: 13 }}>Type</Text>
+                     <Text style={{ color: "white", fontSize: 13, fontWeight: "bold" }}>{selectedRequest.requestType}</Text>
+                   </View>
+                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                     <Text style={{ color: palette.muted, fontSize: 13 }}>Status</Text>
+                     <View style={[styles.statusBadge, { backgroundColor: "rgba(255,255,255,0.08)", paddingHorizontal: 8 }]}>
+                        <Text style={{ color: statusColor(selectedRequest.status), fontSize: 11, fontWeight: "bold" }}>{selectedRequest.status}</Text>
+                     </View>
+                   </View>
+                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+                     <Text style={{ color: palette.muted, fontSize: 13 }}>Date</Text>
+                     <Text style={{ color: "white", fontSize: 13 }}>{new Date(selectedRequest.requestDate || Date.now()).toLocaleDateString()}</Text>
+                   </View>
+                </View>
+
+                {(selectedRequest.status === "PENDING" || selectedRequest.status === "REVIEW") && selectedRequest.requestType === "TOOL_RENT" ? (
+                  <View style={{ marginBottom: 20, padding: 15, backgroundColor: "rgba(255, 193, 7, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255, 193, 7, 0.2)" }}>
+                    <Text style={{ color: "#ffc107", fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Deduction Amount</Text>
+                    <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>Pending</Text>
+                  </View>
+                ) : Number(selectedRequest.approvedAmount || selectedRequest.requestedAmount) > 0 ? (
+                  <View style={{ marginBottom: 20, padding: 15, backgroundColor: "rgba(46, 168, 255, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(46, 168, 255, 0.2)" }}>
+                    <Text style={{ color: palette.accentBlue, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Deduction Amount</Text>
+                    <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>{`Rs. ${Number(selectedRequest.approvedAmount || selectedRequest.requestedAmount).toLocaleString()}`}</Text>
+                  </View>
+                ) : null}
+
+                {selectedRequest.itemDetails && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Item Details</Text>
+                    {(() => {
+                      try {
+                        const details = JSON.parse(selectedRequest.itemDetails);
+                        if (Array.isArray(details)) {
+                          return details.map((d: any, i: number) => (
+                            <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6, backgroundColor: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                              <Text style={{ color: "white", fontSize: 14 }}>{d.type || d.itemName}</Text>
+                              <Text style={{ color: palette.accentGreen, fontWeight: "bold", fontSize: 14 }}>
+                                {`${d.quantity} ${d.unit || (selectedRequest.requestType?.startsWith("TOOL") || selectedRequest.requestType === "MACHINE_RENT" ? "units" : "kg")}`}
+                              </Text>
+                            </View>
+                          ));
+                        }
+                        return <Text style={{ color: "white", fontSize: 14 }}>{selectedRequest.itemDetails}</Text>;
+                      } catch (e) {
+                        return <Text style={{ color: "white", fontSize: 14 }}>{selectedRequest.itemDetails}</Text>;
+                      }
+                    })()}
+                  </View>
+                )}
+
+                {selectedRequest.notes && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Notes</Text>
+                    <View style={{ backgroundColor: "rgba(255,255,255,0.03)", padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" }}>
+                      <Text style={{ color: "white", fontStyle: "italic", lineHeight: 20, fontSize: 14 }}>{`"${selectedRequest.notes}"`}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {(selectedRequest.approverComment || selectedRequest.remark) && (
+                  <View style={{ marginTop: 10, padding: 15, backgroundColor: "rgba(31, 190, 87, 0.1)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(31, 190, 87, 0.2)" }}>
+                    <Text style={{ color: palette.accentGreen, fontSize: 10, fontWeight: "bold", textTransform: "uppercase", marginBottom: 4 }}>Manager Remark</Text>
+                    <Text style={{ color: "white", lineHeight: 20, fontSize: 14 }}>{selectedRequest.approverComment || selectedRequest.remark}</Text>
+                  </View>
+                )}
+              </ScrollView>
+            )}
+            
+            <Pressable 
+              onPress={() => setShowDetailModal(false)}
+              style={[styles.primaryBtn, { marginTop: 25, backgroundColor: "rgba(255,255,255,0.05)", height: 48 }]}
+            >
+              <Text style={[styles.primaryBtnText, { color: "#fff" }]}>Close Details</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {role !== 'supplier' && (
+        <Pressable style={styles.fab} onPress={openForm}>
+          <Ionicons name="add" size={30} color="white" />
+        </Pressable>
+      )}
+
+      
     </View>
   );
 }

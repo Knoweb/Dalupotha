@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Text, View, ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, TextInput } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, Text, View, ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, TextInput } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { palette, styles } from "../../ui/theme";
@@ -638,7 +639,7 @@ export function SupplierHomeScreen({ user, token, navigation, lang }: any) {
                     ...(item.initialTab ? { initialTab: item.initialTab } : {}),
                     ...(item.params || {})
                   };
-                  navigation.navigate(item.tab, Object.keys(navParams).length > 0 ? navParams : undefined);
+                  requestAnimationFrame(() => navigation.navigate(item.tab, Object.keys(navParams).length > 0 ? navParams : undefined));
                 }}
                 style={({ pressed }) => [{
                   flex: 1, backgroundColor: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 12, alignItems: "center",
@@ -1214,7 +1215,7 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
           </>
         ) : (
           <>
-            <Pressable style={[styles.mainBtn, {backgroundColor: palette.success}]} onPress={() => navigation.navigate('DirectRequests')}>
+            <Pressable style={[styles.mainBtn, {backgroundColor: palette.success}]} onPress={() => requestAnimationFrame(() => navigation.navigate('Requests', { initialTab: 'Advance' }))}>
               <Text style={styles.mainBtnText}>+ {_("New Advance Request")}</Text>
             </Pressable>
             <ScrollView showsVerticalScrollIndicator={false} style={{marginTop: 20}}>

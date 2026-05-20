@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, cloneElement } from 'react'
+import React, { useState, useEffect, useMemo, cloneElement, useCallback, useRef } from 'react'
 import { 
   Package, 
   AlertTriangle, 
@@ -14,8 +14,63 @@ import {
   X,
   RotateCcw
 } from 'lucide-react'
-import { InventoryAPI, InventoryItem } from '../../services/api'
+import { InventoryAPI, InventoryItem, FinanceAPI } from '../../services/api'
 import { useLanguage } from '../../hooks/useLanguage'
+import { Snackbar, Alert } from '@mui/material'
+
+export interface InventoryHistoryLog {
+  logId: string;
+  itemId: string;
+  itemName: string;
+  timestamp: string;
+  actionType: 'INITIAL_IMPORT' | 'STOCK_REFILL' | 'STOCK_DECREASE' | 'REFILL_REQUEST' | 'PRICE_UPDATE';
+  quantityChanged: string;
+  currentStock: string;
+  operatorName: string;
+  operatorRole: string;
+  notes?: string;
+}
+
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'id-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now();
+};
+
+function addHistoryLog(
+  itemId: string,
+  itemName: string,
+  actionType: InventoryHistoryLog['actionType'],
+  quantityChanged: string,
+  currentStock: string,
+  notes?: string
+) {
+  const STORAGE_KEY = 'dalupotha_inventory_history_v1';
+  const name = sessionStorage.getItem('user_name') || 'Don Dinuka';
+  const roleName = sessionStorage.getItem('user_role') === 'store-keeper' ? 'Store Keeper' : 'Manager';
+
+  const newLog: InventoryHistoryLog = {
+    logId: generateUUID(),
+    itemId,
+    itemName,
+    timestamp: new Date().toISOString(),
+    actionType,
+    quantityChanged,
+    currentStock,
+    operatorName: name,
+    operatorRole: roleName,
+    notes
+  };
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const logs = raw ? JSON.parse(raw) : [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...logs, newLog]));
+  } catch (e) {
+    console.error("Failed to save history log", e);
+  }
+}
 
 export default function InventoryPage() {
   const { t } = useLanguage()
@@ -27,6 +82,27 @@ export default function InventoryPage() {
   const [updateQuantity, setUpdateQuantity] = useState<string>("")
   const [updateUnitCost, setUpdateUnitCost] = useState<string>("")
   const [updating, setUpdating] = useState(false)
+  const [viewHistoryItem, setViewHistoryItem] = useState<InventoryItem | null>(null)
+  const [notifyingId, setNotifyingId] = useState<string | null>(null)
+  const [notifiedItems, setNotifiedItems] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('dalupotha_notified_refills');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
+  const showToast = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    setToast({ open: true, message, severity });
+  };
+
+  const userRole = sessionStorage.getItem('user_role') || 'store-keeper'
 
   const handleOpenUpdate = (item: InventoryItem) => {
     setShowUpdateModal(item)
@@ -38,20 +114,80 @@ export default function InventoryPage() {
     if (!showUpdateModal) return
     setUpdating(true)
     try {
+      const oldQty = showUpdateModal.quantityInStock;
+      const newQty = Number(updateQuantity);
+      const diff = newQty - oldQty;
+      const changeStr = diff >= 0 ? `+${diff} ${showUpdateModal.unit}` : `${diff} ${showUpdateModal.unit}`;
+      const action = diff >= 0 ? 'STOCK_REFILL' : 'STOCK_DECREASE';
+
       await InventoryAPI.updateItem(showUpdateModal.itemId, {
         ...showUpdateModal,
-        quantityInStock: Number(updateQuantity),
+        quantityInStock: newQty,
         unitCost: Number(updateUnitCost)
       })
+
+      addHistoryLog(
+        showUpdateModal.itemId,
+        showUpdateModal.itemName,
+        action,
+        changeStr,
+        `${newQty} ${showUpdateModal.unit}`,
+        `Stock manual update. Unit cost set to Rs. ${updateUnitCost}`
+      );
+
       await loadInventory()
       setShowUpdateModal(null)
+      showToast(t("Stock updated successfully!"), "success")
     } catch (err) {
       console.error("Failed to update item", err)
-      alert(t("Failed to update item"))
+      showToast(t("Failed to update item"), "error")
     } finally {
       setUpdating(false)
     }
   }
+
+  const handleNotifyRefill = async (item: InventoryItem) => {
+    setNotifyingId(item.itemId);
+    try {
+      const storeKeeperName = sessionStorage.getItem('user_name') || 'Store Keeper';
+      const payload = {
+        type: 'system',
+        title: 'Refill Required',
+        message: `[Store Keeper Alert] Refill requested for ${item.itemName} (Current stock: ${item.quantityInStock} ${item.unit})`,
+        targetRole: 'manager',
+        timestamp: new Date().toISOString()
+      };
+
+      const res = await fetch('/api/notifications/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error("Failed to publish notification");
+
+      addHistoryLog(
+        item.itemId,
+        item.itemName,
+        'REFILL_REQUEST',
+        'Refill Notify',
+        `${item.quantityInStock} ${item.unit}`,
+        `Sent refill request alert to Manager.`
+      );
+
+      showToast(t("Notification sent successfully to the Manager!"), "success");
+      setNotifiedItems(prev => {
+        const next = [...prev, item.itemId];
+        localStorage.setItem('dalupotha_notified_refills', JSON.stringify(next));
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to send refill notification", err);
+      showToast(t("Failed to send notification."), "error");
+    } finally {
+      setNotifyingId(null);
+    }
+  };
   useEffect(() => {
     loadInventory();
   }, []);
@@ -61,6 +197,14 @@ export default function InventoryPage() {
     try {
       const data = await InventoryAPI.getItems()
       setItems(data)
+      setNotifiedItems(prev => {
+        const stillLow = prev.filter(id => {
+          const matched = data.find(i => i.itemId === id);
+          return matched ? matched.quantityInStock <= matched.reorderLevel : false;
+        });
+        localStorage.setItem('dalupotha_notified_refills', JSON.stringify(stillLow));
+        return stillLow;
+      });
     } catch (err) {
       console.error("Failed to load inventory:", err)
     } finally {
@@ -110,9 +254,35 @@ export default function InventoryPage() {
                  <span className="font-semibold">{items.find(i => i.quantityInStock <= i.reorderLevel)?.itemName}</span> {t('stock is below reorder level')} ({items.find(i => i.quantityInStock <= i.reorderLevel)?.quantityInStock} {items.find(i => i.quantityInStock <= i.reorderLevel)?.unit} {t('remaining')}, {t('reorder at')} {items.find(i => i.quantityInStock <= i.reorderLevel)?.reorderLevel} {items.find(i => i.quantityInStock <= i.reorderLevel)?.unit}).
               </p>
            </div>
-           <button className="flex items-center gap-2 px-5 py-2 bg-white border border-rose-200 rounded-xl text-[12px] font-semibold text-rose-600 hover:bg-rose-50 transition-all shadow-sm">
-              <RefreshCw size={14} /> {t('Reorder Now')}
-           </button>
+            {(() => {
+              const lowItem = items.find(i => i.quantityInStock <= i.reorderLevel);
+              if (!lowItem) return null;
+              const alreadyNotified = notifiedItems.includes(lowItem.itemId);
+              return (
+                <button 
+                  onClick={() => {
+                    if (userRole === 'manager') {
+                      handleOpenUpdate(lowItem);
+                    } else if (!alreadyNotified) {
+                      handleNotifyRefill(lowItem);
+                    }
+                  }}
+                  disabled={alreadyNotified && userRole !== 'manager'}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[12px] font-semibold transition-all shadow-sm ${
+                    alreadyNotified && userRole !== 'manager'
+                      ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                      : 'bg-white border border-rose-200 text-rose-600 hover:bg-rose-50'
+                  }`}
+                >
+                  <RefreshCw size={14} className={notifyingId === lowItem.itemId ? 'animate-spin' : ''} />
+                  {userRole === 'manager' 
+                    ? t('Update Stock') 
+                    : alreadyNotified 
+                      ? t('Refill Notified') 
+                      : t('Notify Refill')}
+                </button>
+              );
+            })()}
         </div>
       )}
 
@@ -120,9 +290,11 @@ export default function InventoryPage() {
       <div className="space-y-4 pt-2">
          <div className="flex justify-between items-center">
          <h2 className="text-[14px] font-semibold text-slate-700 uppercase tracking-widest">{t('Inventory Items')}</h2>
-         <button className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[12px] font-semibold uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm">
-            <Plus size={15} /> {t('Add Item')}
-         </button>
+         {userRole === 'manager' && (
+            <button className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[12px] font-semibold uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm">
+               <Plus size={15} /> {t('Add Item')}
+            </button>
+         )}
          </div>
 
          {/* Filters row */}
@@ -196,16 +368,31 @@ export default function InventoryPage() {
                                  {isLow ? t('Low Stock') : t('OK')}
                               </span>
                            </td>
-                           <td className="px-6 py-5 text-right">
-                              <div className="flex items-center justify-end gap-3">
-                                 <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold text-slate-900 hover:bg-slate-200 transition-all border border-slate-300 hover:border-slate-400">
-                                    <History size={15} /> {t('History')}
-                                 </button>
-                                 <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 text-[12px] font-bold transition-all shadow-md">
-                                    <RefreshCw size={15} /> {t('Update')}
-                                 </button>
-                              </div>
-                           </td>
+                            <td className="px-6 py-5 text-right">
+                               <div className="flex items-center justify-end gap-3">
+                                  <button onClick={() => setViewHistoryItem(item)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold text-slate-900 hover:bg-slate-200 transition-all border border-slate-300 hover:border-slate-400">
+                                     <History size={15} /> {t('History')}
+                                  </button>
+                                  {userRole === 'manager' ? (
+                                     <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 text-[12px] font-bold transition-all shadow-md">
+                                        <RefreshCw size={15} /> {t('Update')}
+                                     </button>
+                                  ) : (
+                                     <button 
+                                       onClick={() => handleNotifyRefill(item)} 
+                                       disabled={notifyingId === item.itemId || notifiedItems.includes(item.itemId)} 
+                                       className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold transition-all shadow-md ${
+                                         notifiedItems.includes(item.itemId)
+                                           ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                                           : 'bg-amber-500 hover:bg-amber-600 text-white border border-amber-600'
+                                       }`}
+                                     >
+                                        <RefreshCw size={15} className={notifyingId === item.itemId ? 'animate-spin' : ''} /> 
+                                        {notifiedItems.includes(item.itemId) ? t('Notified') : t('Notify Refill')}
+                                     </button>
+                                  )}
+                               </div>
+                            </td>
                         </tr>
                      )
                   })}
@@ -250,8 +437,191 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      {viewHistoryItem && (
+        <HistoryModal 
+          item={viewHistoryItem} 
+          onClose={() => setViewHistoryItem(null)} 
+        />
+      )}
+
+      <Snackbar 
+        open={toast.open} 
+        autoHideDuration={4000} 
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setToast(prev => ({ ...prev, open: false }))} 
+          severity={toast.severity} 
+          sx={{ 
+            width: '100%', 
+            borderRadius: '16px', 
+            fontWeight: 700, 
+            boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+            border: '1px solid',
+            borderColor: toast.severity === 'success' ? '#CEEAD6' : '#FAD2E1',
+            bgcolor: toast.severity === 'success' ? '#E6F4EA' : '#FCE8E6',
+            color: toast.severity === 'success' ? '#137333' : '#C5221F',
+            fontFamily: 'inherit',
+            fontSize: '0.8rem'
+          }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </div>
   )
+}
+
+function HistoryModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
+  const { t, lang } = useLanguage();
+  const [logs, setLogs] = useState<InventoryHistoryLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      setLoading(true);
+      try {
+        const allRequests = await FinanceAPI.getRequests();
+        const itemRequests = allRequests.filter(req => req.itemId === item.itemId);
+
+        const requestLogs: InventoryHistoryLog[] = itemRequests.map(req => {
+          const isDispatched = req.status === 'DISPATCHED';
+          const isApproved = req.status === 'APPROVED_BY_EXT';
+          const changeStr = `-${req.quantity || 0} ${item.unit || 'units'}`;
+
+          let statusText = '';
+          if (isDispatched) {
+            statusText = 'Dispatched to Supplier';
+          } else if (isApproved) {
+            statusText = 'Approved (Pending Dispatch)';
+          } else {
+            statusText = `Requested (${req.status.toLowerCase()})`;
+          }
+
+          return {
+            logId: req.requestId,
+            itemId: item.itemId,
+            itemName: item.itemName,
+            timestamp: req.updatedAt || req.requestDate || new Date().toISOString(),
+            actionType: 'STOCK_DECREASE',
+            quantityChanged: changeStr,
+            currentStock: '-',
+            operatorName: req.approverName || req.creatorName || 'System',
+            operatorRole: req.approverId ? 'Manager' : 'Officer',
+            notes: `${statusText}: ${req.supplierName || 'Supplier'} (Passbook: ${req.passbookNo || 'N/A'}). Notes: ${req.notes || 'None'}`
+          };
+        });
+
+        let manualLogs: InventoryHistoryLog[] = [];
+        try {
+          const STORAGE_KEY = 'dalupotha_inventory_history_v1';
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            manualLogs = (JSON.parse(raw) as InventoryHistoryLog[]).filter(l => l.itemId === item.itemId);
+          }
+        } catch (e) {
+          console.error("Failed to load manual logs from localStorage", e);
+        }
+
+        const combined = [...requestLogs, ...manualLogs].sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+
+        setLogs(combined);
+      } catch (err) {
+        console.error("Failed to load inventory history:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, [item]);
+
+  const actionStyle: Record<string, { bg: string; text: string; label: string }> = {
+    INITIAL_IMPORT: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', label: 'Initial Setup' },
+    STOCK_REFILL: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', label: 'Stock Refill' },
+    STOCK_DECREASE: { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', label: 'Stock Dispatched' },
+    REFILL_REQUEST: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', label: 'Refill Request Alert' },
+    PRICE_UPDATE: { bg: 'bg-purple-50 border-purple-200', text: 'text-purple-700', label: 'Price Update' },
+  };
+
+  const formatDate = (isoStr: string) => {
+    try {
+      const date = new Date(isoStr);
+      return date.toLocaleDateString(lang === 'si' ? 'si-LK' : 'en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoStr;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">{t('Stock History Log')}</h3>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{item.itemName}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-900"><X size={18} /></button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-grow space-y-6">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+              <RefreshCw size={24} className="text-emerald-500 animate-spin" />
+              <p className="text-xs text-slate-500 font-semibold">{t('Loading transaction history...')}</p>
+            </div>
+          ) : logs.length === 0 ? (
+            <p className="text-center py-8 text-xs text-slate-900 font-medium">{t('No history records found.')}</p>
+          ) : (
+            <div className="relative border-l-2 border-slate-100 ml-3 pl-6 space-y-6 py-2">
+              {logs.map((log) => {
+                const style = actionStyle[log.actionType] || { bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700', label: log.actionType };
+                return (
+                  <div key={log.logId} className="relative">
+                    <span className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white border-2 border-emerald-500 shadow-sm" />
+                    
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${style.bg} ${style.text}`}>
+                          {t(style.label)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-semibold">{formatDate(log.timestamp)}</span>
+                      </div>
+                      
+                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                        <div className="flex justify-between items-start mb-1">
+                          <p className="text-xs font-semibold text-slate-700">{log.notes || t('No details provided.')}</p>
+                          <span className={`text-xs font-bold whitespace-nowrap ml-2 ${log.quantityChanged.startsWith('+') ? 'text-emerald-600' : log.quantityChanged.startsWith('-') ? 'text-rose-600' : 'text-amber-600'}`}>
+                            {log.quantityChanged}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-100 pt-1.5 mt-1.5 font-semibold">
+                          <span>{t('By')}: <span className="font-bold text-slate-600">{log.operatorName}</span> ({t(log.operatorRole)})</span>
+                          <span>{t('Stock')}: <span className="font-bold text-slate-600">{log.currentStock}</span></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end flex-shrink-0">
+          <button onClick={onClose} className="px-5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 hover:bg-slate-50 transition-colors shadow-sm">{t('Close')}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function StatCard({ label, value, sub, icon, color }: any) {

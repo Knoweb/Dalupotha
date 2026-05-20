@@ -12,14 +12,18 @@ interface HeaderProps {
   onMarkAllRead: () => void;
   onMarkRead: (id: string) => void;
   onClearAll: () => void;
+  onDismiss: (id: string) => void;
   pendingRequestCount?: number;
   pendingCollectionCount?: number;
+  pendingPayoutCount?: number;
+  onNotificationClick?: (notification: AppNotification) => void;
 }
 
 export default function Header({ 
   activeTab, userInfo, onLogout, unreadCount, notifications, 
-  onMarkAllRead, onMarkRead, onClearAll, pendingRequestCount = 0,
-  pendingCollectionCount = 0
+  onMarkAllRead, onMarkRead, onClearAll, onDismiss, pendingRequestCount = 0,
+  pendingCollectionCount = 0, pendingPayoutCount = 0,
+  onNotificationClick
 }: HeaderProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -28,8 +32,10 @@ export default function Header({
   const role = userInfo.role || '';
   const showNotifBell = true;
   
-  // Use collection count for factory-staff, otherwise request count
-  const alertCount = role === 'factory-staff' ? pendingCollectionCount : pendingRequestCount;
+  // Use unreadCount or sum of pending alerts to synchronize with active sidebar badges
+  const alertCount = role === 'manager' 
+    ? (pendingRequestCount + pendingPayoutCount) 
+    : (role === 'factory-staff' ? pendingCollectionCount : pendingRequestCount);
 
   const ROLE_LABELS: Record<string, string> = {
     'manager':           t('Manager'),
@@ -41,7 +47,7 @@ export default function Header({
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-30 shadow-sm relative">
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-30 shadow-sm sticky top-0">
       <div className="flex items-center gap-2 text-sm">
           <span className="text-black font-bold">{t('Project Dalupotha')}</span>
           <ChevronRight size={14} className="text-black" />
@@ -100,7 +106,13 @@ export default function Header({
                         </div>
                       ) : (
                         notifications.map(n => (
-                          <NotifItem key={n.id} notification={n} onRead={onMarkRead} />
+                          <NotifItem 
+                            key={n.id} 
+                            notification={n} 
+                            onRead={onMarkRead} 
+                            onDismiss={onDismiss}
+                            onNotificationClick={onNotificationClick}
+                          />
                         ))
                       )}
                     </div>
@@ -155,7 +167,17 @@ export default function Header({
   );
 }
 
-function NotifItem({ notification, onRead }: { notification: AppNotification; onRead: (id: string) => void }) {
+function NotifItem({ 
+  notification, 
+  onRead, 
+  onDismiss,
+  onNotificationClick
+}: { 
+  notification: AppNotification; 
+  onRead: (id: string) => void; 
+  onDismiss: (id: string) => void; 
+  onNotificationClick?: (notification: AppNotification) => void;
+}) {
   const { t } = useLanguage();
   const timeAgo = (ts: string) => {
     const diff = Date.now() - new Date(ts).getTime();
@@ -168,24 +190,38 @@ function NotifItem({ notification, onRead }: { notification: AppNotification; on
   };
 
   return (
-    <button
-      onClick={() => onRead(notification.id)}
-      className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors ${!notification.read ? 'bg-green-50/40' : ''}`}
+    <div
+      className={`w-full text-left px-4 py-3 flex items-start justify-between gap-3 hover:bg-slate-50 transition-colors ${!notification.read ? 'bg-green-50/40' : ''}`}
     >
-      <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${!notification.read ? 'bg-green-100' : 'bg-slate-100'}`}>
-        {notification.type === 'service_request' ? (
-          <CheckSquare size={13} className={!notification.read ? 'text-green-600' : 'text-slate-900'} />
-        ) : (
-          <Package size={13} className={!notification.read ? 'text-green-600' : 'text-slate-900'} />
-        )}
+      <button
+        onClick={() => {
+          onRead(notification.id);
+          onNotificationClick?.(notification);
+        }}
+        className="flex items-start gap-3 flex-1 min-w-0 text-left"
+      >
+        <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${!notification.read ? 'bg-green-100' : 'bg-slate-100'}`}>
+          {notification.type === 'service_request' ? (
+            <CheckSquare size={13} className={!notification.read ? 'text-green-600' : 'text-slate-900'} />
+          ) : (
+            <Package size={13} className={!notification.read ? 'text-green-600' : 'text-slate-900'} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-black truncate ${!notification.read ? 'text-slate-900' : 'text-slate-900'}`}>{notification.title}</p>
+          <p className="text-[10px] text-slate-905 font-medium mt-0.5 truncate">{notification.message}</p>
+          <p className="text-[9px] text-slate-400 font-medium mt-1">{timeAgo(notification.timestamp)}</p>
+        </div>
+      </button>
+      <div className="flex items-center self-center flex-shrink-0">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDismiss(notification.id); }}
+          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition-colors shadow-sm"
+        >
+          {t('OK')}
+        </button>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-xs font-black truncate ${!notification.read ? 'text-slate-900' : 'text-slate-900'}`}>{notification.title}</p>
-        <p className="text-[10px] text-slate-900 font-black mt-0.5 truncate">{notification.message}</p>
-        <p className="text-[9px] text-slate-900 font-black mt-1">{timeAgo(notification.timestamp)}</p>
-      </div>
-      {!notification.read && <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />}
-    </button>
+    </div>
   );
 }
 

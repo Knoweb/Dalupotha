@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 
@@ -14,11 +14,15 @@ export interface AppNotification {
   meta?: Record<string, any>;
 }
 
-const STORAGE_KEY = 'dalupotha_persistent_alerts';
+function getStorageKey(): string {
+  const role = sessionStorage.getItem('user_role') || 'guest';
+  return `dalupotha_persistent_alerts_${role}`;
+}
 
 function loadPersisted(): AppNotification[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -27,27 +31,37 @@ function loadPersisted(): AppNotification[] {
 
 function savePersisted(alerts: AppNotification[]) {
   // Only persist relevant types; keep max 100
-  const toSave = alerts.filter(n => n.type === 'new_collection' || n.type === 'service_request').slice(0, 100);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  const toSave = alerts.filter(n => n.type === 'new_collection' || n.type === 'service_request' || n.type === 'system').slice(0, 100);
+  const serialized = JSON.stringify(toSave);
+  const key = getStorageKey();
+  if (localStorage.getItem(key) !== serialized) {
+    localStorage.setItem(key, serialized);
+  }
 }
 
 /** Callable from ANY component — marks the alert dismissed in localStorage and fires a storage event */
 export function dismissCollectionAlertById(collectionId: string) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = localStorage.getItem(key);
     if (!raw) return;
     const alerts: AppNotification[] = JSON.parse(raw);
     const updated = alerts.map(n =>
       n.collectionId === collectionId ? { ...n, dismissed: true, read: true } : n
     );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify(updated));
     // Notify other hook instances in the same tab
-    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY, newValue: JSON.stringify(updated) }));
+    window.dispatchEvent(new StorageEvent('storage', { key: key, newValue: JSON.stringify(updated) }));
   } catch {}
 }
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>(() => loadPersisted());
+
+  const currentRole = sessionStorage.getItem('user_role') || '';
+  useEffect(() => {
+    setNotifications(loadPersisted());
+  }, [currentRole]);
 
   // Persist whenever new_collection alerts change
   useEffect(() => {
@@ -57,11 +71,12 @@ export function useNotifications() {
   // Re-sync if another component calls dismissCollectionAlertById
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
+      const key = getStorageKey();
+      if (e.key === key) {
         setNotifications(prev => {
           const fromStorage = loadPersisted();
           // Merge: keep in-memory non-persisted notifications, update persisted ones
-          const nonPersisted = prev.filter(n => n.type !== 'new_collection' && n.type !== 'service_request');
+          const nonPersisted = prev.filter(n => n.type !== 'new_collection' && n.type !== 'service_request' && n.type !== 'system');
           return [...fromStorage, ...nonPersisted];
         });
       }
@@ -127,6 +142,7 @@ export function useNotifications() {
         read: false,
         dismissed: false,
         collectionId: c.collectionId,
+        meta: { fromApi: true }
       };
       return [alert, ...prev];
     });
@@ -138,8 +154,15 @@ export function useNotifications() {
     amountOrQty: string; timestamp: string;
   }) => {
     setNotifications(prev => {
-      const alreadyTracked = prev.some(n => n.meta?.requestId === r.requestId);
-      if (alreadyTracked) return prev;
+      const existingIdx = prev.findIndex(n => n.meta?.requestId === r.requestId);
+      if (existingIdx > -1) {
+        if (prev[existingIdx].dismissed) {
+          const updated = [...prev];
+          updated[existingIdx] = { ...updated[existingIdx], dismissed: false };
+          return updated;
+        }
+        return prev;
+      }
       const alert: AppNotification = {
         id: crypto.randomUUID(),
         type: 'service_request',
@@ -148,7 +171,35 @@ export function useNotifications() {
         timestamp: r.timestamp,
         read: false,
         dismissed: false,
-        meta: { requestId: r.requestId }
+        meta: { requestId: r.requestId, fromApi: true }
+      };
+      return [alert, ...prev];
+    });
+  }, []);
+
+  /** Seed a payout notification from an API poll */
+  const addPayoutFromApi = useCallback((p: {
+    transactionId: string; supplierName: string; amount: number; timestamp: string;
+  }) => {
+    setNotifications(prev => {
+      const existingIdx = prev.findIndex(n => n.meta?.transactionId === p.transactionId);
+      if (existingIdx > -1) {
+        if (prev[existingIdx].dismissed) {
+          const updated = [...prev];
+          updated[existingIdx] = { ...updated[existingIdx], dismissed: false };
+          return updated;
+        }
+        return prev;
+      }
+      const alert: AppNotification = {
+        id: crypto.randomUUID(),
+        type: 'service_request',
+        title: 'Pending Payout Approval',
+        message: `Payout of Rs. ${p.amount} for ${p.supplierName} requires approval`,
+        timestamp: p.timestamp,
+        read: false,
+        dismissed: false,
+        meta: { transactionId: p.transactionId, fromApi: true }
       };
       return [alert, ...prev];
     });
@@ -170,7 +221,7 @@ export function useNotifications() {
               message: payload.message || '',
               timestamp: payload.timestamp || new Date().toISOString(),
               collectionId: payload.meta?.collectionId,
-              meta: payload.meta,
+              meta: { ...payload.meta, targetRole: payload.targetRole || payload.meta?.targetRole },
             });
           } catch (e) {
             console.error('[Notifications] Failed to parse message', e);
@@ -185,20 +236,42 @@ export function useNotifications() {
     return () => { client.deactivate(); };
   }, [addNotification]);
 
-  const unreadCount = notifications.filter(n => !n.read && !n.dismissed).length;
+  const filteredNotifications = useMemo(() => {
+    const role = sessionStorage.getItem('user_role') || '';
+    return notifications.filter(n => {
+      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      return !n.dismissed;
+    });
+  }, [notifications]);
+
+  const unreadCount = useMemo(() => {
+    const role = sessionStorage.getItem('user_role') || '';
+    return notifications.filter(n => {
+      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      return !n.read && !n.dismissed;
+    }).length;
+  }, [notifications]);
 
   /** Active (undismissed) new_collection alerts that haven't been processed yet */
-  const pendingCollectionAlerts = notifications.filter(
-    n => n.type === 'new_collection' && !n.dismissed
-  );
+  const pendingCollectionAlerts = useMemo(() => {
+    const role = sessionStorage.getItem('user_role') || '';
+    return notifications.filter(n => {
+      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      return n.type === 'new_collection' && !n.dismissed;
+    });
+  }, [notifications]);
 
   /** Active (undismissed) service_request alerts */
-  const pendingRequestAlerts = notifications.filter(
-    n => n.type === 'service_request' && !n.dismissed
-  );
+  const pendingRequestAlerts = useMemo(() => {
+    const role = sessionStorage.getItem('user_role') || '';
+    return notifications.filter(n => {
+      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      return n.type === 'service_request' && !n.dismissed;
+    });
+  }, [notifications]);
 
   return {
-    notifications: notifications.filter(n => !n.dismissed),
+    notifications: filteredNotifications,
     unreadCount,
     markRead,
     markAllRead,
@@ -209,5 +282,6 @@ export function useNotifications() {
     pendingRequestAlerts,
     addFromApi,
     addRequestFromApi,
+    addPayoutFromApi,
   };
 }

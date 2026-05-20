@@ -1,5 +1,6 @@
 import { FileText, TrendingUp, Users, Package, Clock, RefreshCw, X, Trophy, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import ExcelJS from 'exceljs'
 import { useLanguage } from '../../hooks/useLanguage'
 import { CollectionAPI, InventoryAPI, InventoryItem, AuthAPI, FinanceAPI } from '../../services/api'
@@ -66,7 +67,8 @@ type TAPerformanceRow = {
 type DailyCollectionRecord = {
    date: string
    collectionCount: number
-   totalWeight: number
+   grossWeight: number
+   netWeight: number
    uniqueSuppliers: number
    pendingCount: number
 }
@@ -74,6 +76,12 @@ type DailyCollectionRecord = {
 type MonthlyFinancialRecord = {
    supplierId: string
    supplierName: string
+   passbookNo: string
+   gross: number
+   adv: number
+   debt: number
+   netPay: number
+   status: string
    totalAmount: number
    payoutAmount: number
    pendingAmount: number
@@ -170,17 +178,17 @@ function getDebtRemark(quantityCurrent: number, quantityPrevious: number, curren
 function getRemarkFill(remark: string) {
    switch (remark) {
       case 'Leaf Supplied and already recovered':
-         return 'FF92D050'
+         return 'FFE8F5E9' // Beautiful light pastel green
       case 'Leaf Supplied and Recoveries to be done':
-         return 'FFD8E4BC'
+         return 'FFE8F8F5' // Very light pastel teal/green
       case 'Not supplied Leaf':
-         return 'FFF4B183'
+         return 'FFFFE0B2' // Light pastel orange
       case 'Agreed to settle Installment Basis':
-         return 'FFFFFF00'
+         return 'FFFFF9C4' // Light pastel yellow
       case 'Over 180 days -S amathamandala / police inquiry Legal action':
-         return 'FFFF0000'
+         return 'FFFFCDD2' // Light pastel red
       case 'Over 180 days -S amathamandala / police inquiry Legal action (blue)':
-         return 'FF5B9BD5'
+         return 'FFE3F2FD' // Light pastel blue
       default:
          return 'FFFFFFFF'
    }
@@ -234,7 +242,7 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
    workbook.modified = new Date()
 
    const worksheet = workbook.addWorksheet('Kuru-Ageing', {
-      views: [{ state: 'frozen', ySplit: 8 }],
+      views: [{ state: 'frozen', ySplit: 12 }],
       properties: { defaultRowHeight: 22 },
    })
 
@@ -248,62 +256,76 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
    }
 
    worksheet.columns = [
-      { key: 'leafRoute', width: 8 },
-      { key: 'passBookNo', width: 10 },
-      { key: 'name', width: 22 },
-      { key: 'currentAmount', width: 14 },
-      { key: 'previousAmount', width: 14 },
-      { key: 'difference', width: 14 },
-      { key: 'age0to30', width: 12 },
-      { key: 'age31to60', width: 12 },
-      { key: 'age61to90', width: 12 },
-      { key: 'age91to180', width: 12 },
-      { key: 'ageOver180', width: 12 },
-      { key: 'quantityPrevious', width: 16 },
-      { key: 'quantityCurrent', width: 16 },
+      { key: 'leafRoute', width: 14 },
+      { key: 'passBookNo', width: 16 },
+      { key: 'name', width: 26 },
+      { key: 'currentAmount', width: 22 },
+      { key: 'previousAmount', width: 22 },
+      { key: 'difference', width: 22 },
+      { key: 'age0to30', width: 14 },
+      { key: 'age31to60', width: 14 },
+      { key: 'age61to90', width: 14 },
+      { key: 'age91to180', width: 14 },
+      { key: 'ageOver180', width: 14 },
+      { key: 'quantityPrevious', width: 26 },
+      { key: 'quantityCurrent', width: 26 },
       { key: 'remarks', width: 40 },
    ]
 
-   worksheet.getCell('A1').value = estateTitle
-   worksheet.getCell('A1').font = { bold: true, size: 12 }
+   // 1. Header Banner
+   worksheet.mergeCells('A1:N1')
+   const titleCell = worksheet.getCell('A1')
+   titleCell.value = `${estateTitle.toUpperCase()} - DEBT AGEING REPORT`
+   titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   worksheet.getRow(1).height = 30
 
-   worksheet.mergeCells('B1:C1')
-   worksheet.getCell('B1').value = 'Month'
-   worksheet.getCell('B1').alignment = { horizontal: 'center', vertical: 'middle' }
-   worksheet.getCell('B1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
-   worksheet.getCell('B1').font = { bold: true }
-   worksheet.getCell('B1').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+   // 2. Summary Headers
+   worksheet.mergeCells('B3:C3')
+   const sHeader1 = worksheet.getCell('B3')
+   sHeader1.value = 'Month / Description'
+   sHeader1.alignment = { horizontal: 'center', vertical: 'middle' }
+   sHeader1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+   sHeader1.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+   sHeader1.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
 
-   worksheet.getCell('D1').value = 'Total outstanding'
-   worksheet.getCell('D1').alignment = { horizontal: 'center', vertical: 'middle' }
-   worksheet.getCell('D1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
-   worksheet.getCell('D1').font = { bold: true }
-   worksheet.getCell('D1').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+   const sHeader2 = worksheet.getCell('D3')
+   sHeader2.value = 'Total Outstanding'
+   sHeader2.alignment = { horizontal: 'center', vertical: 'middle' }
+   sHeader2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+   sHeader2.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+   sHeader2.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
 
-   worksheet.mergeCells('E1:I1')
-   worksheet.getCell('E1').value = 'Age Analysis - No. of days'
-   worksheet.getCell('E1').alignment = { horizontal: 'center', vertical: 'middle' }
-   worksheet.getCell('E1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
-   worksheet.getCell('E1').font = { bold: true }
-   worksheet.getCell('E1').border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+   worksheet.mergeCells('E3:I3')
+   const sHeader3 = worksheet.getCell('E3')
+   sHeader3.value = 'Age Analysis - No. of days'
+   sHeader3.alignment = { horizontal: 'center', vertical: 'middle' }
+   sHeader3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+   sHeader3.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+   sHeader3.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
 
-   const ageHeaders = ['< 30', '31 - 60', '61-90', '91 - 180', '> 181']
-   ageHeaders.forEach((header, index) => {
-      const cell = worksheet.getCell(2, 5 + index)
-      cell.value = header
+   // 3. Summary Detail Headers
+   const detailHeaders = [
+      { col: 'B', val: 'Month' },
+      { col: 'C', val: 'Value' },
+      { col: 'E', val: '< 30' },
+      { col: 'F', val: '31 - 60' },
+      { col: 'G', val: '61 - 90' },
+      { col: 'H', val: '91 - 180' },
+      { col: 'I', val: '> 181' },
+   ]
+
+   detailHeaders.forEach((dh) => {
+      const cell = worksheet.getCell(`${dh.col}4`)
+      cell.value = dh.val
       cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
-      cell.font = { bold: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 9 }
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
    })
 
-   worksheet.getCell('B2').value = 'Month'
-   worksheet.getCell('C2').value = 'Value'
-   worksheet.getCell('D2').value = ''
-   worksheet.getCell('B2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
-   worksheet.getCell('C2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }
-
-   const summaryStartRow = 3
+   const summaryStartRow = 5
    summaryRows.forEach((summary, index) => {
       const rowNumber = summaryStartRow + index
       const isVariance = summary.label.toLowerCase() === 'variance'
@@ -314,11 +336,16 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
          : summary.current.totalOutstanding
 
       monthCell.value = summary.label
-      monthCell.font = { italic: isVariance }
+      monthCell.font = { italic: isVariance, size: 9, bold: isVariance }
+      monthCell.alignment = { horizontal: 'center', vertical: 'middle' }
+
       valueCell.value = value
       valueCell.numFmt = '#,##0.00;[Red](#,##0.00)'
+      valueCell.alignment = { horizontal: 'right', vertical: 'middle' }
       if (isVariance) {
-         valueCell.font = { bold: true, color: { argb: value < 0 ? 'FF00B050' : 'FF000000' } }
+         valueCell.font = { bold: true, color: { argb: value < 0 ? 'FF2D6A4F' : 'FFC53030' }, size: 9 }
+      } else {
+         valueCell.font = { size: 9 }
       }
 
       const bucketValues = [
@@ -329,11 +356,16 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
          isVariance ? summary.current.ageOver180 - summary.previous.ageOver180 : summary.current.ageOver180,
       ]
 
-      bucketValues.forEach((value, bucketIndex) => {
+      bucketValues.forEach((val, bucketIndex) => {
          const cell = worksheet.getCell(rowNumber, 5 + bucketIndex)
-         cell.value = value
+         cell.value = val
          cell.numFmt = '#,##0.00;[Red](#,##0.00)'
-         cell.font = { color: { argb: value < 0 ? 'FF00B050' : 'FF000000' } }
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.font = { 
+            color: { argb: val < 0 ? 'FF2D6A4F' : (isVariance ? 'FFC53030' : 'FF000000') },
+            size: 9,
+            bold: isVariance
+         }
       })
 
       ;[monthCell, valueCell, ...[0, 1, 2, 3, 4].map((bucketIndex) => worksheet.getCell(rowNumber, 5 + bucketIndex))].forEach((cell) => {
@@ -341,33 +373,58 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
       })
    })
 
+   // Legend Table Layout (placed side-by-side with summary table)
    const legendStartCol = 11
    const legendEntries = [
-      { color: 'FF92D050', text: 'Leaf Supplied and already recovered' },
-      { color: 'FFD8E4BC', text: 'Leaf Supplied and Recoveries to be done' },
-      { color: 'FFF4B183', text: 'Not supplied Leaf' },
-      { color: 'FFFFFF00', text: 'Agreed to settle Installment Basis' },
-      { color: 'FFFF0000', text: 'Over 180 days -S amathamandala / police inquiry Legal action' },
-      { color: 'FF5B9BD5', text: 'Over 180 days -S amathamandala / police inquiry Legal action' },
-      { color: 'FFFFFFFF', text: 'Other' },
+      { color: 'FFE8F5E9', text: 'Leaf Supplied and already recovered' },
+      { color: 'FFE8F8F5', text: 'Leaf Supplied and Recoveries to be done' },
+      { color: 'FFFFE0B2', text: 'Not supplied Leaf' },
+      { color: 'FFFFF9C4', text: 'Agreed to settle Installment Basis' },
+      { color: 'FFFFCDD2', text: 'Over 180 days - Legal action / dispute' },
+      { color: 'FFE3F2FD', text: 'Over 180 days - Dispute resolving' },
+      { color: 'FFFFFFFF', text: 'Other / Custom status' },
    ]
 
+   // Legend Headers
+   const lHeader1 = worksheet.getCell(3, legendStartCol)
+   lHeader1.value = 'Status'
+   lHeader1.alignment = { horizontal: 'center', vertical: 'middle' }
+   lHeader1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+   lHeader1.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+   lHeader1.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+
+   worksheet.mergeCells(`L3:N3`)
+   const lHeader2 = worksheet.getCell(3, legendStartCol + 1)
+   lHeader2.value = 'Settle Category / Description'
+   lHeader2.alignment = { horizontal: 'center', vertical: 'middle' }
+   lHeader2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+   lHeader2.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+   lHeader2.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+
    legendEntries.forEach((entry, index) => {
-      const rowNumber = 1 + index
+      const rowNumber = 4 + index
       const colorCell = worksheet.getCell(rowNumber, legendStartCol)
-      const textCell = worksheet.getCell(rowNumber, legendStartCol + 1)
+      
       colorCell.value = ''
       colorCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: entry.color } }
       colorCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      
+      worksheet.mergeCells(`L${rowNumber}:N${rowNumber}`)
+      const textCell = worksheet.getCell(rowNumber, legendStartCol + 1)
       textCell.value = entry.text
-      textCell.font = { bold: true }
+      textCell.font = { bold: false, size: 8 }
+      textCell.alignment = { horizontal: 'left', vertical: 'middle' }
+      textCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
    })
 
-   worksheet.mergeCells('A8:O8')
-   worksheet.getCell('A8').value = 'Age Analysis of the balance Outstanding'
-   worksheet.getCell('A8').alignment = { horizontal: 'center', vertical: 'middle' }
-   worksheet.getCell('A8').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } }
-   worksheet.getCell('A8').font = { color: { argb: 'FFFFFFFF' }, bold: true }
+   // 4. Main Section Header
+   worksheet.mergeCells('A11:O11')
+   const sectionHeaderCell = worksheet.getCell('A11')
+   sectionHeaderCell.value = 'Age Analysis of the Balance Outstanding'
+   sectionHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   sectionHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   sectionHeaderCell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 }
+   worksheet.getRow(11).height = 26
 
    const currentMonthLabel = getMonthLabel(currentDate)
    const previousMonthLabel = getMonthLabel(previousDate)
@@ -376,30 +433,31 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
       'Leaf Route',
       'Pass Book No',
       'Name',
-      `Amount (Rs)-${currentMonthLabel}`,
-      `Amount (Rs)-${previousMonthLabel}`,
-      'Increase/(decrease)',
-      '0-30',
-      '31-60',
-      '61-90',
-      '91-180',
-      '>180',
-      `Quantity Supplied in ${previousMonthLabel}`,
-      `Quantity Supplied in ${currentMonthLabel}`,
-      'Remarks -',
+      `Amount (Rs) - ${currentMonthLabel}`,
+      `Amount (Rs) - ${previousMonthLabel}`,
+      'Increase / (Decrease)',
+      '0 - 30 Days',
+      '31 - 60 Days',
+      '61 - 90 Days',
+      '91 - 180 Days',
+      '> 180 Days',
+      `Qty Supplied in ${previousMonthLabel} (kg)`,
+      `Qty Supplied in ${currentMonthLabel} (kg)`,
+      'Remarks / Status',
    ]
 
    tableHeaders.forEach((header, index) => {
-      const cell = worksheet.getCell(9, 1 + index)
+      const cell = worksheet.getCell(12, 1 + index)
       cell.value = header
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } }
-      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true }
-      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } }
    })
+   worksheet.getRow(12).height = 28
 
    dataRows.forEach((row, index) => {
-      const excelRow = worksheet.getRow(10 + index)
+      const excelRow = worksheet.getRow(13 + index)
       const remark = row.remarks || 'Other'
       const fillColor = getRemarkFill(remark)
 
@@ -424,21 +482,858 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
          cell.alignment = { vertical: 'middle', wrapText: true }
+         cell.font = { size: 10 }
       })
 
-      ;[4, 5, 6, 7, 8, 9, 10, 11, 12, 13].forEach((column) => {
-         const cell = excelRow.getCell(column)
+      ;[4, 5, 6, 7, 8, 9, 10, 11].forEach((colIdx) => {
+         const cell = excelRow.getCell(colIdx)
          cell.numFmt = '#,##0.00;[Red](#,##0.00)'
          cell.alignment = { horizontal: 'right', vertical: 'middle' }
       })
 
-      excelRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' }
+      ;[12, 13].forEach((colIdx) => {
+         const cell = excelRow.getCell(colIdx)
+         cell.numFmt = '#,##0'
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+      })
+
+      excelRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
       excelRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' }
       excelRow.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' }
       excelRow.getCell(14).alignment = { horizontal: 'left', vertical: 'middle' }
+      excelRow.height = 22
    })
 
-   worksheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 9 }]
+   // 6. Totals Row for Main Table
+   const totalsRowIdx = 13 + dataRows.length
+   const totalsRow = worksheet.getRow(totalsRowIdx)
+
+   totalsRow.values = [
+      'Total',
+      '',
+      '',
+      { formula: `=SUM(D13:D${totalsRowIdx - 1})` },
+      { formula: `=SUM(E13:E${totalsRowIdx - 1})` },
+      { formula: `=SUM(F13:F${totalsRowIdx - 1})` },
+      { formula: `=SUM(G13:G${totalsRowIdx - 1})` },
+      { formula: `=SUM(H13:H${totalsRowIdx - 1})` },
+      { formula: `=SUM(I13:I${totalsRowIdx - 1})` },
+      { formula: `=SUM(J13:J${totalsRowIdx - 1})` },
+      { formula: `=SUM(K13:K${totalsRowIdx - 1})` },
+      { formula: `=SUM(L13:L${totalsRowIdx - 1})` },
+      { formula: `=SUM(M13:M${totalsRowIdx - 1})` },
+      '',
+   ]
+
+   totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 10 }
+      cell.border = { 
+         top: { style: 'thin' }, 
+         left: { style: 'thin' }, 
+         bottom: { style: 'double' }, 
+         right: { style: 'thin' } 
+      }
+      cell.alignment = { vertical: 'middle' }
+
+      if (colNumber === 1) {
+         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      } else if (colNumber >= 4 && colNumber <= 11) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0.00;[Red](#,##0.00)'
+      } else if (colNumber === 12 || colNumber === 13) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0'
+      }
+   })
+   totalsRow.height = 24
+
+   worksheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 12 }]
+
+   const buffer = await workbook.xlsx.writeBuffer()
+   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+   const url = URL.createObjectURL(blob)
+   const link = document.createElement('a')
+   link.href = url
+   link.download = filename
+   document.body.appendChild(link)
+   link.click()
+   document.body.removeChild(link)
+   URL.revokeObjectURL(url)
+}
+
+async function downloadDailyCollectionWorkbook(filename: string, estateTitle: string, monthName: string, year: number, dataRows: DailyCollectionRecord[]) {
+   const workbook = new ExcelJS.Workbook()
+   workbook.creator = 'දළුපොත'
+   workbook.created = new Date()
+   workbook.modified = new Date()
+
+   const worksheet = workbook.addWorksheet('Daily Collections', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      properties: { defaultRowHeight: 22 },
+   })
+
+   worksheet.pageSetup = {
+      orientation: 'portrait',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+   }
+
+   worksheet.columns = [
+      { key: 'date', width: 18 },
+      { key: 'collectionCount', width: 16 },
+      { key: 'grossWeight', width: 22 },
+      { key: 'netWeight', width: 22 },
+      { key: 'uniqueSuppliers', width: 20 },
+      { key: 'pendingCount', width: 15 },
+   ]
+
+   // 1. Header Banner
+   worksheet.mergeCells('A1:F1')
+   const titleCell = worksheet.getCell('A1')
+   titleCell.value = `${estateTitle.toUpperCase()} - DAILY COLLECTION REPORT`
+   titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   worksheet.getRow(1).height = 30
+
+   // 2. Sub-header / Period
+   worksheet.mergeCells('A2:F2')
+   const periodCell = worksheet.getCell('A2')
+   periodCell.value = `Period: ${monthName} ${year}`
+   periodCell.font = { bold: true, size: 10, italic: true, color: { argb: 'FF475569' } }
+   periodCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+   worksheet.getRow(2).height = 20
+
+   // 3. Separator
+   worksheet.mergeCells('A3:F3')
+   worksheet.getCell('A3').value = ''
+
+   // 4. Table Headers
+   const tableHeaders = ['Date', 'Collections', 'Gross Weight (kg)', 'Net Weight (kg)', 'Unique Suppliers', 'Pending']
+   tableHeaders.forEach((header, index) => {
+      const cell = worksheet.getCell(5, 1 + index)
+      cell.value = header
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } }
+   })
+   worksheet.getRow(5).height = 26
+
+   // 5. Data Rows
+   dataRows.forEach((row, index) => {
+      const rowNumber = 6 + index
+      const excelRow = worksheet.getRow(rowNumber)
+      
+      const formattedDate = new Date(row.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      excelRow.values = [
+         formattedDate,
+         row.collectionCount,
+         row.grossWeight,
+         row.netWeight,
+         row.uniqueSuppliers,
+         row.pendingCount,
+      ]
+
+      const isEven = index % 2 === 0
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC'
+
+      excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } }
+         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+         cell.alignment = { vertical: 'middle' }
+         cell.font = { size: 10 }
+
+         if (colNumber === 1) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+         } else if (colNumber === 2 || colNumber === 5) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0'
+         } else if (colNumber === 3 || colNumber === 4) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0.00'
+         } else if (colNumber === 6) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+            cell.numFmt = '#,##0'
+            if (row.pendingCount > 0) {
+               cell.font = { bold: true, color: { argb: 'FFEE4444' } }
+            }
+         }
+      })
+      excelRow.height = 22
+   })
+
+   // 6. Totals Row
+   const totalsRowIdx = 6 + dataRows.length
+   const totalsRow = worksheet.getRow(totalsRowIdx)
+   
+   totalsRow.values = [
+      'Total',
+      { formula: `=SUM(B6:B${totalsRowIdx - 1})` },
+      { formula: `=SUM(C6:C${totalsRowIdx - 1})` },
+      { formula: `=SUM(D6:D${totalsRowIdx - 1})` },
+      { formula: `=SUM(E6:E${totalsRowIdx - 1})` },
+      { formula: `=SUM(F6:F${totalsRowIdx - 1})` },
+   ]
+
+   totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 10 }
+      cell.border = { 
+         top: { style: 'thin' }, 
+         left: { style: 'thin' }, 
+         bottom: { style: 'double' }, 
+         right: { style: 'thin' } 
+      }
+      cell.alignment = { vertical: 'middle' }
+
+      if (colNumber === 1) {
+         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      } else if (colNumber === 2 || colNumber === 5) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0'
+      } else if (colNumber === 3 || colNumber === 4) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0.00'
+      } else if (colNumber === 6) {
+         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+         cell.numFmt = '#,##0'
+      }
+   })
+   totalsRow.height = 24
+
+   const buffer = await workbook.xlsx.writeBuffer()
+   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+   const url = URL.createObjectURL(blob)
+   const link = document.createElement('a')
+   link.href = url
+   link.download = filename
+   document.body.appendChild(link)
+   link.click()
+   document.body.removeChild(link)
+   URL.revokeObjectURL(url)
+}
+
+async function downloadMonthlyFinancialWorkbook(filename: string, estateTitle: string, monthName: string, year: number, dataRows: MonthlyFinancialRecord[]) {
+   const workbook = new ExcelJS.Workbook()
+   workbook.creator = 'දළුපොත'
+   workbook.created = new Date()
+   workbook.modified = new Date()
+
+   const worksheet = workbook.addWorksheet('Monthly Financials', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      properties: { defaultRowHeight: 22 },
+   })
+
+   worksheet.pageSetup = {
+      orientation: 'portrait',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+   }
+
+   worksheet.columns = [
+      { key: 'supplierName', width: 26 },
+      { key: 'passbookNo', width: 16 },
+      { key: 'gross', width: 18 },
+      { key: 'adv', width: 18 },
+      { key: 'debt', width: 18 },
+      { key: 'netPay', width: 18 },
+      { key: 'status', width: 16 },
+   ]
+
+   // 1. Header Banner
+   worksheet.mergeCells('A1:G1')
+   const titleCell = worksheet.getCell('A1')
+   titleCell.value = `${estateTitle.toUpperCase()} - MONTHLY FINANCIAL REPORT`
+   titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   worksheet.getRow(1).height = 30
+
+   // 2. Sub-header / Period
+   worksheet.mergeCells('A2:G2')
+   const periodCell = worksheet.getCell('A2')
+   periodCell.value = `Period: ${monthName} ${year}`
+   periodCell.font = { bold: true, size: 10, italic: true, color: { argb: 'FF475569' } }
+   periodCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+   worksheet.getRow(2).height = 20
+
+   // 3. Separator
+   worksheet.mergeCells('A3:G3')
+   worksheet.getCell('A3').value = ''
+
+   // 4. Table Headers
+   const tableHeaders = ['Supplier', 'Passbook No', 'Gross (Rs.)', 'Advance Ded. (Rs.)', 'Debt Ded. (Rs.)', 'Net Pay (Rs.)', 'Status']
+   tableHeaders.forEach((header, index) => {
+      const cell = worksheet.getCell(5, 1 + index)
+      cell.value = header
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } }
+   })
+   worksheet.getRow(5).height = 26
+
+   // 5. Data Rows
+   dataRows.forEach((row, index) => {
+      const rowNumber = 6 + index
+      const excelRow = worksheet.getRow(rowNumber)
+      
+      excelRow.values = [
+         row.supplierName,
+         row.passbookNo,
+         row.gross,
+         row.adv > 0 ? -row.adv : 0,
+         row.debt > 0 ? -row.debt : 0,
+         row.netPay,
+         row.status,
+      ]
+
+      const isEven = index % 2 === 0
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC'
+
+      excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } }
+         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+         cell.alignment = { vertical: 'middle' }
+         cell.font = { size: 10 }
+
+         if (colNumber === 1) {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' }
+         } else if (colNumber === 2) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+         } else if (colNumber >= 3 && colNumber <= 6) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0.00'
+            if (colNumber === 6 && row.netPay < 0) {
+               cell.font = { color: { argb: 'FFEE4444' }, bold: true }
+            } else if (colNumber === 4 || colNumber === 5) {
+               const val = Number(cell.value);
+               if (val < 0) {
+                  cell.font = { color: { argb: 'FFEE4444' } }
+               }
+            }
+         } else if (colNumber === 7) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+            if (row.status === 'APPROVED' || row.status === 'PAID' || row.status === 'CLEARED') {
+               cell.font = { bold: true, color: { argb: 'FF065F46' } }
+               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }
+            } else {
+               cell.font = { bold: true, color: { argb: 'FFB45309' } }
+               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+            }
+         }
+      })
+      excelRow.height = 22
+   })
+
+   // 6. Totals Row
+   const totalsRowIdx = 6 + dataRows.length
+   const totalsRow = worksheet.getRow(totalsRowIdx)
+   
+   totalsRow.values = [
+      'Total',
+      '',
+      { formula: `=SUM(C6:C${totalsRowIdx - 1})` },
+      { formula: `=SUM(D6:D${totalsRowIdx - 1})` },
+      { formula: `=SUM(E6:E${totalsRowIdx - 1})` },
+      { formula: `=SUM(F6:F${totalsRowIdx - 1})` },
+      '',
+   ]
+
+   totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 10 }
+      cell.border = { 
+         top: { style: 'thin' }, 
+         left: { style: 'thin' }, 
+         bottom: { style: 'double' }, 
+         right: { style: 'thin' } 
+      }
+      cell.alignment = { vertical: 'middle' }
+
+      if (colNumber === 1) {
+         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      } else if (colNumber >= 3 && colNumber <= 6) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0.00'
+      }
+   })
+   totalsRow.height = 24
+
+   const buffer = await workbook.xlsx.writeBuffer()
+   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+   const url = URL.createObjectURL(blob)
+   const link = document.createElement('a')
+   link.href = url
+   link.download = filename
+   document.body.appendChild(link)
+   link.click()
+   document.body.removeChild(link)
+   URL.revokeObjectURL(url)
+}
+
+async function downloadTAPerformanceWorkbook(filename: string, estateTitle: string, monthName: string, year: number, dataRows: TAPerformanceRow[]) {
+   const workbook = new ExcelJS.Workbook()
+   workbook.creator = 'දළුපොත'
+   workbook.created = new Date()
+   workbook.modified = new Date()
+
+   const worksheet = workbook.addWorksheet('TA Performance', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      properties: { defaultRowHeight: 22 },
+   })
+
+   worksheet.pageSetup = {
+      orientation: 'portrait',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+   }
+
+   worksheet.columns = [
+      { key: 'rank', width: 10 },
+      { key: 'agentCode', width: 16 },
+      { key: 'name', width: 26 },
+      { key: 'totalWeight', width: 22 },
+      { key: 'collectionCount', width: 16 },
+      { key: 'pendingCount', width: 14 },
+      { key: 'activeDays', width: 15 },
+      { key: 'averageWeight', width: 22 },
+   ]
+
+   // 1. Header Banner
+   worksheet.mergeCells('A1:H1')
+   const titleCell = worksheet.getCell('A1')
+   titleCell.value = `${estateTitle.toUpperCase()} - TA PERFORMANCE REPORT`
+   titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   worksheet.getRow(1).height = 30
+
+   // 2. Sub-header / Period
+   worksheet.mergeCells('A2:H2')
+   const periodCell = worksheet.getCell('A2')
+   periodCell.value = `Period: ${monthName} ${year}`
+   periodCell.font = { bold: true, size: 10, italic: true, color: { argb: 'FF475569' } }
+   periodCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+   worksheet.getRow(2).height = 20
+
+   // 3. Separator
+   worksheet.mergeCells('A3:H3')
+   worksheet.getCell('A3').value = ''
+
+   // 4. Table Headers
+   const tableHeaders = ['Rank', 'TA ID', 'TA Name', 'Total Weight (kg)', 'Collections', 'Pending', 'Active Days', 'Average Weight (kg)']
+   tableHeaders.forEach((header, index) => {
+      const cell = worksheet.getCell(5, 1 + index)
+      cell.value = header
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } }
+   })
+   worksheet.getRow(5).height = 26
+
+   // 5. Data Rows
+   dataRows.forEach((row, index) => {
+      const rowNumber = 6 + index
+      const excelRow = worksheet.getRow(rowNumber)
+      
+      excelRow.values = [
+         index + 1,
+         row.agentCode || row.id,
+         row.name,
+         row.totalWeight,
+         row.collectionCount,
+         row.pendingCount,
+         row.activeDays,
+         row.averageWeight,
+      ]
+
+      const isEven = index % 2 === 0
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC'
+
+      excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } }
+         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+         cell.alignment = { vertical: 'middle' }
+         cell.font = { size: 10 }
+
+         if (colNumber === 1 || colNumber === 2) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+         } else if (colNumber === 3) {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' }
+         } else if (colNumber === 4 || colNumber === 8) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0.00'
+         } else if (colNumber >= 5 && colNumber <= 7) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0'
+            if (colNumber === 6 && row.pendingCount > 0) {
+               cell.font = { bold: true, color: { argb: 'FFEE4444' } }
+            }
+         }
+      })
+      excelRow.height = 22
+   })
+
+   // 6. Totals Row
+   const totalsRowIdx = 6 + dataRows.length
+   const totalsRow = worksheet.getRow(totalsRowIdx)
+   
+   totalsRow.values = [
+      'Total',
+      '',
+      '',
+      { formula: `=SUM(D6:D${totalsRowIdx - 1})` },
+      { formula: `=SUM(E6:E${totalsRowIdx - 1})` },
+      { formula: `=SUM(F6:F${totalsRowIdx - 1})` },
+      '',
+      { formula: `=AVERAGE(H6:H${totalsRowIdx - 1})` },
+   ]
+
+   totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 10 }
+      cell.border = { 
+         top: { style: 'thin' }, 
+         left: { style: 'thin' }, 
+         bottom: { style: 'double' }, 
+         right: { style: 'thin' } 
+      }
+      cell.alignment = { vertical: 'middle' }
+
+      if (colNumber === 1) {
+         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      } else if (colNumber === 4 || colNumber === 8) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0.00'
+      } else if (colNumber === 5 || colNumber === 6) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0'
+      }
+   })
+   totalsRow.height = 24
+
+   const buffer = await workbook.xlsx.writeBuffer()
+   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+   const url = URL.createObjectURL(blob)
+   const link = document.createElement('a')
+   link.href = url
+   link.download = filename
+   document.body.appendChild(link)
+   link.click()
+   document.body.removeChild(link)
+   URL.revokeObjectURL(url)
+}
+
+async function downloadSmallHolderRankingWorkbook(filename: string, estateTitle: string, monthName: string, year: number, dataRows: any[]) {
+   const workbook = new ExcelJS.Workbook()
+   workbook.creator = 'දළුපොත'
+   workbook.created = new Date()
+   workbook.modified = new Date()
+
+   const worksheet = workbook.addWorksheet('Small Holder Ranking', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      properties: { defaultRowHeight: 22 },
+   })
+
+   worksheet.pageSetup = {
+      orientation: 'portrait',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+   }
+
+   worksheet.columns = [
+      { key: 'rank', width: 10 },
+      { key: 'id', width: 16 },
+      { key: 'name', width: 26 },
+      { key: 'total', width: 24 },
+   ]
+
+   // 1. Header Banner
+   worksheet.mergeCells('A1:D1')
+   const titleCell = worksheet.getCell('A1')
+   titleCell.value = `${estateTitle.toUpperCase()} - SMALL HOLDER RANKING REPORT`
+   titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   worksheet.getRow(1).height = 30
+
+   // 2. Sub-header / Period
+   worksheet.mergeCells('A2:D2')
+   const periodCell = worksheet.getCell('A2')
+   periodCell.value = `Period: ${monthName} ${year}`
+   periodCell.font = { bold: true, size: 10, italic: true, color: { argb: 'FF475569' } }
+   periodCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+   worksheet.getRow(2).height = 20
+
+   // 3. Separator
+   worksheet.mergeCells('A3:D3')
+   worksheet.getCell('A3').value = ''
+
+   // 4. Table Headers
+   const tableHeaders = ['Rank', 'Supplier ID', 'Supplier Name', 'Total Weight (kg)']
+   tableHeaders.forEach((header, index) => {
+      const cell = worksheet.getCell(5, 1 + index)
+      cell.value = header
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } }
+   })
+   worksheet.getRow(5).height = 26
+
+   // 5. Data Rows
+   dataRows.forEach((row, index) => {
+      const rowNumber = 6 + index
+      const excelRow = worksheet.getRow(rowNumber)
+      
+      excelRow.values = [
+         index + 1,
+         row.id,
+         row.name,
+         row.total,
+      ]
+
+      const isEven = index % 2 === 0
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC'
+
+      excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } }
+         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+         cell.alignment = { vertical: 'middle' }
+         cell.font = { size: 10 }
+
+         if (colNumber === 1 || colNumber === 2) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+         } else if (colNumber === 3) {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' }
+         } else if (colNumber === 4) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0.00'
+         }
+      })
+      excelRow.height = 22
+   })
+
+   // 6. Totals Row
+   const totalsRowIdx = 6 + dataRows.length
+   const totalsRow = worksheet.getRow(totalsRowIdx)
+   
+   totalsRow.values = [
+      'Total',
+      '',
+      '',
+      { formula: `=SUM(D6:D${totalsRowIdx - 1})` },
+   ]
+
+   totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 10 }
+      cell.border = { 
+         top: { style: 'thin' }, 
+         left: { style: 'thin' }, 
+         bottom: { style: 'double' }, 
+         right: { style: 'thin' } 
+      }
+      cell.alignment = { vertical: 'middle' }
+
+      if (colNumber === 1) {
+         cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      } else if (colNumber === 4) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0.00'
+      }
+   })
+   totalsRow.height = 24
+
+   const buffer = await workbook.xlsx.writeBuffer()
+   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+   const url = URL.createObjectURL(blob)
+   const link = document.createElement('a')
+   link.href = url
+   link.download = filename
+   document.body.appendChild(link)
+   link.click()
+   document.body.removeChild(link)
+   URL.revokeObjectURL(url)
+}
+
+async function downloadInventoryStockWorkbook(filename: string, estateTitle: string, monthName: string, year: number, dataRows: InventoryItem[]) {
+   const workbook = new ExcelJS.Workbook()
+   workbook.creator = 'දළුපොත'
+   workbook.created = new Date()
+   workbook.modified = new Date()
+
+   const worksheet = workbook.addWorksheet('Inventory Stock', {
+      views: [{ state: 'frozen', ySplit: 5 }],
+      properties: { defaultRowHeight: 22 },
+   })
+
+   worksheet.pageSetup = {
+      orientation: 'portrait',
+      paperSize: 9,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+   }
+
+   worksheet.columns = [
+      { key: 'category', width: 22 },
+      { key: 'name', width: 30 },
+      { key: 'available', width: 20 },
+      { key: 'reorderLevel', width: 20 },
+      { key: 'unitCost', width: 18 },
+      { key: 'stockValue', width: 20 },
+      { key: 'status', width: 15 },
+      { key: 'lastUpdated', width: 24 },
+   ]
+
+   // 1. Header Banner
+   worksheet.mergeCells('A1:H1')
+   const titleCell = worksheet.getCell('A1')
+   titleCell.value = `${estateTitle.toUpperCase()} - INVENTORY STOCK REPORT`
+   titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+   titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D6A4F' } }
+   worksheet.getRow(1).height = 30
+
+   // 2. Sub-header / Period
+   worksheet.mergeCells('A2:H2')
+   const periodCell = worksheet.getCell('A2')
+   periodCell.value = `As of: ${monthName} ${year}`
+   periodCell.font = { bold: true, size: 10, italic: true, color: { argb: 'FF475569' } }
+   periodCell.alignment = { horizontal: 'center', vertical: 'middle' }
+   periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+   worksheet.getRow(2).height = 20
+
+   // 3. Separator
+   worksheet.mergeCells('A3:H3')
+   worksheet.getCell('A3').value = ''
+
+   // 4. Table Headers
+   const tableHeaders = ['Category', 'Item Name', 'Available Stock', 'Reorder Level', 'Unit Cost (Rs)', 'Stock Value (Rs)', 'Status', 'Last Updated']
+   tableHeaders.forEach((header, index) => {
+      const cell = worksheet.getCell(5, 1 + index)
+      cell.value = header
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4C9141' } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 10 }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } }
+   })
+   worksheet.getRow(5).height = 26
+
+   // 5. Data Rows
+   dataRows.forEach((row, index) => {
+      const rowNumber = 6 + index
+      const excelRow = worksheet.getRow(rowNumber)
+      
+      const categoryLabel = getInventoryCategoryLabel(row.itemCategory, (k: string) => k)
+      const isLow = isLowStock(row)
+      const statusText = isLow ? 'Low Stock' : 'OK'
+      const formattedDate = row.lastUpdated ? new Date(row.lastUpdated).toLocaleString() : ''
+      const availableStr = `${row.quantityInStock} ${row.unit}`
+      const reorderStr = `${row.reorderLevel} ${row.unit}`
+      const stockVal = Number(row.quantityInStock || 0) * Number(row.unitCost || 0)
+      
+      excelRow.values = [
+         categoryLabel,
+         row.itemName,
+         availableStr,
+         reorderStr,
+         row.unitCost,
+         stockVal,
+         statusText,
+         formattedDate,
+      ]
+
+      const isEven = index % 2 === 0
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8FAFC'
+
+      excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } }
+         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+         cell.alignment = { vertical: 'middle' }
+         cell.font = { size: 10 }
+
+         if (colNumber === 1 || colNumber === 2) {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' }
+         } else if (colNumber === 3 || colNumber === 4) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         } else if (colNumber === 5 || colNumber === 6) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' }
+            cell.numFmt = '#,##0.00'
+         } else if (colNumber === 7) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+            if (isLow) {
+               cell.font = { bold: true, color: { argb: 'FFEE4444' } }
+            } else {
+               cell.font = { color: { argb: 'FF10B981' } }
+            }
+         } else if (colNumber === 8) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' }
+         }
+      })
+      excelRow.height = 22
+   })
+
+   // 6. Totals/Summary Row (Total Valuation)
+   const totalsRowIdx = 6 + dataRows.length
+   const totalsRow = worksheet.getRow(totalsRowIdx)
+   const totalStockValue = dataRows.reduce((sum, item) => sum + Number(item.quantityInStock || 0) * Number(item.unitCost || 0), 0)
+   
+   totalsRow.values = [
+      'Total Valuation (Rs)',
+      '',
+      '',
+      '',
+      '',
+      totalStockValue,
+      '',
+      ''
+   ]
+
+   worksheet.mergeCells(`A${totalsRowIdx}:E${totalsRowIdx}`)
+   const mergedTotalLabelCell = worksheet.getCell(`A${totalsRowIdx}`)
+   mergedTotalLabelCell.value = 'Total Inventory Valuation (Rs)'
+   mergedTotalLabelCell.alignment = { horizontal: 'right', vertical: 'middle' }
+
+   totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+      cell.font = { bold: true, size: 10 }
+      cell.border = { 
+         top: { style: 'thin' }, 
+         left: { style: 'thin' }, 
+         bottom: { style: 'double' }, 
+         right: { style: 'thin' } 
+      }
+      cell.alignment = { vertical: 'middle' }
+
+      if (colNumber === 6) {
+         cell.alignment = { horizontal: 'right', vertical: 'middle' }
+         cell.numFmt = '#,##0.00'
+      }
+   })
+   totalsRow.height = 24
 
    const buffer = await workbook.xlsx.writeBuffer()
    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -715,21 +1610,15 @@ export default function ReportsPage() {
          setInventoryData(sorted);
 
          if (format === 'excel') {
-            const filename = `inventory_stock_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.csv`;
-            downloadCsv(
+            const filename = `inventory_stock_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
+            const estateTitle = sessionStorage.getItem('estate_name') || 'Dalupotha Estate';
+            const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('en-US', { month: 'long' });
+            await downloadInventoryStockWorkbook(
                filename,
-               ['Item Category', 'Item Name', 'Available Stock', 'Reserved Stock', 'Reorder Level', 'Unit', 'Unit Cost', 'Status', 'Last Updated'],
-               sorted.map((item) => [
-                  getInventoryCategoryLabel(item.itemCategory, t),
-                  item.itemName,
-                  item.quantityInStock,
-                  item.reservedQuantity ?? 0,
-                  item.reorderLevel ?? 0,
-                  item.unit,
-                  formatCurrency(item.unitCost ?? 0),
-                  isLowStock(item) ? t('Low Stock') : t('OK'),
-                  item.lastUpdated ? new Date(item.lastUpdated).toLocaleString() : '',
-               ])
+               estateTitle,
+               monthName,
+               selectedYear,
+               sorted
             );
             setReportState('closed');
          }
@@ -820,19 +1709,13 @@ export default function ReportsPage() {
 
          if (format === 'excel') {
             const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('en-US', { month: 'long' });
-            downloadCsv(
-               `ta_performance_${selectedYear}_${selectedMonth}.csv`,
-               ['Rank', 'TA ID', 'TA Name', `Total Weight (kg) - ${monthName} ${selectedYear}`, 'Collections', 'Pending', 'Active Days', 'Average Weight (kg)'],
-               sorted.map((row, index) => [
-                  index + 1,
-                  row.agentCode || row.id,
-                  row.name,
-                  row.totalWeight.toFixed(2),
-                  row.collectionCount,
-                  row.pendingCount,
-                  row.activeDays,
-                  row.averageWeight.toFixed(2),
-               ])
+            const estateTitle = sessionStorage.getItem('estate_name') || 'Dalupotha Estate';
+            await downloadTAPerformanceWorkbook(
+               `ta_performance_${selectedYear}_${selectedMonth}.xlsx`,
+               estateTitle,
+               monthName,
+               selectedYear,
+               sorted
             );
             setReportState('closed');
          }
@@ -868,15 +1751,19 @@ export default function ReportsPage() {
                dailyMap[dateStr] = {
                   date: dateStr,
                   collectionCount: 0,
-                  totalWeight: 0,
+                  grossWeight: 0,
+                  netWeight: 0,
                   uniqueSuppliers: new Set<string>(),
                   pendingCount: 0,
-               };
+               } as any;
             }
             
-            const weight = Number(collection.netWeight || collection.grossWeight || 0);
+            const gross = Number(collection.grossWeight || 0);
+            const net = Number(collection.netWeight || 0);
+            
             dailyMap[dateStr].collectionCount += 1;
-            dailyMap[dateStr].totalWeight += weight;
+            dailyMap[dateStr].grossWeight += gross;
+            dailyMap[dateStr].netWeight += net;
             
             if (collection.supplierId) {
                (dailyMap[dateStr].uniqueSuppliers as any).add(collection.supplierId);
@@ -898,16 +1785,13 @@ export default function ReportsPage() {
          
          if (format === 'excel') {
             const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('en-US', { month: 'long' });
-            downloadCsv(
-               `daily_collection_${selectedYear}_${selectedMonth}.csv`,
-               ['Date', 'Collections', 'Total Weight (kg)', 'Unique Suppliers', 'Pending'],
-               sorted.map((day) => [
-                  new Date(day.date).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }),
-                  day.collectionCount,
-                  day.totalWeight.toFixed(2),
-                  day.uniqueSuppliers,
-                  day.pendingCount,
-               ])
+            const estateTitle = sessionStorage.getItem('estate_name') || 'Dalupotha Estate';
+            await downloadDailyCollectionWorkbook(
+               `daily_collection_${selectedYear}_${selectedMonth}.xlsx`,
+               estateTitle,
+               monthName,
+               selectedYear,
+               sorted
             );
             setReportState('closed');
          }
@@ -925,9 +1809,33 @@ export default function ReportsPage() {
       setReportError(null);
 
       try {
-         const collections = await CollectionAPI.getRecentCollections(1000);
+         // 1. Fetch Real Leaf Rate from Manager settings
+         let leafPrice = 240; // Default fallback
+         try {
+            const priceRes = await fetch('/api/finance/leaf-price');
+            if (priceRes.ok) {
+               const priceData = await priceRes.json();
+               if (priceData.pricePerKg) {
+                  leafPrice = Number(priceData.pricePerKg);
+               }
+            }
+         } catch (err) {
+            console.error("Failed to fetch leaf price", err);
+         }
+
+         const [suppliersList, collections] = await Promise.all([
+            AuthAPI.getSuppliers().catch(() => []),
+            CollectionAPI.getRecentCollections(1000)
+         ]);
+
+         const passbookMap: Record<string, string> = {};
+         suppliersList.forEach((s: any) => {
+            if (s.supplierId) {
+               passbookMap[s.supplierId] = s.passbookNo;
+            }
+         });
          
-         // Group by supplier and calculate financial metrics
+         // Group by supplier and calculate gross collection amount
          const financialMap: Record<string, MonthlyFinancialRecord> = {};
          
          (collections || []).forEach((collection: any) => {
@@ -939,13 +1847,18 @@ export default function ReportsPage() {
             
             const supplierId = collection.supplierId || 'UNKNOWN';
             const weight = Number(collection.netWeight || collection.grossWeight || 0);
-            // Estimate amount based on weight (mock: Rs. 100 per kg)
-            const estimatedAmount = weight * 100;
+            const calculatedAmount = weight * leafPrice;
             
             if (!financialMap[supplierId]) {
                financialMap[supplierId] = {
                   supplierId: supplierId,
                   supplierName: collection.supplierName || 'Unknown Supplier',
+                  passbookNo: collection.passbookNo || passbookMap[supplierId] || 'No Passbook',
+                  gross: 0,
+                  adv: 0,
+                  debt: 0,
+                  netPay: 0,
+                  status: 'PENDING',
                   totalAmount: 0,
                   payoutAmount: 0,
                   pendingAmount: 0,
@@ -953,34 +1866,71 @@ export default function ReportsPage() {
                };
             }
             
-            financialMap[supplierId].totalAmount += estimatedAmount;
+            financialMap[supplierId].gross += calculatedAmount;
+            financialMap[supplierId].totalAmount += calculatedAmount;
             financialMap[supplierId].transactionCount += 1;
-            
-            // Mock logic: assume 70% is paid out, 30% pending
-            financialMap[supplierId].payoutAmount += estimatedAmount * 0.7;
-            financialMap[supplierId].pendingAmount += estimatedAmount * 0.3;
          });
+
+         // 2. Fetch real ledger and transactions for each supplier to calculate payouts
+         const supplierIds = Object.keys(financialMap);
+         await Promise.all(supplierIds.map(async (supplierId) => {
+            if (supplierId === 'UNKNOWN') return;
+            try {
+               const [ledger, transactions] = await Promise.all([
+                  FinanceAPI.getSupplierLedger(supplierId).catch(() => ({ advanceTaken: 0, currentDebt: 0 })),
+                  FinanceAPI.getLedgerTransactions(supplierId).catch(() => [])
+               ]);
+               
+               const adv = ledger.advanceTaken || 0;
+               const debt = ledger.currentDebt || 0;
+               
+               // Verify transaction status matching Financials.tsx
+               const hasPaidPayout = transactions.find((tx: any) => {
+                  if (tx.transactionType !== 'PAYOUT' || !['APPROVED', 'PAID', 'CLEARED'].includes(tx.status)) return false;
+                  const txDate = new Date(tx.createdAt || tx.date || tx.timestamp || tx.transactionDate);
+                  return (txDate.getMonth() + 1) === selectedMonth && txDate.getFullYear() === selectedYear;
+               });
+               
+               const pendingPayout = transactions.find((tx: any) => {
+                  if (tx.transactionType !== 'PAYOUT' || tx.status !== 'AWAITING_APPROVAL') return false;
+                  const txDate = new Date(tx.createdAt || tx.date || tx.timestamp || tx.transactionDate);
+                  return (txDate.getMonth() + 1) === selectedMonth && txDate.getFullYear() === selectedYear;
+               });
+               
+               const status = pendingPayout ? 'AWAITING_APPROVAL' : (hasPaidPayout ? 'APPROVED' : 'PENDING');
+               
+               financialMap[supplierId].adv = adv;
+               financialMap[supplierId].debt = debt;
+               financialMap[supplierId].status = status;
+               financialMap[supplierId].netPay = financialMap[supplierId].gross - (adv + debt);
+               
+               // Populate legacy fallback values just in case
+               financialMap[supplierId].payoutAmount = hasPaidPayout ? Number(hasPaidPayout.amount || 0) : 0;
+               financialMap[supplierId].pendingAmount = Math.max(0, financialMap[supplierId].netPay);
+            } catch (err) {
+               console.error(`Failed to fetch transactions for supplier ${supplierId}`, err);
+            }
+         }));
          
          const sorted = Object.values(financialMap)
-            .sort((a, b) => b.totalAmount - a.totalAmount);
+            .sort((a, b) => b.gross - a.gross);
          
          setMonthlyFinancialData(sorted);
          
          if (format === 'excel') {
             const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('en-US', { month: 'long' });
-            downloadCsv(
-               `monthly_financial_${selectedYear}_${selectedMonth}.csv`,
-               ['Supplier', 'Total Amount (Rs.)', 'Paid Out (Rs.)', 'Pending (Rs.)', 'Transactions'],
-               sorted.map((record) => [
-                  record.supplierName,
-                  record.totalAmount.toFixed(2),
-                  record.payoutAmount.toFixed(2),
-                  record.pendingAmount.toFixed(2),
-                  record.transactionCount,
-               ])
+            const estateTitle = sessionStorage.getItem('estate_name') || 'Dalupotha Estate';
+            await downloadMonthlyFinancialWorkbook(
+               `monthly_financial_${selectedYear}_${selectedMonth}.xlsx`,
+               estateTitle,
+               monthName,
+               selectedYear,
+               sorted
             );
             setReportState('closed');
          }
+         
+
       } catch (e) {
          console.error(e);
          setReportError(t('Failed to load monthly financial data. Please try again.'));
@@ -994,8 +1944,18 @@ export default function ReportsPage() {
     setReportState('result');
       setReportError(null);
     try {
-      // Fetch up to 1000 recent collections (real data from database)
-      let collections = await CollectionAPI.getRecentCollections(1000);
+      // Fetch suppliers list and collections in parallel to resolve passbook numbers
+      const [suppliersList, collections] = await Promise.all([
+         AuthAPI.getSuppliers().catch(() => []),
+         CollectionAPI.getRecentCollections(1000)
+      ]);
+
+      const passbookMap: Record<string, string> = {};
+      suppliersList.forEach((s: any) => {
+         if (s.supplierId) {
+            passbookMap[s.supplierId] = s.passbookNo;
+         }
+      });
       
       const supplierTotals: Record<string, { id: string, name: string, total: number }> = {};
       
@@ -1008,17 +1968,14 @@ export default function ReportsPage() {
         });
 
         filteredCollections.forEach((c: any) => {
-          // Prefer passbookNo as the grouping key to merge duplicate database records for the same physical supplier
-          const cleanId = (c.passbookNo && c.passbookNo !== 'N/A') 
-              ? c.passbookNo 
-              : (c.supplierId ? c.supplierId.substring(0, 8).toUpperCase() : 'UNKNOWN');
+          const supplierId = c.supplierId || 'UNKNOWN';
+          const cleanId = c.passbookNo || passbookMap[supplierId] || 'No Passbook';
               
           const key = cleanId;
           
           if (!supplierTotals[key]) {
              supplierTotals[key] = { id: cleanId, name: c.supplierName || 'Unknown Supplier', total: 0 };
           }
-          // We use gross weight if net weight isn't processed yet, to show total supply volume
           supplierTotals[key].total += (c.netWeight || c.grossWeight || 0);
         });
       }
@@ -1028,11 +1985,14 @@ export default function ReportsPage() {
       
       if (format === 'excel') {
          const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString('en-US', { month: 'long' });
-                   downloadCsv(
-                      `small_holder_ranking_${selectedYear}_${selectedMonth}.csv`,
-                      [`Rank`, `Supplier ID`, `Supplier Name`, `Total Weight (kg) - ${monthName} ${selectedYear}`],
-                      sorted.map((s, i) => [i + 1, s.id, s.name, s.total.toFixed(2)])
-                   );
+         const estateTitle = sessionStorage.getItem('estate_name') || 'Dalupotha Estate';
+         await downloadSmallHolderRankingWorkbook(
+            `small_holder_ranking_${selectedYear}_${selectedMonth}.xlsx`,
+            estateTitle,
+            monthName,
+            selectedYear,
+            sorted
+         );
          setReportState('closed');
       }
     } catch(e) {
@@ -1181,9 +2141,9 @@ export default function ReportsPage() {
          <StatusBadge label={t("BLE Gateway")} status="1 device offline" color="bg-orange-500" />
       </section>
 
-      {reportState !== 'closed' && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
+      {reportState !== 'closed' && createPortal(
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 print-modal-wrapper">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[80vh] print-modal-content">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-3">
                          <div className={`p-2 rounded-lg ${reportId === 'daily_collection' ? 'bg-green-100' : reportId === 'monthly_financial' ? 'bg-blue-100' : reportId === 'small_holder_ranking' ? 'bg-red-100' : reportId === 'inventory_stock' ? 'bg-orange-100' : reportId === 'ta_performance' ? 'bg-purple-100' : 'bg-slate-200'}`}>
@@ -1196,9 +2156,18 @@ export default function ReportsPage() {
                     </p>
                  </div>
               </div>
-              <button onClick={() => setReportState('closed')} className="text-slate-900 hover:text-slate-600">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2 no-print">
+                 <button 
+                    onClick={() => window.print()} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2d6a4f] text-white hover:bg-[#1b4332] text-xs font-black uppercase tracking-widest transition-colors shadow-sm"
+                 >
+                    <FileText size={14} />
+                    {t('Print / PDF')}
+                 </button>
+                 <button onClick={() => setReportState('closed')} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-900 transition-colors">
+                    <X size={20} />
+                 </button>
+              </div>
             </div>
             
             <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
@@ -1214,10 +2183,11 @@ export default function ReportsPage() {
                         </div>
                      ) : null}
 
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                         <InventoryMetric label={t('DAYS WITH COLLECTIONS')} value={dailyCollectionData.length.toString()} tone="slate" />
                         <InventoryMetric label={t('TOTAL COLLECTIONS')} value={dailyCollectionData.reduce((sum, day) => sum + day.collectionCount, 0).toLocaleString()} tone="emerald" />
-                        <InventoryMetric label={t('TOTAL WEIGHT')} value={dailyCollectionData.reduce((sum, day) => sum + day.totalWeight, 0).toFixed(2)} tone="orange" />
+                        <InventoryMetric label={t('TOTAL GROSS WEIGHT')} value={dailyCollectionData.reduce((sum, day) => sum + (day.grossWeight || 0), 0).toFixed(2)} tone="orange" />
+                        <InventoryMetric label={t('TOTAL NET WEIGHT')} value={dailyCollectionData.reduce((sum, day) => sum + (day.netWeight || 0), 0).toFixed(2)} tone="blue" />
                         <InventoryMetric label={t('PENDING VERIFICATIONS')} value={dailyCollectionData.reduce((sum, day) => sum + day.pendingCount, 0).toString()} tone="rose" />
                      </div>
 
@@ -1227,7 +2197,8 @@ export default function ReportsPage() {
                               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
                                  <th className="px-6 py-3">{t('Date')}</th>
                                  <th className="px-6 py-3 text-right">{t('Collections')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Total Weight (kg)')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Gross Weight (kg)')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Net Weight (kg)')}</th>
                                  <th className="px-6 py-3 text-right">{t('Suppliers')}</th>
                                  <th className="px-6 py-3 text-right">{t('Pending')}</th>
                               </tr>
@@ -1242,7 +2213,10 @@ export default function ReportsPage() {
                                        <span className="font-bold text-slate-900">{day.collectionCount}</span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                       <span className="font-bold text-slate-900">{day.totalWeight.toFixed(2)}</span>
+                                       <span className="font-bold text-slate-900">{(day.grossWeight || 0).toFixed(2)}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                       <span className="font-bold text-slate-900">{(day.netWeight || 0).toFixed(2)}</span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                        <span className="font-bold text-slate-900">{day.uniqueSuppliers}</span>
@@ -1254,7 +2228,7 @@ export default function ReportsPage() {
                               ))}
                               {dailyCollectionData.length === 0 && (
                                  <tr>
-                                    <td colSpan={5} className="text-center py-8 text-slate-500 text-sm font-medium">
+                                    <td colSpan={6} className="text-center py-8 text-slate-500 text-sm font-medium">
                                        {t('No collection data available for selected period.')}
                                     </td>
                                  </tr>
@@ -1263,7 +2237,7 @@ export default function ReportsPage() {
                         </table>
                      </div>
 
-                     <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                     <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 no-print">
                         <FileText size={16} className="mt-0.5 shrink-0" />
                         <p className="font-medium">{t('This report shows daily collection activity including collection count, total weight, unique suppliers, and pending verifications.')}</p>
                      </div>
@@ -1278,9 +2252,9 @@ export default function ReportsPage() {
 
                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <InventoryMetric label={t('SUPPLIERS')} value={monthlyFinancialData.length.toString()} tone="slate" />
-                        <InventoryMetric label={t('TOTAL AMOUNT')} value={`Rs. ${monthlyFinancialData.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} tone="emerald" />
-                        <InventoryMetric label={t('PAID OUT')} value={`Rs. ${monthlyFinancialData.reduce((sum, r) => sum + r.payoutAmount, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} tone="blue" />
-                        <InventoryMetric label={t('PENDING')} value={`Rs. ${monthlyFinancialData.reduce((sum, r) => sum + r.pendingAmount, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} tone="rose" />
+                        <InventoryMetric label={t('TOTAL GROSS')} value={`Rs. ${monthlyFinancialData.reduce((sum, r) => sum + r.gross, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} tone="emerald" />
+                        <InventoryMetric label={t('TOTAL DEDUCTIONS')} value={`Rs. ${monthlyFinancialData.reduce((sum, r) => sum + (r.adv + r.debt), 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} tone="rose" />
+                        <InventoryMetric label={t('TOTAL NET PAY')} value={`Rs. ${monthlyFinancialData.reduce((sum, r) => sum + r.netPay, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} tone="blue" />
                      </div>
 
                      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -1288,10 +2262,11 @@ export default function ReportsPage() {
                            <thead>
                               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
                                  <th className="px-6 py-3">{t('Supplier')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Total Amount (Rs.)')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Paid Out (Rs.)')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Pending (Rs.)')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Transactions')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Gross (Rs.)')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Advance Ded.')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Debt Ded.')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Net Pay')}</th>
+                                 <th className="px-6 py-3 text-center">{t('Status')}</th>
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-50">
@@ -1299,25 +2274,36 @@ export default function ReportsPage() {
                                  <tr key={record.supplierId} className="hover:bg-slate-50/50">
                                     <td className="px-6 py-4">
                                        <p className="font-bold text-slate-900 text-sm">{record.supplierName}</p>
-                                       <p className="text-xs font-mono text-slate-500">{record.supplierId.substring(0, 8)}</p>
+                                       <p className="text-xs font-mono text-slate-500">{record.passbookNo}</p>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">
+                                       Rs. {record.gross.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-rose-600 font-medium">
+                                       {record.adv > 0 ? `-Rs. ${record.adv.toLocaleString('en-IN', { minimumFractionDigits: 0 })}` : 'Rs. 0'}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-rose-600 font-medium">
+                                       {record.debt > 0 ? `-Rs. ${record.debt.toLocaleString('en-IN', { minimumFractionDigits: 0 })}` : 'Rs. 0'}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                       <span className="font-bold text-slate-900">{record.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                       <span className={`font-bold ${record.netPay < 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+                                          Rs. {record.netPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                       </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                       <span className="font-bold text-emerald-600">{record.payoutAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                       <span className="font-bold text-orange-600">{record.pendingAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                       <span className="font-bold text-slate-900">{record.transactionCount}</span>
+                                    <td className="px-6 py-4 text-center">
+                                       <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] uppercase font-bold tracking-wider ${
+                                          record.status === 'APPROVED' || record.status === 'PAID' || record.status === 'CLEARED'
+                                             ? 'bg-[#D1FAE5] text-[#065F46]'
+                                             : 'bg-[#FEF3C7] text-[#B45309]'
+                                       }`}>
+                                          {t(record.status)}
+                                       </span>
                                     </td>
                                  </tr>
                               ))}
                               {monthlyFinancialData.length === 0 && (
                                  <tr>
-                                    <td colSpan={5} className="text-center py-8 text-slate-500 text-sm font-medium">
+                                    <td colSpan={6} className="text-center py-8 text-slate-500 text-sm font-medium">
                                        {t('No financial data available for selected period.')}
                                     </td>
                                  </tr>
@@ -1326,7 +2312,7 @@ export default function ReportsPage() {
                         </table>
                      </div>
 
-                     <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                     <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 no-print">
                         <TrendingUp size={16} className="mt-0.5 shrink-0" />
                         <p className="font-medium">{t('This report shows financial transactions by supplier including total amounts, payouts, and pending payments.')}</p>
                      </div>
@@ -1437,7 +2423,7 @@ export default function ReportsPage() {
                         </table>
                      </div>
 
-                     <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                     <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800 no-print">
                         <FileText size={16} className="mt-0.5 shrink-0" />
                         <p className="font-medium">{t('This report groups supplier balances by age using finance ledger transactions and exports the workbook-style debt ageing summary.')}</p>
                      </div>
@@ -1464,10 +2450,11 @@ export default function ReportsPage() {
                                  <th className="px-6 py-3">{t('Item')}</th>
                                  <th className="px-6 py-3">{t('Category')}</th>
                                  <th className="px-6 py-3 text-right">{t('Available')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Reserved')}</th>
                                  <th className="px-6 py-3 text-right">{t('Reorder Level')}</th>
                                  <th className="px-6 py-3 text-right">{t('Unit Cost')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Stock Value')}</th>
                                  <th className="px-6 py-3">{t('Status')}</th>
+                                 <th className="px-6 py-3">{t('Last Updated')}</th>
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-50">
@@ -1477,25 +2464,27 @@ export default function ReportsPage() {
                                     <tr key={item.itemId} className="hover:bg-slate-50/50">
                                        <td className="px-6 py-4">
                                           <p className="font-bold text-slate-900 text-sm">{item.itemName}</p>
-                                          <p className="text-xs font-mono text-slate-500">{item.itemId.slice(0, 8).toUpperCase()}</p>
                                        </td>
                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{getInventoryCategoryLabel(item.itemCategory, t)}</td>
                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">{Number(item.quantityInStock || 0).toLocaleString()} {t(item.unit)}</td>
-                                       <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">{Number(item.reservedQuantity || 0).toLocaleString()} {t(item.unit)}</td>
                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">{Number(item.reorderLevel || 0).toLocaleString()} {t(item.unit)}</td>
                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">{formatCurrency(Number(item.unitCost || 0))}</td>
+                                       <td className="px-6 py-4 text-right text-sm font-bold text-slate-900">{formatCurrency(Number(item.quantityInStock || 0) * Number(item.unitCost || 0))}</td>
                                        <td className="px-6 py-4">
                                           <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest ${lowStock ? 'text-rose-600' : 'text-emerald-600'}`}>
                                              <span className={`w-1.5 h-1.5 rounded-full ${lowStock ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                                              {lowStock ? t('Low Stock') : t('OK')}
                                           </span>
                                        </td>
+                                       <td className="px-6 py-4 text-sm text-slate-500">
+                                          {item.lastUpdated ? new Date(item.lastUpdated).toLocaleString() : '-'}
+                                       </td>
                                     </tr>
                                  )
                               })}
                               {!inventoryData.length && !reportError && (
                                  <tr>
-                                    <td colSpan={7} className="text-center py-8 text-slate-500 text-sm font-medium">
+                                    <td colSpan={8} className="text-center py-8 text-slate-500 text-sm font-medium">
                                        {t('No inventory items available.')}
                                     </td>
                                  </tr>
@@ -1504,7 +2493,7 @@ export default function ReportsPage() {
                         </table>
                      </div>
 
-                     <div className="flex items-start gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+                     <div className="flex items-start gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-800 no-print">
                         <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                         <p className="font-medium">{t('This snapshot reflects the current stock records from the inventory service.')}</p>
                      </div>
@@ -1578,7 +2567,7 @@ export default function ReportsPage() {
                         </table>
                      </div>
 
-                     <div className="flex items-start gap-3 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-800">
+                     <div className="flex items-start gap-3 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-800 no-print">
                         <Clock size={16} className="mt-0.5 shrink-0" />
                         <p className="font-medium">{t('This report ranks transport agents by total collected leaf weight for the selected month.')}</p>
                      </div>
@@ -1593,19 +2582,21 @@ export default function ReportsPage() {
                )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
 
-function InventoryMetric({ label, value, tone }: { label: string; value: string; tone: 'slate' | 'rose' | 'emerald' | 'orange' | 'purple' }) {
+function InventoryMetric({ label, value, tone }: { label: string; value: string; tone: 'slate' | 'rose' | 'emerald' | 'orange' | 'purple' | 'blue' }) {
    const toneClasses: Record<typeof tone, string> = {
       slate: 'border-slate-200 bg-slate-50 text-slate-950',
       rose: 'border-rose-100 bg-rose-50 text-rose-700',
       emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700',
       orange: 'border-orange-100 bg-orange-50 text-orange-700',
       purple: 'border-purple-100 bg-purple-50 text-purple-700',
+      blue: 'border-blue-100 bg-blue-50 text-blue-700',
    }
 
    return (
