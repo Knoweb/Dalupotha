@@ -62,7 +62,14 @@ const API_HOST = process.env.EXPO_PUBLIC_API_HOST || DEV_HOST;
 // CRITICAL: All requests MUST go through the Gateway (8080)
 // For Web, ensure we use 127.0.0.1 instead of localhost to bypass IPv6 connection errors
 const finalHost = API_HOST === "localhost" ? "127.0.0.1" : API_HOST;
-export const API_BASE = `http://${finalHost}:8080`;
+
+// In production, we route through Nginx proxy (/api) on standard HTTP/HTTPS ports.
+export const API_BASE = 
+  API_HOST.startsWith("http://") || API_HOST.startsWith("https://")
+    ? API_HOST
+    : finalHost.includes(".") && !finalHost.includes(":")
+      ? `https://${finalHost}/api`
+      : `http://${finalHost}:8080`;
 
 // ── 2. Authentication & Registration ─────────────────────────────────────────
 export const AuthAPI = {

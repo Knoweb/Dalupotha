@@ -1,5 +1,5 @@
 import { FileText, TrendingUp, Users, Package, Clock, RefreshCw, X, Trophy, AlertTriangle } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import ExcelJS from 'exceljs'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -109,6 +109,10 @@ type DebtAgeingRow = {
    quantityPrevious: number
    quantityCurrent: number
    remarks: string
+   currentMonthSupplyUpTo19: number
+   advances: number
+   fertilizer: number
+   loan: number
 }
 
 function startOfMonth(date: Date) {
@@ -194,6 +198,11 @@ function getRemarkFill(remark: string) {
    }
 }
 
+function getRemarkColor(remark: string) {
+   const fill = getRemarkFill(remark);
+   return '#' + fill.slice(2);
+}
+
 type DebtSnapshot = {
    totalOutstanding: number
    age0to30: number
@@ -215,8 +224,8 @@ function emptyDebtSnapshot(): DebtSnapshot {
 }
 
 function calculateDebtSnapshot(transactions: any[], cutoff: Date): DebtSnapshot {
-   const snapshot = emptyDebtSnapshot()
-   const cutoffTime = cutoff.getTime()
+   const snapshot = emptyDebtSnapshot();
+   const cutoffTime = cutoff.getTime();
 
    (transactions || [])
       .filter((transaction: any) => transaction.transactionType === 'DEBT')
@@ -270,10 +279,14 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
       { key: 'quantityPrevious', width: 26 },
       { key: 'quantityCurrent', width: 26 },
       { key: 'remarks', width: 40 },
+      { key: 'currentMonthSupplyUpTo19', width: 30 },
+      { key: 'advances', width: 18 },
+      { key: 'fertilizer', width: 18 },
+      { key: 'loan', width: 18 },
    ]
 
    // 1. Header Banner
-   worksheet.mergeCells('A1:N1')
+   worksheet.mergeCells('A1:R1')
    const titleCell = worksheet.getCell('A1')
    titleCell.value = `${estateTitle.toUpperCase()} - DEBT AGEING REPORT`
    titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
@@ -418,7 +431,7 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
    })
 
    // 4. Main Section Header
-   worksheet.mergeCells('A11:O11')
+   worksheet.mergeCells('A11:R11')
    const sectionHeaderCell = worksheet.getCell('A11')
    sectionHeaderCell.value = 'Age Analysis of the Balance Outstanding'
    sectionHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' }
@@ -435,15 +448,19 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
       'Name',
       `Amount (Rs) - ${currentMonthLabel}`,
       `Amount (Rs) - ${previousMonthLabel}`,
-      'Increase / (Decrease)',
-      '0 - 30 Days',
-      '31 - 60 Days',
-      '61 - 90 Days',
-      '91 - 180 Days',
-      '> 180 Days',
-      `Qty Supplied in ${previousMonthLabel} (kg)`,
-      `Qty Supplied in ${currentMonthLabel} (kg)`,
-      'Remarks / Status',
+      'Increase/ (Decrease)',
+      '0-30',
+      '31-60',
+      '61-90',
+      '91-180',
+      '> 181',
+      `Quantity Supplied in ${previousMonthLabel}`,
+      `Quantity Supplied in ${currentMonthLabel}`,
+      'Remarks',
+      `Current month Supply up to 19th ${currentMonthLabel}`,
+      'Advances',
+      'Fertilizer',
+      'Loan',
    ]
 
    tableHeaders.forEach((header, index) => {
@@ -476,6 +493,10 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
          row.quantityPrevious,
          row.quantityCurrent,
          remark,
+         row.currentMonthSupplyUpTo19,
+         row.advances,
+         row.fertilizer,
+         row.loan,
       ]
 
       excelRow.eachCell({ includeEmpty: true }, (cell) => {
@@ -485,13 +506,15 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
          cell.font = { size: 10 }
       })
 
-      ;[4, 5, 6, 7, 8, 9, 10, 11].forEach((colIdx) => {
+      // Money columns
+      ;[4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18].forEach((colIdx) => {
          const cell = excelRow.getCell(colIdx)
          cell.numFmt = '#,##0.00;[Red](#,##0.00)'
          cell.alignment = { horizontal: 'right', vertical: 'middle' }
       })
 
-      ;[12, 13].forEach((colIdx) => {
+      // Qty columns
+      ;[12, 13, 15].forEach((colIdx) => {
          const cell = excelRow.getCell(colIdx)
          cell.numFmt = '#,##0'
          cell.alignment = { horizontal: 'right', vertical: 'middle' }
@@ -523,6 +546,10 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
       { formula: `=SUM(L13:L${totalsRowIdx - 1})` },
       { formula: `=SUM(M13:M${totalsRowIdx - 1})` },
       '',
+      { formula: `=SUM(O13:O${totalsRowIdx - 1})` },
+      { formula: `=SUM(P13:P${totalsRowIdx - 1})` },
+      { formula: `=SUM(Q13:Q${totalsRowIdx - 1})` },
+      { formula: `=SUM(R13:R${totalsRowIdx - 1})` },
    ]
 
    totalsRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
@@ -538,10 +565,10 @@ async function downloadDebtAgeingWorkbook(filename: string, estateTitle: string,
 
       if (colNumber === 1) {
          cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      } else if (colNumber >= 4 && colNumber <= 11) {
+      } else if ((colNumber >= 4 && colNumber <= 11) || colNumber >= 16) {
          cell.alignment = { horizontal: 'right', vertical: 'middle' }
          cell.numFmt = '#,##0.00;[Red](#,##0.00)'
-      } else if (colNumber === 12 || colNumber === 13) {
+      } else if (colNumber === 12 || colNumber === 13 || colNumber === 15) {
          cell.alignment = { horizontal: 'right', vertical: 'middle' }
          cell.numFmt = '#,##0'
       }
@@ -1361,8 +1388,9 @@ export default function ReportsPage() {
    const [dailyCollectionData, setDailyCollectionData] = useState<DailyCollectionRecord[]>([]);
    const [monthlyFinancialData, setMonthlyFinancialData] = useState<MonthlyFinancialRecord[]>([]);
    const [debtAgeingData, setDebtAgeingData] = useState<DebtAgeingRow[]>([]);
-   const [reportError, setReportError] = useState<string | null>(null);
+    const [reportError, setReportError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
 
    const debtAgeingHeaders = [
       'Pass Book No',
@@ -1384,13 +1412,36 @@ export default function ReportsPage() {
       'Recover This Month',
    ];
 
+   function getRouteShortForm(routeName: string | undefined | null): string {
+      if (!routeName) return '';
+      const match = routeName.match(/\(([^)]+)\)/);
+      if (match && match[1]) {
+         return match[1].trim().toUpperCase();
+      }
+      const clean = routeName.trim();
+      if (clean.length >= 2 && clean.length <= 4) {
+         return clean.toUpperCase();
+      }
+      return clean.slice(0, 2).toUpperCase();
+   }
+
    const buildDebtAgeingRows = async (): Promise<DebtAgeingRow[]> => {
-      const suppliers = await AuthAPI.getSuppliers({ limit: 1000 });
+      const estateId = sessionStorage.getItem("estate_id") || sessionStorage.getItem("current_estate_id") || undefined;
+      const [suppliers, allUsers] = await Promise.all([
+         AuthAPI.getSuppliers({ estateId, limit: 1000 }),
+         AuthAPI.getUsers(estateId).catch(() => [])
+      ]);
+      const routeMap = new Map<string, string>();
+      (allUsers || []).forEach((u: any) => {
+         if (u.role === 'SH' && u.supplierId && u.routeName) {
+            routeMap.set(u.supplierId, u.routeName);
+         }
+      });
       const collections = await CollectionAPI.getRecentCollections(1000);
       const snapshotDate = endOfSelectedMonth(selectedMonth, selectedYear);
-      const previousSnapshotDate = getPreviousMonthEnd(selectedMonth, selectedYear)
+      const previousSnapshotDate = getPreviousMonthEnd(selectedMonth, selectedYear);
 
-      const quantityBySupplierAndMonth = new Map<string, { current: number; previous: number }>()
+      const quantityBySupplierAndMonth = new Map<string, { current: number; previous: number }>();
 
       (collections || []).forEach((collection: any) => {
          const collectedAt = collection.collectedAt || collection.timestamp
@@ -1417,6 +1468,9 @@ export default function ReportsPage() {
       })
 
       const rows = await Promise.all((suppliers || []).map(async (supplier) => {
+         const rawRoute = (supplier as any).routeName || routeMap.get(supplier.supplierId) || '';
+         const leafRoute = getRouteShortForm(rawRoute);
+
          const [ledger, transactions] = await Promise.all([
             FinanceAPI.getSupplierLedger(supplier.supplierId),
             FinanceAPI.getLedgerTransactions(supplier.supplierId),
@@ -1431,10 +1485,43 @@ export default function ReportsPage() {
          const monthlyQuantities = quantityBySupplierAndMonth.get(getSupplierKey(supplier.supplierId)) || { current: 0, previous: 0 };
          const remarks = getDebtRemark(monthlyQuantities.current, monthlyQuantities.previous, currentAmount, previousAmount)
 
+         let unpaidAdvances = 0;
+         let unpaidFertilizer = 0;
+         let unpaidLoan = 0;
+
+         (transactions || [])
+            .filter((t: any) => t.transactionType === 'DEBT')
+            .forEach((t: any) => {
+               const amt = Number(t.remaining ?? t.amount ?? 0);
+               const desc = (t.description || t.transactionType || '').toUpperCase();
+               if (desc.includes('FERTILIZER')) {
+                  unpaidFertilizer += amt;
+               } else if (desc.includes('LOAN')) {
+                  unpaidLoan += amt;
+               } else {
+                  unpaidAdvances += amt;
+               }
+            });
+
+         const currentMonthSupplyUpTo19 = (collections || [])
+            .filter((c: any) => {
+               const colSupplierKey = getSupplierKey(c.supplierId);
+               if (colSupplierKey !== getSupplierKey(supplier.supplierId)) return false;
+               const collectedAt = c.collectedAt || c.timestamp;
+               if (!collectedAt) return false;
+               const collectedDate = new Date(collectedAt);
+               return (
+                  collectedDate.getMonth() + 1 === selectedMonth &&
+                  collectedDate.getFullYear() === selectedYear &&
+                  collectedDate.getDate() <= 19
+               );
+            })
+            .reduce((sum: number, c: any) => sum + Number(c.netWeight || c.grossWeight || 0), 0);
+
          return {
             supplierId: supplier.supplierId,
             passBookNo: supplier.passbookNo || '',
-            leafRoute: supplier.landName || '',
+            leafRoute,
             name: supplier.fullName || '',
             previousAmount,
             currentAmount,
@@ -1452,6 +1539,10 @@ export default function ReportsPage() {
             quantityPrevious: monthlyQuantities.previous,
             quantityCurrent: monthlyQuantities.current,
             remarks,
+            currentMonthSupplyUpTo19,
+            advances: unpaidAdvances,
+            fertilizer: unpaidFertilizer,
+            loan: unpaidLoan,
          };
       }));
 
@@ -2002,12 +2093,7 @@ export default function ReportsPage() {
     }
   };
 
-  const auditLogs = [
-    { time: '13:02', user: 'A. MG-001', action: t('Approved Advance'), target: 'REQ-008 • SH-0022', status: 'Success' },
-    { time: '12:56', user: 'A. MG-001', action: t('Viewed Reports'), target: 'REG-001 • SH-1042', status: 'Info' },
-    { time: '12:45', user: 'A. SYS', action: t('Automated Sync'), target: 'Cloud Ledger', status: 'Success' },
-    { time: '11:13', user: 'A. MG-002', action: t('Rejected Request'), target: 'REQ-007 • SH-0533', status: 'Warning' },
-  ];
+
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -2092,54 +2178,8 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <section>
-        <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4">{t('System Audit Log')}</h2>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-           <table className="w-full text-left">
-              <thead>
-                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-900 text-[10px] font-black uppercase tracking-widest">
-                    <th className="px-8 py-4">{t('TIME')}</th>
-                    <th className="px-8 py-4">{t('USER')}</th>
-                    <th className="px-8 py-4">{t('ACTION')}</th>
-                    <th className="px-8 py-4">{t('TARGET ENTITY')}</th>
-                    <th className="px-8 py-4">{t('STATUS')}</th>
-                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                 {auditLogs.map((log, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                       <td className="px-8 py-5 text-sm font-bold text-slate-900">{log.time}</td>
-                       <td className="px-8 py-5 text-sm font-bold text-slate-600 uppercase tracking-tighter">{log.user}</td>
-                       <td className="px-8 py-5 text-sm font-medium text-slate-900">{log.action}</td>
-                       <td className="px-8 py-5 text-xs font-mono font-bold text-slate-900">{log.target}</td>
-                       <td className="px-8 py-5">
-                          <span className={`flex items-center gap-1.5 text-[10px] font-bold ${
-                             log.status === 'Success' ? 'text-green-500' :
-                             log.status === 'Warning' ? 'text-orange-500' : 'text-blue-500'
-                          }`}>
-                             <div className={`w-1.5 h-1.5 rounded-full ${
-                                log.status === 'Success' ? 'bg-green-500' :
-                                log.status === 'Warning' ? 'bg-orange-500' : 'bg-blue-500'
-                             }`} />
-                             {t(log.status).toUpperCase()}
-                          </span>
-                       </td>
-                    </tr>
-                 ))}
-              </tbody>
-           </table>
-           <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-              <button className="text-[10px] font-black text-[#2d6a4f] uppercase tracking-widest hover:text-[#1b4332]">{t('View Full Audit Log →')}</button>
-           </div>
-        </div>
-      </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 opacity-60">
-         <StatusBadge label={t("Database")} status="99.98% uptime" color="bg-green-500" />
-         <StatusBadge label={t("Cloud Sync")} status="Last backup: 13:00 today" color="bg-green-500" />
-         <StatusBadge label={t("Ginum Ledger")} status="Synced: 13:00 PM" color="bg-green-500" />
-         <StatusBadge label={t("BLE Gateway")} status="1 device offline" color="bg-orange-500" />
-      </section>
+
 
       {reportState !== 'closed' && createPortal(
         <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 print-modal-wrapper">
@@ -2371,50 +2411,75 @@ export default function ReportsPage() {
                      </div>
 
                      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
-                        <table className="w-full text-left min-w-[1400px]">
+                        <table className="w-full text-left min-w-[1800px]">
                            <thead>
                               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                 <th className="px-6 py-3">{t('Pass Book No')}</th>
                                  <th className="px-6 py-3">{t('Leaf Route')}</th>
+                                 <th className="px-6 py-3">{t('Pass Book No')}</th>
                                  <th className="px-6 py-3">{t('Name')}</th>
-                                 <th className="px-6 py-3 text-right">{t(`Amount (Rs)-${getMonthLabel(new Date(selectedYear, selectedMonth - 1, 1))}`)}</th>
-                                 <th className="px-6 py-3 text-right">{t(`Amount (Rs)-${getMonthLabel(selectedMonth === 1 ? new Date(selectedYear - 1, 11, 1) : new Date(selectedYear, selectedMonth - 2, 1))}`)}</th>
-                                 <th className="px-6 py-3 text-right">{t('Increase/(decrease)')}</th>
-                                 <th className="px-6 py-3 text-right">{t('0 - 30 Days')}</th>
-                                 <th className="px-6 py-3 text-right">{t('31 - 60 Days')}</th>
-                                 <th className="px-6 py-3 text-right">{t('61 - 90 Days')}</th>
-                                 <th className="px-6 py-3 text-right">{t('91 - 180 Days')}</th>
-                                 <th className="px-6 py-3 text-right">{t('Over 180 Days')}</th>
+                                 <th className="px-6 py-3 text-right">{t(`Amount (Rs) - ${getMonthLabel(new Date(selectedYear, selectedMonth - 1, 1))}`)}</th>
+                                 <th className="px-6 py-3 text-right">{t(`Amount (Rs) - ${getMonthLabel(selectedMonth === 1 ? new Date(selectedYear - 1, 11, 1) : new Date(selectedYear, selectedMonth - 2, 1))}`)}</th>
+                                 <th className="px-6 py-3 text-right">{t('Increase/ (Decrease)')}</th>
+                                 <th className="px-6 py-3 text-right">{t('0-30')}</th>
+                                 <th className="px-6 py-3 text-right">{t('31-60')}</th>
+                                 <th className="px-6 py-3 text-right">{t('61-90')}</th>
+                                 <th className="px-6 py-3 text-right">{t('91-180')}</th>
+                                 <th className="px-6 py-3 text-right">{t('> 181')}</th>
                                  <th className="px-6 py-3 text-right">{t(`Quantity Supplied in ${getMonthLabel(selectedMonth === 1 ? new Date(selectedYear - 1, 11, 1) : new Date(selectedYear, selectedMonth - 2, 1))}`)}</th>
                                  <th className="px-6 py-3 text-right">{t(`Quantity Supplied in ${getMonthLabel(new Date(selectedYear, selectedMonth - 1, 1))}`)}</th>
-                                 <th className="px-6 py-3">{t('Remarks -')}</th>
+                                 <th className="px-6 py-3">{t('Remarks')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Current month Supply up to 19th')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Advances')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Fertilizer')}</th>
+                                 <th className="px-6 py-3 text-right">{t('Loan')}</th>
                               </tr>
                            </thead>
-                           <tbody className="divide-y divide-slate-50">
+                           <tbody className="divide-y divide-slate-100">
                               {debtAgeingData.map((row) => (
-                                 <tr key={row.supplierId} className="hover:bg-slate-50/50" style={{ backgroundColor: '#92D050' }}>
+                                 <tr key={row.supplierId} className="hover:bg-slate-50/50" style={{ backgroundColor: getRemarkColor(row.remarks) }}>
                                     <td className="px-6 py-4 font-mono text-xs text-slate-700">{row.leafRoute}</td>
                                     <td className="px-6 py-4 font-mono text-xs text-slate-700">{row.passBookNo}</td>
-                                    <td className="px-6 py-4">
-                                       <p className="font-bold text-slate-900 text-sm">{row.name}</p>
-                                       <p className="text-xs font-mono text-slate-500">{row.supplierId.substring(0, 8)}</p>
-                                    </td>
+                                    <td className="px-6 py-4 font-bold text-slate-900 text-sm">{row.name}</td>
                                     <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.currentAmount)}</td>
                                     <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.previousAmount)}</td>
                                     <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.difference)}</td>
-                                    <td className="px-6 py-4 text-right text-emerald-600 font-bold">{formatMoney(row.age0to30)}</td>
-                                    <td className="px-6 py-4 text-right text-emerald-600 font-bold">{formatMoney(row.age31to60)}</td>
-                                    <td className="px-6 py-4 text-right text-amber-600 font-bold">{formatMoney(row.age61to90)}</td>
-                                    <td className="px-6 py-4 text-right text-orange-600 font-bold">{formatMoney(row.age91to180)}</td>
-                                    <td className="px-6 py-4 text-right text-rose-600 font-bold">{formatMoney(row.ageOver180)}</td>
-                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.quantityPrevious)}</td>
-                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.quantityCurrent)}</td>
-                                    <td className="px-6 py-4 text-sm font-semibold text-slate-800">{row.remarks}</td>
+                                    <td className="px-6 py-4 text-right text-slate-900 font-bold">{formatMoney(row.age0to30)}</td>
+                                    <td className="px-6 py-4 text-right text-slate-900 font-bold">{formatMoney(row.age31to60)}</td>
+                                    <td className="px-6 py-4 text-right text-slate-900 font-bold">{formatMoney(row.age61to90)}</td>
+                                    <td className="px-6 py-4 text-right text-slate-900 font-bold">{formatMoney(row.age91to180)}</td>
+                                    <td className="px-6 py-4 text-right text-slate-900 font-bold">{formatMoney(row.ageOver180)}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{row.quantityPrevious.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{row.quantityCurrent.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td className="px-6 py-4 text-xs font-semibold text-slate-800">{row.remarks}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{(row.currentMonthSupplyUpTo19 || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.advances || 0)}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.fertilizer || 0)}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-900">{formatMoney(row.loan || 0)}</td>
                                  </tr>
                               ))}
+                              {debtAgeingData.length > 0 && (
+                                 <tr className="bg-slate-100 font-black border-t-2 border-slate-300 text-slate-900">
+                                    <td className="px-6 py-4 font-bold" colSpan={3}>{t('Total')}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.currentAmount, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.previousAmount, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.difference, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.age0to30, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.age31to60, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.age61to90, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.age91to180, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + r.ageOver180, 0))}</td>
+                                    <td className="px-6 py-4 text-right">{debtAgeingData.reduce((sum, r) => sum + r.quantityPrevious, 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td className="px-6 py-4 text-right">{debtAgeingData.reduce((sum, r) => sum + r.quantityCurrent, 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td className="px-6 py-4"></td>
+                                    <td className="px-6 py-4 text-right">{debtAgeingData.reduce((sum, r) => sum + (r.currentMonthSupplyUpTo19 || 0), 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + (r.advances || 0), 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + (r.fertilizer || 0), 0))}</td>
+                                    <td className="px-6 py-4 text-right">{formatMoney(debtAgeingData.reduce((sum, r) => sum + (r.loan || 0), 0))}</td>
+                                 </tr>
+                              )}
                               {debtAgeingData.length === 0 && (
                                  <tr>
-                                    <td colSpan={14} className="text-center py-8 text-slate-500 text-sm font-medium">
+                                    <td colSpan={18} className="text-center py-8 text-slate-500 text-sm font-medium">
                                        {t('No debt ageing data available for selected period.')}
                                     </td>
                                  </tr>

@@ -89,25 +89,4 @@ public class FinanceController {
     public java.util.Map<String, Object> setAdvanceLimit(@RequestBody com.dalupotha.finance.dto.AdvanceLimitRequest request) {
         return financeService.setAdvanceLimit(request.advanceLimit());
     }
-
-    // ── Payout Endpoints ─────────────────────────────────────────────
-    @PostMapping("/api/finance/payout")
-    public LedgerTransactionResponse processPayout(@Valid @RequestBody com.dalupotha.finance.dto.ProcessPayoutRequest request) {
-        return financeService.processPayout(
-            request.getSupplierId(),
-            request.getAmount(),
-            request.getRequesterId(),
-            request.getDescription(),
-            request.isImmediate()
-        );
-    }
-
-    @PostMapping("/api/finance/payout/bulk")
-    public void processBulkPayout(
-            @RequestParam List<UUID> supplierIds,
-            @RequestParam UUID requesterId,
-            @RequestParam(defaultValue = "false") boolean immediate
-    ) {
-        financeService.bulkProcessPayouts(supplierIds, requesterId, immediate);
-    }
 }

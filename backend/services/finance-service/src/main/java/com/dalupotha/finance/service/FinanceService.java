@@ -333,7 +333,6 @@ public class FinanceService {
         );
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public LedgerTransactionResponse processPayout(UUID supplierId, BigDecimal amount, UUID requesterId, String description, boolean immediate) {
         log.info("PROCESSING PAYOUT: Supplier: {}, Amount: {}, Requester: {}, Immediate: {}", supplierId, amount, requesterId, immediate);
 
@@ -346,32 +345,6 @@ public class FinanceService {
         ledger.setStatus(immediate ? LedgerStatus.APPROVED : LedgerStatus.PENDING);
         
         FinancialLedgerEntity saved = financialLedgerRepository.save(ledger);
-
-        if (immediate) {
-            // Find all active DEBT and ADVANCE entries for this supplier and mark them as CLEARED (recovered)
-            List<FinancialLedgerEntity> activeEntries = financialLedgerRepository.findBySupplierIdOrderByTransactionDateDesc(supplierId)
-                .stream()
-                .filter(e -> e.getTransactionType() == LedgerTransactionType.DEBT || e.getTransactionType() == LedgerTransactionType.ADVANCE)
-                .filter(e -> e.getStatus() == LedgerStatus.PENDING || e.getStatus() == LedgerStatus.APPROVED)
-                .collect(Collectors.toList());
-
-            for (FinancialLedgerEntity entry : activeEntries) {
-                entry.setStatus(LedgerStatus.CLEARED);
-                financialLedgerRepository.save(entry);
-                log.info("CLEARED OUTSTANDING {} entry ID {} of Rs.{} because it was deducted in payout", 
-                    entry.getTransactionType(), entry.getTransactionId(), entry.getAmount());
-                
-                // If it is linked to a ServiceRequestEntity, mark that service request as COMPLETED too!
-                if (entry.getRequestId() != null) {
-                    serviceRequestRepository.findById(entry.getRequestId()).ifPresent(req -> {
-                        req.setStatus(RequestStatus.COMPLETED);
-                        serviceRequestRepository.save(req);
-                        log.info("Marked service request {} as COMPLETED", req.getRequestId());
-                    });
-                }
-            }
-        }
-
         return toLedgerTransactionResponse(saved);
     }
 

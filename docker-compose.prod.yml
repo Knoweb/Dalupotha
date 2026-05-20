@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: dalupotha-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: dalupotha
+      POSTGRES_USER: ${DB_USER:-dalupotha_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+    volumes:
+      - dalupotha_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dalupotha_user} -d dalupotha"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api-gateway:
+    image: dalupotha-api-gateway:latest
+    container_name: dalupotha-api-gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+
+  auth-service:
+    image: dalupotha-auth-service:latest
+    container_name: dalupotha-auth-service
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_USER: ${DB_USER:-dalupotha_user}
+      DB_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+      JWT_SECRET: ${JWT_SECRET:-dalupotha-secret-key-change-in-prod}
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      INFOBIP_API_KEY: ${INFOBIP_API_KEY}
+      INFOBIP_BASE_URL: ${INFOBIP_BASE_URL}
+      INFOBIP_SENDER: ${INFOBIP_SENDER}
+      DEV_MODE: "false"
+    depends_on:
+      - postgres
+
+  collection-service:
+    image: dalupotha-collection-service:latest
+    container_name: dalupotha-collection-service
+    restart: always
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: collection_db
+      DB_USER: ${DB_USER:-dalupotha_user}
+      DB_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_REALTIME_CHANNEL: ${SUPABASE_REALTIME_CHANNEL}
+    depends_on:
+      - postgres
+
+  finance-service:
+    image: dalupotha-finance-service:latest
+    container_name: dalupotha-finance-service
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dalupotha
+      DB_USER: ${DB_USER:-dalupotha_user}
+      DB_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      COLLECTION_SERVICE_URL: http://collection-service:8082
+      INVENTORY_SERVICE_URL: http://inventory-service:8084
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+    depends_on:
+      - postgres
+      - auth-service
+
+  inventory-service:
+    image: dalupotha-inventory-service:latest
+    container_name: dalupotha-inventory-service
+    restart: always
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dalupotha
+      DB_USER: ${DB_USER:-dalupotha_user}
+      DB_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+    depends_on:
+      - postgres
+
+  notification-service:
+    image: dalupotha-notification-service:latest
+    container_name: dalupotha-notification-service
+    restart: always
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dalupotha
+      DB_USER: ${DB_USER:-dalupotha_user}
+      DB_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  staffing-service:
+    image: dalupotha-staffing-service:latest
+    container_name: dalupotha-staffing-service
+    restart: always
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dalupotha
+      DB_USER: ${DB_USER:-dalupotha_user}
+      DB_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+    depends_on:
+      - postgres
+
+  frontend:
+    image: dalupotha-frontend:latest
+    container_name: dalupotha-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+      - notification-service
+
+volumes:
+  dalupotha_postgres_data:
