@@ -11,6 +11,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
     volumes:
       - dalupotha_postgres_data:/var/lib/postgresql/data
+      - ./backend/postgres-init:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
