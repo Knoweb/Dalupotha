@@ -3,15 +3,28 @@
     "name": "දළුපොත",
     "slug": "dalupotha-mobile-app",
     "version": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/24fe32e9-d4b3-40b7-bdf9-b11453a3d757"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "icon": "./assests/dalupotha_icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "com.knoweb.dalupotha"
     },
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "24fe32e9-d4b3-40b7-bdf9-b11453a3d757"
+      }
     }
   }
 }
