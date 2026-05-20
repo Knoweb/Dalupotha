@@ -20,6 +20,24 @@ services:
       timeout: 5s
       retries: 10
 
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:16-alpine
+    container_name: dalupotha-db-backup
+    restart: always
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: "" # Leave empty to back up ALL databases automatically
+      POSTGRES_USER: ${DB_USER:-dalupotha_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dalupotha_password}
+      POSTGRES_PORT: 5432
+      BACKUP_NUM_KEEP: 30
+      BACKUP_FREQUENCY: 1d
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api-gateway:
     image: dalupotha-api-gateway:latest
     container_name: dalupotha-api-gateway
