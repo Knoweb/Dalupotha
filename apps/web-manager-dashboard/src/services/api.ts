@@ -105,6 +105,8 @@ export interface CollectionItem {
   manualOverride: boolean;
   transportAgentId: string;
   transportAgentName: string;
+  gpsLat?: number;
+  gpsLong?: number;
 }
 
 export interface SupplierCollectionHistoryItem {

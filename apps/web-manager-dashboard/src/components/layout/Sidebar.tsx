@@ -74,13 +74,6 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* Role Badge */}
-      <div className="px-6 mb-3">
-        <span className="inline-block bg-white/10 text-white/80 text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full border border-white/10">
-          {ROLE_LABELS[userRole] || t('Staff')}
-        </span>
-      </div>
-
       <nav className="flex-1 px-3 space-y-1 mt-2 overflow-y-auto">
         {visibleNav.map(item => (
           <NavItem
