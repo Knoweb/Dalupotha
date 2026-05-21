@@ -147,7 +147,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
           </div>
 
           <div className="w-full lg:w-[400px] xl:w-[500px] flex flex-col shrink-0 p-8 sm:px-12 relative bg-white z-20 h-screen justify-center items-center">
-            {/* Bottom-Left Blinking Square Mobile App Download Button */}
+            {/* Bottom-Left Minimalist Capsule Mobile App Download Button */}
             <div className="fixed bottom-6 left-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-1000">
                <a 
                  href="https://expo.dev/artifacts/eas/teAfSbNi3Lb9GvKFkXxGmw.apk"
@@ -155,22 +155,21 @@ export default function LoginPage({ onLogin }: LoginProps) {
                  rel="noopener noreferrer"
                  download="dalupotha.apk"
                  title={lang === 'si' ? 'ජංගම යෙදුම බාගත කරන්න' : 'Download Mobile App'}
-                 className="flex items-center gap-3 active:scale-[0.98] transition-all duration-200 group"
+                 className="flex items-center gap-2.5 bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] px-3 py-1.5 rounded-full hover:bg-slate-50 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-95 group"
                >
-                 <div className="w-12 h-12 rounded-2xl bg-[#3d7a2d] hover:bg-[#2d6a4f] text-white flex items-center justify-center shadow-lg transition-all duration-300 hover:shadow-xl group-hover:scale-105 animate-pulse shrink-0">
-                   <Smartphone className="w-6 h-6 text-white group-hover:rotate-6 transition-transform duration-300" />
+                 <div className="w-7 h-7 rounded-full bg-[#3d7a2d] hover:bg-[#2d6a4f] text-white flex items-center justify-center shadow-sm transition-all duration-300 group-hover:scale-105 shrink-0">
+                   <Smartphone className="w-4 h-4 text-white" />
                  </div>
-                 <div className="bg-white/90 backdrop-blur-sm border border-slate-200 shadow-md px-4 py-2.5 rounded-2xl max-w-[200px] hover:bg-slate-50 transition-colors">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none">
+                 <div className="flex flex-col pr-1 text-left">
+                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">
                      {lang === 'si' ? 'ජංගම ඇප් එක' : 'Mobile App'}
-                   </p>
-                   <p className="text-[11px] font-black text-slate-800 uppercase tracking-widest mt-1 leading-none">
-                     {lang === 'si' ? 'මෙහිදී බාගන්න' : 'Download Here'}
-                   </p>
+                   </span>
+                   <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider mt-0.5 leading-none">
+                     {lang === 'si' ? 'බාගන්න' : 'Download'}
+                   </span>
                  </div>
                </a>
             </div>
-
             {/* High-Visibility Premium 2-Way Language Switcher */}
             <div className="fixed top-4 right-4 flex flex-col items-end gap-2 z-[100] animate-in fade-in slide-in-from-top-4 duration-1000">
               <div className="bg-white/80 backdrop-blur-md p-0.5 rounded-full border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex items-center relative w-[120px] h-[28px]">
