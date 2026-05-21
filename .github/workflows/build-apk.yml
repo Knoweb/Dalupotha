@@ -36,6 +36,8 @@ jobs:
 
       - name: Build APK locally on Github Runner
         working-directory: apps/mobile-app
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m' -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2"
         run: |
           eas build --platform android --profile preview --local --non-interactive --output ../web-manager-dashboard/public/dalupotha.apk
           ls -lh ../web-manager-dashboard/public/dalupotha.apk
