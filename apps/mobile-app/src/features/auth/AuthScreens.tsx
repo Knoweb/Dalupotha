@@ -190,7 +190,7 @@ export function LoginScreen({ navigation }: any) {
 
   return (
     <ImageBackground
-      source={require("../../../assests/login_bg.png")}
+      source={require("../../../assests/login_bg.jpg")}
       style={{ flex: 1 }}
       resizeMode="cover"
     >
