@@ -2,6 +2,17 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 
+function safeRandomUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export interface AppNotification {
   id: string;
   type: 'new_collection' | 'service_request' | 'system';
@@ -93,7 +104,7 @@ export function useNotifications() {
         if (exists) return prev;
       }
       return [
-        { ...n, id: crypto.randomUUID(), read: false, dismissed: false },
+        { ...n, id: safeRandomUUID(), read: false, dismissed: false },
         ...prev.slice(0, 49),
       ];
     });
@@ -134,7 +145,7 @@ export function useNotifications() {
       const alreadyTracked = prev.some(n => n.collectionId === c.collectionId);
       if (alreadyTracked) return prev;
       const alert: AppNotification = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         type: 'new_collection',
         title: 'Pending Collection',
         message: `${c.supplierName} — ${c.grossWeight} kg (Agent: ${c.agentName})`,
@@ -164,7 +175,7 @@ export function useNotifications() {
         return prev;
       }
       const alert: AppNotification = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         type: 'service_request',
         title: 'New Service Request',
         message: `New ${r.requestType} from ${r.supplierName} (${r.amountOrQty})`,
@@ -192,7 +203,7 @@ export function useNotifications() {
         return prev;
       }
       const alert: AppNotification = {
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         type: 'service_request',
         title: 'Pending Payout Approval',
         message: `Payout of Rs. ${p.amount} for ${p.supplierName} requires approval`,
