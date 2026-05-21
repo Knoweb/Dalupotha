@@ -233,12 +233,9 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
     setSaveFeedback("Saving collection...");
 
     try {
-      const currentLocation = location ?? (await captureLocation(true));
-      if (!currentLocation) {
-        setIsSaving(false);
-        setSaveFeedback("GPS is required. Enable location and retry.");
-        return;
-      }
+      // Try to get GPS but don't block if unavailable
+      const currentLocation = location ?? (await captureLocation(false));
+      const hasGps = !!currentLocation;
 
       const now = new Date();
       const clientRef = `COL-${now.getTime()}-${Math.floor(Math.random() * 1000)}`;
@@ -251,9 +248,9 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
         transportAgentId: user.userId,
         transportAgentName: user.fullName || "Agent",
         grossWeight: parsedWeight,
-        gpsLat: currentLocation.coords.latitude,
-        gpsLong: currentLocation.coords.longitude,
-        gpsStatus: "GPS" as "GPS",
+        gpsLat: hasGps ? currentLocation!.coords.latitude : null,
+        gpsLong: hasGps ? currentLocation!.coords.longitude : null,
+        gpsStatus: (hasGps ? "GPS" : "NO_GPS") as "GPS" | "NO_GPS",
         manualOverride: isManualWeight,
         collectedAt: now.toISOString(),
         syncStatus: "QUEUED" as "QUEUED",
@@ -269,7 +266,11 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
       }
 
       setIsSaving(false);
-      setSaveFeedback("Collection queued. Returning...");
+      setSaveFeedback(
+        hasGps
+          ? "Collection queued. Returning..."
+          : "Collection saved (no GPS). Will sync when online."
+      );
       setTimeout(() => {
         navigation.navigate("MainTabs", {
           role: "agent",
