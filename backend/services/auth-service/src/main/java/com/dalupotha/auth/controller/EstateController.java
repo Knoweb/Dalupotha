@@ -213,4 +213,26 @@ public class EstateController {
         collectionRouteRepository.deleteById(routeId);
         return ResponseEntity.ok().build();
     }
+
+    @PatchMapping("/{estateId}/status")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> toggleEstateStatus(@PathVariable UUID estateId,
+            @RequestBody Map<String, Boolean> body) {
+        Estate estate = estateRepository.findById(estateId)
+                .orElse(null);
+        if (estate == null) {
+            return ResponseEntity.status(404).build();
+        }
+        Boolean active = body.get("isActive");
+        if (active == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        estate.setIsActive(active);
+        estateRepository.save(estate);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("estateId", estate.getEstateId());
+        result.put("name", estate.getName());
+        result.put("isActive", estate.getIsActive());
+        return ResponseEntity.ok(result);
+    }
 }

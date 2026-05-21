@@ -43,6 +43,11 @@ export default function LoginPage({ onLogin }: LoginProps) {
          onLogin({ role: 'super-admin', fullName: 'System Admin', estateName: 'Dalupotha Central' });
          return;
       }
+      // Superadmin email login
+      if (username === 'knowebsolutions@gmail.com' && password === 'Knoweb@123') {
+         onLogin({ role: 'super-admin', fullName: 'Knoweb Solutions', estateName: 'Dalupotha Central' });
+         return;
+      }
       // Demo role shortcuts (for testing)
       if (username === 'mg' && password === '1234') { onLogin({ role: 'manager', fullName: 'A. Wickramasinghe', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'MG-001' }); return; }
       if (username === 'ext' && password === '1234') { onLogin({ role: 'extension-officer', fullName: 'S. Rathnayake', estateName: 'Weliwita Estate', estateId: '76797998-e7a9-43ad-a366-04c2cc65d9f7', employeeId: 'EXT-001' }); return; }
