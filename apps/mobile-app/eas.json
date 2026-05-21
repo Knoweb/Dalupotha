@@ -9,6 +9,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_HOST": "http://188.166.231.80/api"
+      },
       "android": {
         "buildType": "apk"
       }

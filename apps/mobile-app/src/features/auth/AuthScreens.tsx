@@ -51,7 +51,8 @@ export function LoginScreen({ navigation }: any) {
       lower.includes("internal server error") ||
       lower.includes("network request failed") ||
       lower.includes("failed to fetch") ||
-      lower.includes("load failed")
+      lower.includes("load failed") ||
+      lower.includes("timeout reaching server")
     ) {
       return {
         field: "both",
