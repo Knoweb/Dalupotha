@@ -34,23 +34,13 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build APK with EAS
+      - name: Build APK locally on Github Runner
         working-directory: apps/mobile-app
-        id: eas_build
         run: |
-          BUILD_OUTPUT=$(eas build --platform android --profile preview --non-interactive --json 2>/dev/null || eas build --platform android --profile preview --non-interactive)
-          BUILD_URL=$(echo "$BUILD_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['artifacts']['buildUrl'])" 2>/dev/null || echo "")
-          echo "build_url=$BUILD_URL" >> $GITHUB_OUTPUT
-          echo "APK URL: $BUILD_URL"
-
-      - name: Download built APK
-        if: steps.eas_build.outputs.build_url != ''
-        run: |
-          curl -L "${{ steps.eas_build.outputs.build_url }}" -o apps/web-manager-dashboard/public/dalupotha.apk
-          ls -lh apps/web-manager-dashboard/public/dalupotha.apk
+          eas build --platform android --profile preview --local --non-interactive --output ../web-manager-dashboard/public/dalupotha.apk
+          ls -lh ../web-manager-dashboard/public/dalupotha.apk
 
       - name: Commit & push APK + version.json to repository
-        if: steps.eas_build.outputs.build_url != ''
         run: |
           # Get version from app.json
           APP_VERSION=$(node -p "require('./apps/mobile-app/app.json').expo.version")
