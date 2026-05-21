@@ -136,7 +136,7 @@ export const dictionary: any = {
     "Sync Status": "සමමුහුර්ත තත්ත්වය",
     "Fully Synced": "සම්පූර්ණයෙන්ම සමමුහුර්ත කර ඇත",
     "Pending Sync": "සමමුහුර්ත වීමට ඇත",
-    "Transport Agent": "ප්‍රවාහන නියෝජිතයා",
+    "Transport Agent": "ප්‍රවාහන ට්‍රැක් කිරීම",
     "My Profile": "මගේ ගිණුම",
     "Add new request": "නව ඉල්ලීමක් එක් කරන්න",
     "Create New Request": "නව ඉල්ලීමක් සාදන්න",
