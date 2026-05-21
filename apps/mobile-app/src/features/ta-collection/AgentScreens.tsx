@@ -94,7 +94,8 @@ const toGpsBadgeType = (gps: CollectionCardItem["gpsStatus"]) => {
 // Dashboard Screen
 // ─────────────────────────────────────────────────────────────
 
-export function DashboardScreen({ user, role, navigation, token }: any) {
+export function DashboardScreen({ user, role, navigation, token, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
@@ -245,7 +246,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
           </View>
           {/* Title */}
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800" }}>Transport Agent</Text>
+            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800" }}>{_("Transport Agent")}</Text>
             <Text style={{ color: palette.muted, fontSize: 13 }}>{user?.fullName || "Agent"}</Text>
           </View>
           {/* Icons */}
@@ -266,13 +267,13 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingBottom: 14, gap: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(31,190,87,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: "rgba(31,190,87,0.25)" }}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#1fbe57" }} />
-            <Text style={{ color: "#1fbe57", fontSize: 12, fontWeight: "700" }}>Online</Text>
+            <Text style={{ color: "#1fbe57", fontSize: 12, fontWeight: "700" }}>{_("Online")}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
             <Ionicons name="checkmark" size={14} color={palette.accentBlue} />
-            <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>Synced</Text>
+            <Text style={{ color: palette.accentBlue, fontSize: 12, fontWeight: "600" }}>{_("Synced")}</Text>
           </View>
-          <Text style={{ color: palette.muted, fontSize: 12, marginLeft: "auto" }}>Last sync: {lastSyncText}</Text>
+          <Text style={{ color: palette.muted, fontSize: 12, marginLeft: "auto" }}>{_("Last sync:")} {lastSyncText}</Text>
         </View>
       </SafeAreaView>
 
@@ -292,8 +293,8 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               <MaterialCommunityIcons name="leaf" size={18} color="#1fbe57" />
             </View>
             <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{`${displayKgToday.toFixed(1)} kg`}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>TODAY'S LEAF</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{`${displaySupToday} suppliers`}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>{_("TODAY'S LEAF")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{`${displaySupToday} ${_("suppliers")}`}</Text>
           </Pressable>
 
           {/* Pending Sync */}
@@ -308,8 +309,8 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               <Ionicons name="time-outline" size={18} color="#f39c12" />
             </View>
             <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{displayPendingSync}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>PENDING SYNC</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>records queued</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>{_("PENDING SYNC")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{_("records queued")}</Text>
           </Pressable>
 
           {/* Route Progress */}
@@ -324,13 +325,13 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               <Ionicons name="location-outline" size={18} color={palette.accentBlue} />
             </View>
             <Text style={{ color: "#fff", fontSize: 21, fontWeight: "800" }}>{`${displaySupToday}/${displaySupTotal || "—"}`}</Text>
-            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>ROUTE PROGRESS</Text>
-            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% complete` : "No data"}</Text>
+            <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginTop: 2 }}>{_("ROUTE PROGRESS")}</Text>
+            <Text style={{ color: palette.muted, fontSize: 11, marginTop: 2 }}>{displaySupTotal > 0 ? `${Math.round((displaySupToday / displaySupTotal) * 100)}% ${_("complete")}` : _("No data")}</Text>
           </Pressable>
         </View>
 
         {/* ── Quick Actions ── */}
-        <Text style={[styles.sectionHeader, { marginBottom: 12 }]}>QUICK ACTIONS</Text>
+        <Text style={[styles.sectionHeader, { marginBottom: 12 }]}>{_("QUICK ACTIONS")}</Text>
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
           <Pressable
             onPress={() => navigation.navigate("CollectionInput", { token, user })}
@@ -338,7 +339,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               boxShadow: "0px 6px 10px rgba(31, 190, 87, 0.35)", elevation: 8 }}
           >
             <Ionicons name="add" size={26} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>New Collection</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("New Collection")}</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate("Collections")}
@@ -346,7 +347,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               boxShadow: "0px 6px 10px rgba(37, 99, 235, 0.35)", elevation: 8 }}
           >
             <Ionicons name="search-outline" size={24} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>View History</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("View History")}</Text>
           </Pressable>
         </View>
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 24 }}>
@@ -356,7 +357,7 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               boxShadow: "0px 6px 10px rgba(124, 58, 237, 0.35)", elevation: 8 }}
           >
             <Ionicons name="list-outline" size={24} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Supplier List</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("Supplier List")}</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate("Requests")}
@@ -364,15 +365,15 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
               boxShadow: "0px 6px 10px rgba(217, 119, 6, 0.35)", elevation: 8 }}
           >
             <Ionicons name="paper-plane-outline" size={24} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>Requests</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{_("Requests")}</Text>
           </Pressable>
         </View>
 
         {/* ── Today's Collections ── */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={styles.sectionHeader}>TODAY'S COLLECTIONS</Text>
+          <Text style={styles.sectionHeader}>{_("TODAY'S COLLECTIONS")}</Text>
           <Pressable onPress={() => navigation.navigate("Collections")}>
-            <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: "600" }}>See All →</Text>
+            <Text style={{ color: palette.accentBlue, fontSize: 13, fontWeight: "600" }}>{_("See All →")}</Text>
           </Pressable>
         </View>
 
@@ -439,7 +440,8 @@ export function DashboardScreen({ user, role, navigation, token }: any) {
 // Collections Screen
 // ─────────────────────────────────────────────────────────────
 
-export function CollectionsScreen({ navigation, user, token }: any) {
+export function CollectionsScreen({ navigation, user, token, lang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
   const [activeTab, setActiveTab] = useState("All");
   const [search, setSearch] = useState("");
   const [historyItems, setHistoryItems] = useState<CollectionCardItem[]>([]);
@@ -559,7 +561,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
           <Pressable onPress={() => navigation.goBack()} style={styles.iconBtn}>
             <Ionicons name="chevron-back" size={24} color={palette.muted} />
           </Pressable>
-          <Text style={styles.headerTitle}>Collections</Text>
+          <Text style={styles.headerTitle}>{_("Collections")}</Text>
           <Pressable style={styles.iconBtn}>
             <Ionicons name="qr-code-outline" size={20} color={palette.muted} />
           </Pressable>
@@ -569,7 +571,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         <View style={styles.searchBox}>
           <Ionicons name="search" size={20} color={palette.muted} />
           <TextInput
-            placeholder="Search by name or passbook..."
+            placeholder={_("Search by name or passbook...")}
             placeholderTextColor={palette.muted}
             style={styles.searchInput}
             value={search}
@@ -578,7 +580,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         </View>
 
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Text style={styles.cardItemSub}>Pending sync: {pendingCount}</Text>
+          <Text style={styles.cardItemSub}>{_("Pending Sync")}: {pendingCount}</Text>
           <Pressable
             style={[styles.filterChip, { borderColor: palette.accentBlue }]}
             onPress={handleSync}
@@ -587,7 +589,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
             {isSyncing ? (
               <ActivityIndicator size="small" color={palette.accentBlue} />
             ) : (
-              <Text style={[styles.filterChipText, { color: pendingCount > 0 ? palette.accentBlue : palette.muted }]}>Sync Queue</Text>
+              <Text style={[styles.filterChipText, { color: pendingCount > 0 ? palette.accentBlue : palette.muted }]}>{_("Sync Queue")}</Text>
             )}
           </Pressable>
         </View>
@@ -595,7 +597,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
         <View style={styles.filterRow}>
           {["All", "Synced", "Queued", "Failed"].map((tab) => (
             <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.filterChip, activeTab === tab && styles.filterChipActive]}>
-              <Text style={[styles.filterChipText, activeTab === tab && styles.filterChipTextActive]}>{tab}</Text>
+              <Text style={[styles.filterChipText, activeTab === tab && styles.filterChipTextActive]}>{_(tab)}</Text>
             </Pressable>
           ))}
         </View>
@@ -608,7 +610,7 @@ export function CollectionsScreen({ navigation, user, token }: any) {
 
           {!isLoading && filtered.length === 0 && (
             <View style={styles.collectionItemCard}>
-              <Text style={styles.cardItemSub}>No collections found.</Text>
+              <Text style={styles.cardItemSub}>{_("No collections found")}</Text>
             </View>
           )}
 
