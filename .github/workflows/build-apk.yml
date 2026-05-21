@@ -49,11 +49,22 @@ jobs:
           curl -L "${{ steps.eas_build.outputs.build_url }}" -o apps/web-manager-dashboard/public/dalupotha.apk
           ls -lh apps/web-manager-dashboard/public/dalupotha.apk
 
-      - name: Commit & push APK to repository
+      - name: Commit & push APK + version.json to repository
         if: steps.eas_build.outputs.build_url != ''
         run: |
+          # Get version from app.json
+          APP_VERSION=$(node -p "require('./apps/mobile-app/app.json').expo.version")
+          # Update version.json
+          cat > apps/web-manager-dashboard/public/version.json <<EOF
+          {
+            "version": "${APP_VERSION}",
+            "versionCode": $(date +%s),
+            "downloadUrl": "http://188.166.231.80/dalupotha.apk",
+            "releaseNotes": "Bug fixes and improvements — v${APP_VERSION}"
+          }
+          EOF
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add apps/web-manager-dashboard/public/dalupotha.apk
-          git diff --staged --quiet || git commit -m "chore: auto-update APK from EAS build [skip ci]"
+          git add apps/web-manager-dashboard/public/dalupotha.apk apps/web-manager-dashboard/public/version.json
+          git diff --staged --quiet || git commit -m "chore: auto-update APK v${APP_VERSION} [skip ci]"
           git push

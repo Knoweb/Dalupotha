@@ -15,6 +15,7 @@ import { DashboardScreen, CollectionsScreen, RequestsScreen, ProfileScreen, Supp
 import { CollectionInputScreen } from "../features/ta-collection/CollectionInputScreen";
 import { SupplierHomeScreen, SupplierSupplyScreen, SupplierPaymentsScreen, SupplierDebtsScreen, SupplierProfileScreen } from "../features/smallholder/SupplierScreens";
 import { CircularsScreen } from "../features/smallholder/CircularsScreen";
+import { UpdateChecker } from "../features/update/UpdateChecker";
 
 type Role = "agent" | "supplier";
 type RootStackParamList = {
@@ -183,6 +184,7 @@ export default function App() {
 
   return (
     <NavigationContainer>
+      <UpdateChecker />
       <StatusBar style="light" />
       <Stack.Navigator 
         screenOptions={{ headerShown: false }}
