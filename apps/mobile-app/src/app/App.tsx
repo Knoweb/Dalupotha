@@ -7,6 +7,8 @@ import { Platform, Pressable, Text, View, ActivityIndicator } from "react-native
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { palette, styles } from "../ui/theme";
 
 import { LoginScreen, OtpScreen } from "../features/auth/AuthScreens";
@@ -34,6 +36,7 @@ const Tab = createBottomTabNavigator();
 function MainTabNavigator({ route, navigation }: any) {
   const { role, user, token } = route.params || { role: "agent" };
   const [lang, setLang] = React.useState<'en'|'si'>('en');
+  const insets = useSafeAreaInsets();
 
   const dict: any = {
     si: {
@@ -58,14 +61,10 @@ function MainTabNavigator({ route, navigation }: any) {
           backgroundColor: "#061224",
           borderTopWidth: 1,
           borderTopColor: "#1b375d",
-          height: Platform.OS === "ios" ? 85 : Platform.OS === "web" ? 74 : 65,
-          paddingBottom: Platform.OS === "ios" ? 25 : Platform.OS === "web" ? 12 : 10,
+          height: Platform.OS === "ios" ? 85 : Platform.OS === "web" ? 74 : 60 + insets.bottom,
+          paddingBottom: Platform.OS === "ios" ? 25 : Platform.OS === "web" ? 12 : insets.bottom + 6,
           paddingTop: 10,
-          position: Platform.OS === "web" ? "relative" : "absolute",
-          bottom: Platform.OS === "web" ? undefined : 0,
-          left: Platform.OS === "web" ? undefined : 0,
-          right: Platform.OS === "web" ? undefined : 0,
-          elevation: 0,
+          elevation: 8,
         },
         tabBarActiveTintColor: palette.accentGreen,
         tabBarInactiveTintColor: palette.muted,
@@ -183,6 +182,7 @@ export default function App() {
   }
 
   return (
+    <SafeAreaProvider>
     <NavigationContainer>
       <UpdateChecker />
       <StatusBar style="light" />
@@ -216,5 +216,6 @@ export default function App() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
