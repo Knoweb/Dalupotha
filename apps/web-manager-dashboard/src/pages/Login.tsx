@@ -112,6 +112,9 @@ export default function LoginPage({ onLogin }: LoginProps) {
         setConfirmPassword('');
         setCoverPicture(null);
         alert(t('Estate onboarded successfully! Access cleared for management.'));
+      } else {
+        const err = await res.json().catch(() => null);
+        alert(err?.message || t('Registration failed. Please check your input.'));
       }
     } catch (err) {
       console.error(err);

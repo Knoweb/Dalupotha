@@ -44,14 +44,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
         String detail = ex.getMostSpecificCause().getMessage();
-        String message = "Database integrity violation";
-        
-        if (detail.contains("already exists")) {
+        String message;
+
+        if (detail == null) {
+            message = "A record with this information already exists.";
+        } else if (detail.contains("Key (email)")) {
+            message = "This email address is already registered. Please use a different admin email.";
+        } else if (detail.contains("Key (contact)")) {
+            message = "This phone number is already registered. Please use a different contact number.";
+        } else if (detail.contains("Key (username)")) {
+            message = "This username is already taken. Please use a different admin email.";
+        } else if (detail.contains("Key (code)")) {
+            message = "This estate code is already in use. Please choose a unique code (e.g. RIV-02).";
+        } else if (detail.contains("Key (name)")) {
+            message = "An estate with this name already exists. Please use a different estate name.";
+        } else if (detail.contains("Key (employee_id)")) {
+            message = "This Employee ID is already registered.";
+        } else if (detail.contains("Key (nic)")) {
+            message = "This NIC number is already registered.";
+        } else if (detail.contains("already exists")) {
             message = "A record with this information already exists.";
         } else if (detail.contains("too long")) {
             message = "One of the provided fields is too long.";
+        } else {
+            message = "A record with this information already exists.";
         }
-        
+
         log.warn("Data integrity error: {}", detail);
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(409, "Conflict", message));
