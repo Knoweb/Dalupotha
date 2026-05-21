@@ -113,7 +113,7 @@ export default function FinancialsPage() {
           const targetId = s.supplierId || s.userId;
           const [ledger, history, transactions] = await Promise.all([
             FinanceAPI.getSupplierLedger(targetId),
-            fetch(`http://127.0.0.1:8080/collection/history/${targetId}`)
+            fetch(`/api/collection/history/${targetId}`, { headers: { 'Authorization': `Bearer ${sessionStorage.getItem('token') || ''}` } })
               .then(r => r.ok ? r.json() : [])
               .catch(() => []),
             FinanceAPI.getLedgerTransactions(targetId)

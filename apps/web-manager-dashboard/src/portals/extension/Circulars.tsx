@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { BookOpen, Search, Filter, Plus, FileText, Send, RefreshCw, X, Link } from 'lucide-react'
 import { useLanguage } from '../../hooks/useLanguage'
 
-const API_URL = 'http://localhost:8080/api/notifications/tri-circulars';
+const API_URL = '/api/notifications/tri-circulars';
 
 export default function CircularsPage() {
   const { t } = useLanguage()
