@@ -9,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { palette, styles } from "../../ui/theme";
 import { AuthAPI, apiPost } from "../../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Role = "agent" | "supplier";
 
@@ -23,6 +24,7 @@ const RoleTab = ({ icon, label, active, onPress }: any) => (
 export function LoginScreen({ navigation }: any) {
   const { width, height } = useWindowDimensions();
   const compact = width < 390 || height < 780;
+  const insets = useSafeAreaInsets();
 
   const normalizeEmployeeId = (value: string) =>
     value
@@ -201,7 +203,7 @@ export function LoginScreen({ navigation }: any) {
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
       />
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingRight: 20, paddingTop: 10, zIndex: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingRight: 20, paddingTop: Math.max(insets.top, 10) + 10, zIndex: 10 }}>
           <Pressable
             onPress={() => setLang(lang === "en" ? "si" : "en")}
             style={{
