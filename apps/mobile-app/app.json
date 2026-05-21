@@ -16,7 +16,8 @@
       "**/*"
     ],
     "android": {
-      "package": "com.knoweb.dalupotha"
+      "package": "com.knoweb.dalupotha",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro"
