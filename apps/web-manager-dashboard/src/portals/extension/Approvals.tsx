@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, Package, AlertTriangle, Clock, Truck, Pencil, Check } from "lucide-react"
 import { CollectionAPI, FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
 import { useLanguage } from "../../hooks/useLanguage"
+import { useNotifications } from "../../hooks/useNotifications"
 
 const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Transport", "Machine Rent", "Tools", "Advisory", "Leaf Bags"]
 
@@ -537,6 +538,7 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
 
 export default function ApprovalsPage() {
   const { t, lang } = useLanguage();
+  const { notifications } = useNotifications();
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
