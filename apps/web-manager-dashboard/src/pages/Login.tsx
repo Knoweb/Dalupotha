@@ -153,7 +153,6 @@ export default function LoginPage({ onLogin }: LoginProps) {
                  href="https://expo.dev/artifacts/eas/teAfSbNi3Lb9GvKFkXxGmw.apk"
                  target="_blank"
                  rel="noopener noreferrer"
-                 download="dalupotha.apk"
                  title={lang === 'si' ? 'ජංගම යෙදුම බාගත කරන්න' : 'Download Mobile App'}
                  className="flex items-center gap-2.5 bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] px-3 py-1.5 rounded-full hover:bg-slate-50 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-95 group"
                >
