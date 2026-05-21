@@ -1637,7 +1637,7 @@ export function SupplierProfileScreen({ user, navigation, lang, setLang }: any) 
   );
 }
 
-function PinChangeModal({ visible, onClose, user, _ }: any) {
+export function PinChangeModal({ visible, onClose, user, _ }: any) {
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState("");
   const [newPin, setNewPin] = useState("");

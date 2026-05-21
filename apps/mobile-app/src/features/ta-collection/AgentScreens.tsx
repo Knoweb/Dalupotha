@@ -11,7 +11,7 @@ import { palette, styles } from "../../ui/theme";
 import { CollectionAPI, ServicesAPI, apiGet, apiPatch, apiPost } from "../../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getOfflineCollections, syncQueuedCollections } from "./collectionData";
-import { getTranslation } from "../smallholder/SupplierScreens";
+import { getTranslation, PinChangeModal } from "../smallholder/SupplierScreens";
 
 type ApiCollectionHistory = {
   collectionId: string;
@@ -1836,7 +1836,9 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
 // Profile Screen
 // ─────────────────────────────────────────────────────────────
 
-export function ProfileScreen({ user, token, navigation }: any) {
+export function ProfileScreen({ user, token, navigation, lang, setLang }: any) {
+  const _ = (key: string) => getTranslation(key, lang);
+  const [showPinModal, setShowPinModal] = useState(false);
   const initials = user?.fullName?.split(" ").map((n: any) => n[0]).join("").substring(0, 2).toUpperCase() || "??";
   
   const getShortRoutes = (routeName: string | undefined | null) => {
@@ -1943,6 +1945,12 @@ export function ProfileScreen({ user, token, navigation }: any) {
 
   return (
     <View style={styles.dashboardWrap}>
+      <PinChangeModal 
+        visible={showPinModal} 
+        onClose={() => setShowPinModal(false)} 
+        user={user}
+        _={_}
+      />
       <SafeAreaView style={{ backgroundColor: "#111f38" }}>
         <View style={styles.headerBar}>
           <View style={{ width: 40 }} />
@@ -2007,25 +2015,42 @@ export function ProfileScreen({ user, token, navigation }: any) {
         <Text style={[styles.sectionHeader, { fontSize: 12, color: palette.muted, letterSpacing: 1, marginTop: 10 }]}>SETTINGS</Text>
 
         <View style={{ gap: 12 }}>
-          {[
-            { icon: "bluetooth" as const,           bg: "rgba(46,168,255,0.15)",  color: palette.accentBlue,  title: "Bluetooth Scale",  sub: "DL-7200 · Connected" },
-            { icon: "location-outline" as const,    bg: "rgba(31,190,87,0.15)",   color: palette.accentGreen, title: "GPS Accuracy",      sub: "High accuracy mode · ON" },
-            { icon: "sync" as const,                bg: "rgba(155,89,182,0.15)",  color: "#9b59b6",           title: "Sync Settings",     sub: "Auto-sync on WiFi · ON" },
-            { icon: "notifications-outline" as const,bg: "rgba(243,156,18,0.15)", color: "#f39c12",           title: "Notifications",     sub: "All alerts enabled" },
-            { icon: "time-outline" as const,        bg: "rgba(231,76,60,0.15)",   color: "#e74c3c",           title: "My Collections",    sub: "View full history" },
-            { icon: "lock-closed-outline" as const, bg: "rgba(231,76,60,0.15)",   color: "#e74c3c",           title: "Change PIN",        sub: "Last changed 30 days ago" },
-          ].map((item, i) => (
-            <View key={i} style={styles.settingItem}>
-              <View style={[styles.settingIconBg, { backgroundColor: item.bg }]}>
-                <Ionicons name={item.icon} size={20} color={item.color} />
+          {lang !== undefined && (
+            <Pressable 
+              style={[styles.settingItem, { borderColor: palette.accentBlue, borderWidth: 1 }]} 
+              onPress={() => setLang(lang === 'en' ? 'si' : 'en')}
+            >
+              <View style={[styles.settingIconBg, { backgroundColor: "rgba(46, 168, 255, 0.15)" }]}><Ionicons name="language" size={20} color={palette.accentBlue} /></View>
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.settingItemTitle}>{_("Language Preference")}</Text>
+                <Text style={styles.settingItemSub}>{_("Switch between Sinhala and English")}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingItemTitle}>{item.title}</Text>
-                <Text style={styles.settingItemSub}>{item.sub}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+              <Text style={{ color: palette.accentBlue, fontWeight: "800", fontSize: 13, marginRight: 8 }}>{lang === 'en' ? 'ENGLISH' : 'SINHALA'}</Text>
+              <Ionicons name="chevron-forward" size={18} color={palette.accentBlue} />
+            </Pressable>
+          )}
+
+          <Pressable style={styles.settingItem} onPress={() => navigation.navigate("Collections")}>
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(231,76,60,0.15)" }]}>
+              <Ionicons name="time-outline" size={20} color="#e74c3c" />
             </View>
-          ))}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingItemTitle}>{_("My Collections")}</Text>
+              <Text style={styles.settingItemSub}>{_("View full history")}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </Pressable>
+
+          <Pressable style={styles.settingItem} onPress={() => setShowPinModal(true)}>
+            <View style={[styles.settingIconBg, { backgroundColor: "rgba(231, 76, 60, 0.15)" }]}>
+              <Ionicons name="lock-closed-outline" size={20} color="#e74c3c" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingItemTitle}>{_("Update PIN")}</Text>
+              <Text style={styles.settingItemSub}>{_("Update security access code")}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={palette.muted} />
+          </Pressable>
 
           <Pressable 
             style={styles.settingItem} 
@@ -2038,7 +2063,7 @@ export function ProfileScreen({ user, token, navigation }: any) {
               <Ionicons name="log-out-outline" size={20} color={palette.muted} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.settingItemTitle}>Sign Out</Text>
+              <Text style={styles.settingItemTitle}>{_("Sign Out")}</Text>
               <Text style={styles.settingItemSub}>{user?.fullName} · {user?.employeeId}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={palette.muted} />
