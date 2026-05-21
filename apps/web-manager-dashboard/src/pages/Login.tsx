@@ -152,23 +152,35 @@ export default function LoginPage({ onLogin }: LoginProps) {
           </div>
 
           <div className="w-full lg:w-[400px] xl:w-[500px] flex flex-col shrink-0 p-8 sm:px-12 relative bg-white z-20 h-screen justify-center items-center">
-            {/* Bottom-Left Minimalist Capsule Mobile App Download Button */}
+            {/* Bottom-Left Mobile App Download Button — glowing & blinking */}
+            <style>{`
+              @keyframes glow-pulse {
+                0%, 100% { box-shadow: 0 0 10px 2px rgba(61,122,45,0.5), 0 8px 30px rgba(0,0,0,0.12); }
+                50%       { box-shadow: 0 0 24px 8px rgba(61,122,45,0.85), 0 8px 30px rgba(0,0,0,0.18); }
+              }
+              @keyframes badge-blink {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50%       { opacity: 0.5; transform: scale(0.92); }
+              }
+              .apk-btn { animation: glow-pulse 1.6s ease-in-out infinite; }
+              .apk-badge { animation: badge-blink 1.6s ease-in-out infinite; }
+            `}</style>
             <div className="fixed bottom-6 left-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-1000">
                <a 
                  href="/dalupotha.apk"
                  target="_blank"
                  rel="noopener noreferrer"
                  title={lang === 'si' ? 'ජංගම යෙදුම බාගත කරන්න' : 'Download Mobile App'}
-                 className="flex items-center gap-2.5 bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] px-3 py-1.5 rounded-full hover:bg-slate-50 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] active:scale-95 group"
+                 className="apk-btn flex items-center gap-3 bg-white/98 backdrop-blur-md border-2 border-[#3d7a2d]/60 px-4 py-2.5 rounded-full hover:bg-green-50 transition-all duration-300 active:scale-95 group cursor-pointer"
                >
-                 <div className="w-7 h-7 rounded-full bg-[#3d7a2d] hover:bg-[#2d6a4f] text-white flex items-center justify-center shadow-sm transition-all duration-300 group-hover:scale-105 shrink-0">
-                   <Smartphone className="w-4 h-4 text-white" />
+                 <div className="apk-badge w-10 h-10 rounded-full bg-[#3d7a2d] text-white flex items-center justify-center shadow-md shrink-0">
+                   <Smartphone className="w-5 h-5 text-white" />
                  </div>
-                 <div className="flex flex-col pr-1 text-left">
-                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">
+                 <div className="flex flex-col pr-2 text-left">
+                   <span className="text-[10px] font-bold text-[#3d7a2d] uppercase tracking-wider leading-none">
                      {lang === 'si' ? 'ජංගම ඇප් එක' : 'Mobile App'}
                    </span>
-                   <span className="text-[9px] font-black text-slate-800 uppercase tracking-wider mt-0.5 leading-none">
+                   <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider mt-1 leading-none">
                      {lang === 'si' ? 'බාගන්න' : 'Download'}
                    </span>
                  </div>
