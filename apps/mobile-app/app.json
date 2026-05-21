@@ -2,7 +2,7 @@
   "expo": {
     "name": "දළුපොත",
     "slug": "dalupotha-mobile-app",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "updates": {
       "url": "https://u.expo.dev/24fe32e9-d4b3-40b7-bdf9-b11453a3d757"
     },
@@ -26,6 +26,9 @@
       "eas": {
         "projectId": "24fe32e9-d4b3-40b7-bdf9-b11453a3d757"
       }
-    }
+    },
+    "plugins": [
+      "./plugins/with-network-security"
+    ]
   }
 }
