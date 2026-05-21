@@ -150,7 +150,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
             {/* Bottom-Left Minimalist Capsule Mobile App Download Button */}
             <div className="fixed bottom-6 left-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-1000">
                <a 
-                 href="https://expo.dev/artifacts/eas/teAfSbNi3Lb9GvKFkXxGmw.apk"
+                 href="/dalupotha.apk"
                  target="_blank"
                  rel="noopener noreferrer"
                  title={lang === 'si' ? 'ජංගම යෙදුම බාගත කරන්න' : 'Download Mobile App'}
