@@ -173,18 +173,18 @@ export default function LoginPage({ onLogin }: LoginProps) {
 
             {/* High-Visibility Premium 2-Way Language Switcher */}
             <div className="fixed top-4 right-4 flex flex-col items-end gap-2 z-[100] animate-in fade-in slide-in-from-top-4 duration-1000">
-              <div className="bg-white/80 backdrop-blur-md p-1 rounded-full border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex items-center relative w-[160px] h-[38px]">
+              <div className="bg-white/80 backdrop-blur-md p-0.5 rounded-full border border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex items-center relative w-[120px] h-[28px]">
                 {/* Sliding Indicator */}
                 <div 
-                  className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-[#3d7a2d] rounded-full shadow-md transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${lang === 'si' ? 'left-[calc(50%+2px)]' : 'left-1'}`}
+                  className={`absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] bg-[#3d7a2d] rounded-full shadow-sm transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${lang === 'si' ? 'left-[calc(50%+1px)]' : 'left-0.5'}`}
                 />
                 
                 <button 
                   onClick={() => setLang('en')}
                   type="button"
-                  className={`relative flex-1 text-[10px] font-black tracking-[0.15em] transition-colors duration-500 z-10 ${lang === 'en' ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`relative flex-1 text-[8px] font-black tracking-[0.1em] transition-colors duration-500 z-10 ${lang === 'en' ? 'text-white' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                  ENGLISH
+                  EN
                 </button>
                 <button 
                   onClick={() => setLang('si')}
