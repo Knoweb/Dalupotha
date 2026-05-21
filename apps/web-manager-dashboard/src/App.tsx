@@ -1,31 +1,32 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import DashboardLayout from './components/layout/DashboardLayout'
 
 // Portals
 import LoginPage from './pages/Login'
-import SuperAdminView from './pages/SuperAdminView'
+// Portals
+const SuperAdminView = lazy(() => import('./pages/SuperAdminView'));
 
 // Manager Portal
-import DashboardPage from './portals/manager/Dashboard'
-import TrackingPage from './portals/manager/Tracking'
-import UsersPage from './portals/manager/Users'
-import SettingsPage from './portals/manager/Settings'
+const DashboardPage = lazy(() => import('./portals/manager/Dashboard'));
+const TrackingPage = lazy(() => import('./portals/manager/Tracking'));
+const UsersPage = lazy(() => import('./portals/manager/Users'));
+const SettingsPage = lazy(() => import('./portals/manager/Settings'));
 
 // Factory Portal
-import QualityPage from './portals/factory/Quality'
-import CollectionsPage from './portals/factory/Collections'
+const QualityPage = lazy(() => import('./portals/factory/Quality'));
+const CollectionsPage = lazy(() => import('./portals/factory/Collections'));
 
 // Office Portal
-import FinancialsPage from './portals/office/Financials'
-import ReportsPage from './portals/office/Reports'
+const FinancialsPage = lazy(() => import('./portals/office/Financials'));
+const ReportsPage = lazy(() => import('./portals/office/Reports'));
 
 // Store Keeper Portal
-import InventoryPage from './portals/store-keeper/Inventory'
+const InventoryPage = lazy(() => import('./portals/store-keeper/Inventory'));
 
 // Extension Portal
-import ApprovalsPage from './portals/extension/Approvals'
-import CircularsPage from './portals/extension/Circulars'
-import RoutesPage from './portals/manager/Routes'
+const ApprovalsPage = lazy(() => import('./portals/extension/Approvals'));
+const CircularsPage = lazy(() => import('./portals/extension/Circulars'));
+const RoutesPage = lazy(() => import('./portals/manager/Routes'));
 
 export type UserRole = 'manager' | 'super-admin' | 'extension-officer' | 'store-keeper' | 'factory-staff' | 'office-staff';
 
@@ -83,7 +84,15 @@ export default function App() {
   };
 
   if (!isAuthenticated) return <LoginPage onLogin={handleLogin} />;
-  if (userRole === 'super-admin') return <SuperAdminView onLogout={handleLogout} />;
+  if (userRole === 'super-admin') return (
+    <Suspense fallback={
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#3d7a2d]"></div>
+      </div>
+    }>
+      <SuperAdminView onLogout={handleLogout} />
+    </Suspense>
+  );
 
   const renderContent = () => {
     switch (activeTab) {
@@ -111,7 +120,13 @@ export default function App() {
       userRole={userRole || 'manager'}
       onLogout={handleLogout}
     >
-      <div className="flex flex-col gap-8 h-full">{renderContent()}</div>
+      <Suspense fallback={
+        <div className="flex-grow flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#3d7a2d]"></div>
+        </div>
+      }>
+        <div className="flex flex-col gap-8 h-full">{renderContent()}</div>
+      </Suspense>
     </DashboardLayout>
   );
 }
