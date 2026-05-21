@@ -1,103 +1,90 @@
 // ==============================================================================
 // Dalupotha API Client
-// Follows the official API Documentation spec exactly
-// Base URL: http://<host>:8080 (API Gateway)
-// All paths match: https://api.dalupotha.factory.local/v1/...
+// Base URL: http://188.166.231.80/api (via Nginx proxy)
 // ==============================================================================
 
+import { Platform } from "react-native";
+
 // ── 1. Base URL ────────────────────────────────────────────────────────────────
-// LIVE_API is the hardcoded production URL — always works in the APK.
-// EXPO_PUBLIC_API_HOST can override this (used in Expo Go dev mode).
+// LIVE_API is hardcoded as the default. EXPO_PUBLIC_API_HOST can override it
+// (used in Expo Go dev mode via the local .env file).
 const LIVE_API = "http://188.166.231.80/api";
 
 export const API_BASE: string = (() => {
   const env = process.env.EXPO_PUBLIC_API_HOST;
-  // Use env var only if it's a full URL (dev override)
   if (env && (env.startsWith("http://") || env.startsWith("https://"))) {
     return env;
   }
-  // In Expo Go dev mode without env, detect Metro bundler host
-  if (Platform.OS !== "web") {
-    const scriptUrl = (NativeModules as any)?.SourceCode?.scriptURL;
-    if (scriptUrl) {
-      const withoutProtocol = scriptUrl.replace(/^https?:\/\//, "");
-      const host = withoutProtocol.split(/[/:]/)[0]?.trim();
-      if (host && host !== "localhost" && host !== "127.0.0.1" && !host.includes("188.166")) {
-        return `http://${host}:8080`;
-      }
-    }
-  }
-  // Default: always use the live server
   return LIVE_API;
 })();
 
 // ── 2. Authentication & Registration ─────────────────────────────────────────
 export const AuthAPI = {
   login:              `${API_BASE}/auth/login`,                 // POST — TA login (employeeId + PIN)
-  supplierLogin:      `${API_BASE}/auth/supplier/login`,        // POST — Supplier login (contact + PIN)
-  sendOtp:            `${API_BASE}/auth/otp/send`,              // POST — Send OTP (registration only)
-  verifyOtp:          `${API_BASE}/auth/otp/verify`,            // POST — Verify OTP (legacy, not used for login)
+  supplierLogin:      `${API_BASE}/auth/supplier/login`,        // POST — Supplier login (passbookNo + PIN)
+  sendOtp:            `${API_BASE}/auth/otp/send`,              // POST — Send OTP
+  verifyOtp:          `${API_BASE}/auth/otp/verify`,            // POST — Verify OTP
   registerSmallHolder:`${API_BASE}/auth/small-holder/register`, // POST — Register Small Holder
   registerAgent:      `${API_BASE}/auth/agent/register`,        // POST — Register Transport Agent
   getEstates:         `${API_BASE}/auth/estates`,               // GET — fetch estate list
-  getEstateRoutes:    (estateId: string) => `${API_BASE}/auth/estates/${estateId}/routes`, // GET — routes for estate
+  getEstateRoutes:    (estateId: string) => `${API_BASE}/auth/estates/${estateId}/routes`,
 };
 
 // ── 3. Field Collection & Logistics ──────────────────────────────────────────
 export const CollectionAPI = {
-  suppliers:   `${API_BASE}/auth/suppliers`,              // GET — supplier picker list (from Auth source)
-  sync:        `${API_BASE}/collection/sync`,             // POST — TA batch sync (requires TA role)
+  suppliers:   `${API_BASE}/auth/suppliers`,
+  sync:        `${API_BASE}/collection/sync`,
   agentHistory:(transportAgentId: string) =>
                `${API_BASE}/collection/history/agent/${transportAgentId}`,
   history:     (supplierId: string) =>
-               `${API_BASE}/collection/history/${supplierId}`, // GET — supply history
+               `${API_BASE}/collection/history/${supplierId}`,
   summary:     (supplierId: string) =>
-               `${API_BASE}/collection/summary/${supplierId}`, // GET — collection summary (gross/net weight)
+               `${API_BASE}/collection/summary/${supplierId}`,
   updateNotes: (collectionId: string) =>
-               `${API_BASE}/collection/${collectionId}/notes`, // PATCH - update notes
+               `${API_BASE}/collection/${collectionId}/notes`,
 };
 
 // ── 4. Financial Ledger ───────────────────────────────────────────────────────
 export const FinanceAPI = {
-  advanceRequest: `${API_BASE}/finance/advance-request`,        // POST — request advance payment
+  advanceRequest: `${API_BASE}/finance/advance-request`,
   ledger:         (supplierId: string) =>
-                  `${API_BASE}/finance/ledger/${supplierId}`,   // GET — financial standing
+                  `${API_BASE}/finance/ledger/${supplierId}`,
   ledgerTransactions: (supplierId: string) =>
-                  `${API_BASE}/finance/ledger/${supplierId}/transactions`, // GET — payment history
+                  `${API_BASE}/finance/ledger/${supplierId}/transactions`,
 };
 
 // ── 5. Notifications & Circulars ──────────────────────────────────────────────
 export const NotificationAPI = {
-  triCirculars: `${API_BASE}/api/notifications/tri-circulars`, // GET, POST
+  triCirculars: `${API_BASE}/api/notifications/tri-circulars`,
 };
 
 export const ServicesAPI = {
-  createRequest:  `${API_BASE}/services/request`,               // POST — fertilizer/machine/transport
+  createRequest:  `${API_BASE}/services/request`,
   updateStatus:   (requestId: string) =>
-                  `${API_BASE}/services/request/${requestId}/status`, // PATCH — approve/dispatch
-  inventory:      `${API_BASE}/inventory`,                      // GET — fetch available items
-  history:        `${API_BASE}/services/request`,               // GET — fetch request history
+                  `${API_BASE}/services/request/${requestId}/status`,
+  inventory:      `${API_BASE}/inventory`,
+  history:        `${API_BASE}/services/request`,
 };
 
 // ── Generic API helpers ───────────────────────────────────────────────────────
 
-/** Wrapper to prevent fetch from hanging indefinitely */
+/**
+ * Timeout using Promise.race — avoids AbortController which has known
+ * compatibility issues on certain Android devices with React Native.
+ */
 async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-  const timeoutMs = 12000; // 12 seconds max
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutMs = 20000; // 20 seconds
 
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal as any });
-    return response;
-  } catch (err: any) {
-    if (err.name === "AbortError") {
-      throw new Error(`Network timeout reaching server. Check connection to ${API_HOST}`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(id);
-  }
+  const fetchPromise = fetch(url, options);
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`Network timeout reaching server. Check connection to ${LIVE_API}`)),
+      timeoutMs
+    )
+  );
+
+  return Promise.race([fetchPromise, timeoutPromise]);
 }
 
 /** POST request — throws with backend message on error */
@@ -121,7 +108,7 @@ export async function apiGet<T>(url: string, token: string): Promise<T> {
     method:  "GET",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: `Bearer ${token}`,
     },
   });
   const data = await res.json();
