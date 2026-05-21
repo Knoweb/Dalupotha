@@ -58,3 +58,7 @@ jobs:
           git add apps/web-manager-dashboard/public/dalupotha.apk apps/web-manager-dashboard/public/version.json
           git diff --staged --quiet || git commit -m "chore: auto-update APK v${APP_VERSION}"
           git push
+
+      - name: Auto-deploy to Appetize
+        run: |
+          curl -F "file=@apps/web-manager-dashboard/public/dalupotha.apk" "https://tok_lxgsyp5lqhwhjplosm4zwzyevm@api.appetize.io/v1/apps/jz4u4vwhtnqmkbuv3mlq7im3xa"
