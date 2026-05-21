@@ -5,71 +5,31 @@
 // All paths match: https://api.dalupotha.factory.local/v1/...
 // ==============================================================================
 
-import { NativeModules, Platform } from "react-native";
-import Constants from "expo-constants";
+// ── 1. Base URL ────────────────────────────────────────────────────────────────
+// LIVE_API is the hardcoded production URL — always works in the APK.
+// EXPO_PUBLIC_API_HOST can override this (used in Expo Go dev mode).
+const LIVE_API = "http://188.166.231.80/api";
 
-// Host selection strategy:
-// 1) Browser hostname for web
-// 2) Expo runtime host from Constants / script URL
-// 3) Android emulator fallback (10.0.2.2)
-// 4) iOS simulator / local dev fallback (localhost)
-// 5) EXPO_PUBLIC_API_HOST as a last-resort override
-const extractHost = (value?: string | null): string | undefined => {
-  if (!value) return undefined;
-  const withoutProtocol = value.replace(/^https?:\/\//, "");
-  const host = withoutProtocol.split(/[/:]/)[0]?.trim();
-  return host || undefined;
-};
-
-const getScriptUrlHost = (): string | undefined => {
-  const scriptUrl = (NativeModules as any)?.SourceCode?.scriptURL;
-  return extractHost(scriptUrl);
-};
-
-const getExpoRuntimeHost = (): string | undefined => {
-  const c = Constants as any;
-  return (
-    extractHost(c?.expoConfig?.hostUri) ||
-    extractHost(c?.manifest2?.extra?.expoClient?.hostUri) ||
-    extractHost(c?.manifest?.debuggerHost) ||
-    getScriptUrlHost()
-  );
-};
-
-const runtimeHost = getExpoRuntimeHost();
-const getWebHost = (): string | undefined => {
-  if (Platform.OS !== "web") return undefined;
-  if (typeof window === "undefined") return undefined;
-  const host = window.location?.hostname;
-  return typeof host === "string" && host.trim().length > 0 ? host.trim() : undefined;
-};
-
-const webHost = getWebHost();
-
-const isLocal = (h?: string) => h === "localhost" || h === "127.0.0.1";
-
-const DEV_HOST =
-  Platform.OS === "web"
-    ? webHost || process.env.EXPO_PUBLIC_API_HOST || "127.0.0.1"
-    : runtimeHost && !isLocal(runtimeHost)
-      ? runtimeHost
-      : Platform.OS === "android"
-        ? "10.0.2.2"
-        : process.env.EXPO_PUBLIC_API_HOST || "127.0.0.1";
-
-const API_HOST = process.env.EXPO_PUBLIC_API_HOST || DEV_HOST;
-
-// CRITICAL: All requests MUST go through the Gateway (8080)
-// For Web, ensure we use 127.0.0.1 instead of localhost to bypass IPv6 connection errors
-const finalHost = API_HOST === "localhost" ? "127.0.0.1" : API_HOST;
-
-// In production, we route through Nginx proxy (/api) on standard HTTP/HTTPS ports.
-export const API_BASE = 
-  API_HOST.startsWith("http://") || API_HOST.startsWith("https://")
-    ? API_HOST
-    : finalHost.includes(".") && !finalHost.includes(":")
-      ? `https://${finalHost}/api`
-      : `http://${finalHost}:8080`;
+export const API_BASE: string = (() => {
+  const env = process.env.EXPO_PUBLIC_API_HOST;
+  // Use env var only if it's a full URL (dev override)
+  if (env && (env.startsWith("http://") || env.startsWith("https://"))) {
+    return env;
+  }
+  // In Expo Go dev mode without env, detect Metro bundler host
+  if (Platform.OS !== "web") {
+    const scriptUrl = (NativeModules as any)?.SourceCode?.scriptURL;
+    if (scriptUrl) {
+      const withoutProtocol = scriptUrl.replace(/^https?:\/\//, "");
+      const host = withoutProtocol.split(/[/:]/)[0]?.trim();
+      if (host && host !== "localhost" && host !== "127.0.0.1" && !host.includes("188.166")) {
+        return `http://${host}:8080`;
+      }
+    }
+  }
+  // Default: always use the live server
+  return LIVE_API;
+})();
 
 // ── 2. Authentication & Registration ─────────────────────────────────────────
 export const AuthAPI = {
