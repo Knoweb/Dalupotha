@@ -191,16 +191,16 @@ export function LoginScreen({ navigation }: any) {
   return (
     <ImageBackground
       source={require("../../../assests/login_bg.png")}
-      style={styles.root}
+      style={{ flex: 1 }}
       resizeMode="cover"
     >
-      {/* Dark gradient overlay — keeps all text crisp and readable */}
+      {/* Gradient overlay — fills entire screen including system nav area */}
       <LinearGradient
-        colors={["rgba(5,15,25,0.72)", "rgba(5,20,15,0.65)", "rgba(5,15,25,0.85)"]}
-        locations={[0, 0.45, 1]}
-        style={{ flex: 1 }}
-      >
-      <SafeAreaView style={styles.safe}>
+        colors={["rgba(4,13,32,0.80)", "rgba(5,22,18,0.60)", "rgba(4,13,32,0.88)"]}
+        locations={[0, 0.5, 1]}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <SafeAreaView style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingRight: 20, paddingTop: 10, zIndex: 10 }}>
           <Pressable
             onPress={() => setLang(lang === "en" ? "si" : "en")}
@@ -348,7 +348,6 @@ export function LoginScreen({ navigation }: any) {
         </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      </LinearGradient>
     </ImageBackground>
   );
 }
