@@ -1,0 +1,62 @@
+name: Deploy Frontend Only (APK Update)
+
+# Triggers only when the web dashboard or APK changes — NOT when Java services change
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'apps/web-manager-dashboard/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_PREFIX: knoweb/dalupotha
+
+jobs:
+  build-and-deploy-frontend:
+    name: Rebuild Frontend Image & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/dalupotha-frontend
+          tags: |
+            type=ref,event=branch
+            type=raw,value=latest
+
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/web-manager-dashboard
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: SSH into server and restart frontend container only
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DIGITALOCEAN_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /app
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -f docker-compose.prod.yml pull frontend
+            docker compose -f docker-compose.prod.yml up -d --no-deps frontend
+            docker image prune -f
+            echo "Frontend redeployed with new APK!"

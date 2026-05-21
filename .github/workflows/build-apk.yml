@@ -66,5 +66,5 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add apps/web-manager-dashboard/public/dalupotha.apk apps/web-manager-dashboard/public/version.json
-          git diff --staged --quiet || git commit -m "chore: auto-update APK v${APP_VERSION} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore: auto-update APK v${APP_VERSION}"
           git push
