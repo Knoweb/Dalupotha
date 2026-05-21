@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CollectionAPI, apiPost } from "../../services/api";
+import * as Location from "expo-location";
 
 export type SyncStatus = "QUEUED" | "SYNCING" | "SYNCED" | "FAILED";
 
@@ -12,9 +13,9 @@ export type OfflineCollectionItem = {
   transportAgentName?: string;
   grossWeight: number;
   netWeight?: number;
-  gpsLat?: number;
-  gpsLong?: number;
-  gpsStatus: "GPS" | "NO_GPS" | "MANUAL";
+  gpsLat?: number | null;
+  gpsLong?: number | null;
+  gpsStatus: "GPS" | "NO_GPS" | "MANUAL" | "GPS_AT_SYNC";
   manualOverride: boolean;
   overrideReason?: string;
   collectedAt: string;
@@ -75,6 +76,29 @@ export async function syncQueuedCollections(token: string, transportAgentId: str
   );
   await setOfflineCollections(updatedWithSyncing);
 
+  // ── GPS Re-capture for NO_GPS items ──────────────────────────
+  // When the agent is back online, try to get current location
+  // and attach it to any collection that was saved without GPS.
+  const hasNoGpsItems = pending.some((item) => item.gpsStatus === "NO_GPS");
+  let syncTimeLocation: Location.LocationObject | null = null;
+
+  if (hasNoGpsItems) {
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status === "granted") {
+        // Try fresh fix first, fall back to last known
+        syncTimeLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        }).catch(async () => {
+          const last = await Location.getLastKnownPositionAsync({ maxAge: 300000, requiredAccuracy: 200 });
+          return last as Location.LocationObject | null;
+        });
+      }
+    } catch {
+      // GPS not available at sync time either — send as NO_GPS
+    }
+  }
+
   const payload = {
     collections: pending.map((item) => ({
       clientRef: item.clientRef,
@@ -82,9 +106,16 @@ export async function syncQueuedCollections(token: string, transportAgentId: str
       transportAgentId: item.transportAgentId,
       grossWeight: item.grossWeight,
       netWeight: item.netWeight,
-      gpsLat: item.gpsLat,
-      gpsLong: item.gpsLong,
-      gpsStatus: item.gpsStatus,
+      // If NO_GPS and we got GPS at sync time, attach it now
+      gpsLat: (item.gpsStatus === "NO_GPS" && syncTimeLocation)
+        ? syncTimeLocation.coords.latitude
+        : item.gpsLat,
+      gpsLong: (item.gpsStatus === "NO_GPS" && syncTimeLocation)
+        ? syncTimeLocation.coords.longitude
+        : item.gpsLong,
+      gpsStatus: (item.gpsStatus === "NO_GPS" && syncTimeLocation)
+        ? "GPS_AT_SYNC"
+        : item.gpsStatus,
       manualOverride: item.manualOverride,
       overrideReason: item.overrideReason,
       supplierName: item.supplierName,
