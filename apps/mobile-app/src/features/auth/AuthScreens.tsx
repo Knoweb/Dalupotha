@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator, Alert, Image, Pressable, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Image, ImageBackground, Pressable,
+  KeyboardAvoidingView, Platform,
   SafeAreaView, Text, TextInput, useWindowDimensions, View
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -188,11 +189,17 @@ export function LoginScreen({ navigation }: any) {
   const handleRoleSwitch = (newRole: Role) => { setRole(newRole); setErrorMsg(null); setErrorField(null); setId(""); setPin(""); };
 
   return (
-    <LinearGradient
-      colors={[palette.bgOuter, palette.bgInnerTop, palette.bgInnerBottom]}
-      locations={[0, 0.28, 1]}
+    <ImageBackground
+      source={require("../../../assests/login_bg.png")}
       style={styles.root}
+      resizeMode="cover"
     >
+      {/* Dark gradient overlay — keeps all text crisp and readable */}
+      <LinearGradient
+        colors={["rgba(5,15,25,0.72)", "rgba(5,20,15,0.65)", "rgba(5,15,25,0.85)"]}
+        locations={[0, 0.45, 1]}
+        style={{ flex: 1 }}
+      >
       <SafeAreaView style={styles.safe}>
         <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingRight: 20, paddingTop: 10, zIndex: 10 }}>
           <Pressable
@@ -341,7 +348,8 @@ export function LoginScreen({ navigation }: any) {
         </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </LinearGradient>
+      </LinearGradient>
+    </ImageBackground>
   );
 }
 
