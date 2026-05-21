@@ -18,7 +18,7 @@ const dictionary: Record<string, Record<string, string>> = {
     "Financials": "මූල්‍ය විස්තර",
     "Inventory": "තොග කළමනාකරණය",
     "Requests & Approvals": "ඉල්ලීම් සහ අනුමැතිය",
-    "Transport Tracking": "ට්රාන්ස්පෝර්ට් ලුහුබැඳීම",
+    "Transport Tracking": "ප්‍රවාහන ට්‍රැක් කිරීම",
     "Quality Assessment": "තත්ත්ව පරීක්ෂාව",
     "TRI Circulars": "TRI චක්‍රලේඛ",
     "Reports": "වාර්තා",
