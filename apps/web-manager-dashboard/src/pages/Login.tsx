@@ -354,20 +354,24 @@ export default function LoginPage({ onLogin }: LoginProps) {
                             <input type="text" placeholder="e.g. Riverside Highlands" value={estateForm.name} onChange={e => setEstateForm({...estateForm, name: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-200 py-3 focus:border-[#3d7a2d] outline-none transition-all text-[15px] font-medium text-slate-800" required />
                           </div>
                           <div className="space-y-3 group">
-                             <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('2. Manager Full Name')}</label>
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('2. Estate Code')}</label>
+                            <input type="text" placeholder="e.g. RIV-01" value={estateForm.code} onChange={e => setEstateForm({...estateForm, code: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-200 py-3 focus:border-[#3d7a2d] outline-none transition-all text-[15px] font-medium" required />
+                          </div>
+                          <div className="space-y-3 group">
+                             <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('3. Manager Full Name')}</label>
                              <input type="text" placeholder="A. Wickramasinghe" value={estateForm.managerName} onChange={e => setEstateForm({...estateForm, managerName: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-200 py-3 focus:border-[#3d7a2d] outline-none transition-all text-[15px] font-medium" required />
                           </div>
                           <div className="space-y-3 group">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('3. Contact Phone')}</label>
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('4. Contact Phone')}</label>
                             <input type="text" placeholder="+94 77 XXX XXXX" value={estateForm.phone} onChange={e => setEstateForm({...estateForm, phone: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-200 py-3 focus:border-[#3d7a2d] outline-none transition-all text-[15px] font-medium" required />
                           </div>
                         </div>
                         <div className="space-y-3 group">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('4. Physical Address')}</label>
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('5. Physical Address')}</label>
                           <textarea placeholder="Location details" value={estateForm.address} onChange={e => setEstateForm({...estateForm, address: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-200 py-3 focus:border-[#3d7a2d] outline-none transition-all text-[15px] min-h-[80px] resize-none" required />
                         </div>
                       <div className="pt-6 flex justify-end">
-                        <button type="button" onClick={() => setRegStep(2)} disabled={!estateForm.name || !estateForm.managerName} className="bg-[#3d7a2d] hover:bg-[#2d6a4f] text-white px-10 py-4 rounded-full font-black text-xs tracking-[0.2em] transition-all flex items-center gap-3 uppercase disabled:opacity-20">
+                        <button type="button" onClick={() => setRegStep(2)} disabled={!estateForm.name || !estateForm.code || !estateForm.managerName} className="bg-[#3d7a2d] hover:bg-[#2d6a4f] text-white px-10 py-4 rounded-full font-black text-xs tracking-[0.2em] transition-all flex items-center gap-3 uppercase disabled:opacity-20">
                           <span>{t('Next')}</span>
                           <ArrowRight size={16} />
                         </button>
@@ -377,11 +381,11 @@ export default function LoginPage({ onLogin }: LoginProps) {
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
                         <div className="space-y-3 group md:col-span-2">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('5. Master Admin Email')}</label>
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('6. Master Admin Email')}</label>
                           <input type="email" placeholder="manager@estate.com" value={estateForm.adminEmail} onChange={e => setEstateForm({...estateForm, adminEmail: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-200 py-3 focus:border-[#3d7a2d] outline-none transition-all text-[15px]" required />
                         </div>
                         <div className="space-y-3 group">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('6. Administrator Password')}</label>
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('7. Administrator Password')}</label>
                           <div className="relative">
                             <input type={showAdminPassword ? 'text' : 'password'} placeholder="••••••••" value={estateForm.adminPassword} onChange={e => setEstateForm({...estateForm, adminPassword: e.target.value})} className="w-full bg-transparent border-b-2 border-slate-100 py-3 focus:border-[#3d7a2d] outline-none text-base font-bold" required />
                             <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#3d7a2d] p-1">
@@ -390,7 +394,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
                           </div>
                         </div>
                         <div className="space-y-3 group">
-                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('7. Confirm Password')}</label>
+                          <label className="text-xs font-semibold text-slate-500 uppercase tracking-widest block transition-colors group-focus-within:text-[#3d7a2d]">{t('8. Confirm Password')}</label>
                           <div className="relative">
                             <input type={showConfirmPassword ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={`w-full bg-transparent border-b-2 py-3 outline-none text-base font-bold ${confirmPassword && estateForm.adminPassword !== confirmPassword ? 'border-red-400' : 'border-slate-100 focus:border-[#3d7a2d]'}`} required />
                             <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#3d7a2d] p-1">

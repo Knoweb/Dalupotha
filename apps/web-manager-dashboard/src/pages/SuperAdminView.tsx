@@ -339,8 +339,9 @@ export default function SuperAdminView({ onLogout }: SuperAdminViewProps) {
                 <div className="space-y-5">
                   {[
                     { label: '1. Estate Name', key: 'name', placeholder: 'e.g. Riverside Highlands', type: 'text' },
-                    { label: '2. Manager Full Name', key: 'managerName', placeholder: 'A. Wickramasinghe', type: 'text' },
-                    { label: '3. Contact Phone', key: 'phone', placeholder: '+94 77 XXX XXXX', type: 'text' },
+                    { label: '2. Estate Code', key: 'code', placeholder: 'e.g. RIV-01', type: 'text' },
+                    { label: '3. Manager Full Name', key: 'managerName', placeholder: 'A. Wickramasinghe', type: 'text' },
+                    { label: '4. Contact Phone', key: 'phone', placeholder: '+94 77 XXX XXXX', type: 'text' },
                   ].map(f => (
                     <div key={f.key}>
                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">{f.label}</label>
@@ -352,7 +353,7 @@ export default function SuperAdminView({ onLogout }: SuperAdminViewProps) {
                     </div>
                   ))}
                   <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">4. Physical Address</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">5. Physical Address</label>
                     <textarea placeholder="Location details"
                       value={estateForm.address}
                       onChange={e => setEstateForm({ ...estateForm, address: e.target.value })}
@@ -362,7 +363,7 @@ export default function SuperAdminView({ onLogout }: SuperAdminViewProps) {
                   <div className="pt-2 flex justify-end">
                     <button type="button"
                       onClick={() => setRegStep(2)}
-                      disabled={!estateForm.name || !estateForm.managerName}
+                      disabled={!estateForm.name || !estateForm.code || !estateForm.managerName}
                       className="flex items-center gap-2 bg-green-600 hover:bg-green-500 disabled:opacity-30 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
                       Next <ArrowRight size={14} />
                     </button>
@@ -371,7 +372,7 @@ export default function SuperAdminView({ onLogout }: SuperAdminViewProps) {
               ) : (
                 <div className="space-y-5">
                   <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">5. Master Admin Email</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">6. Master Admin Email</label>
                     <input type="email" placeholder="manager@estate.com"
                       value={estateForm.adminEmail}
                       onChange={e => setEstateForm({ ...estateForm, adminEmail: e.target.value })}
@@ -379,7 +380,7 @@ export default function SuperAdminView({ onLogout }: SuperAdminViewProps) {
                       required />
                   </div>
                   <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">6. Administrator Password</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">7. Administrator Password</label>
                     <div className="relative">
                       <input type={showAdminPw ? 'text' : 'password'} placeholder="••••••••"
                         value={estateForm.adminPassword}
@@ -393,7 +394,7 @@ export default function SuperAdminView({ onLogout }: SuperAdminViewProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">7. Confirm Password</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-2">8. Confirm Password</label>
                     <div className="relative">
                       <input type={showConfirmPw ? 'text' : 'password'} placeholder="••••••••"
                         value={confirmPassword}
