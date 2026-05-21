@@ -1,0 +1,26 @@
+name: Fetch Server Logs
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fetch-logs-trigger.txt'
+jobs:
+  fetch-logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Fetch logs
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DIGITALOCEAN_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /app
+            docker compose -f docker-compose.prod.yml logs --tail 200 api-gateway > api-gateway.log
+            docker compose -f docker-compose.prod.yml logs --tail 200 auth-service > auth-service.log
+            docker compose -f docker-compose.prod.yml ps > ps.log
+            cat api-gateway.log
+            cat auth-service.log
+            cat ps.log
