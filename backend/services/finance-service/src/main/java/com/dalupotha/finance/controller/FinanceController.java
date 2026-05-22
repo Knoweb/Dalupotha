@@ -59,7 +59,7 @@ public class FinanceController {
             @RequestParam(required = false) RequestStatus status,
             @RequestParam(required = false) Integer limit
     ) {
-        return financeService.getRequests(createdById, supplierId, assignedAgentId, requestType, status, null, limit);
+        return financeService.getRequests(createdById, supplierId, null, requestType, status, assignedAgentId, limit);
     }
 
     @PatchMapping("/api/services/request/{requestId}/status")
