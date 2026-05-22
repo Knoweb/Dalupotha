@@ -1213,14 +1213,14 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
                         <Text style={styles.payCardTitle}>{getMonthName(t.transactionDate)}</Text>
                         <Text style={styles.payCardId}>ID: {t.transactionId?.slice(0, 8).toUpperCase()}</Text>
                       </View>
-                      <View style={styles.statusBadgeGrey}><Ionicons name={t.status === 'CLEARED' ? "layers-outline" : "time-outline"} size={10} color={palette.muted} /><Text style={styles.statusBadgeTextGrey}> {t.status === 'CLEARED' ? _("Paid") : _(t.status.charAt(0) + t.status.slice(1).toLowerCase())}</Text></View>
+                      <View style={[styles.statusBadgeGrey, ['CLEARED', 'APPROVED', 'PAID'].includes(t.status) && { backgroundColor: 'rgba(46, 204, 113, 0.15)', borderColor: 'rgba(46, 204, 113, 0.3)' }]}><Ionicons name={['CLEARED', 'APPROVED', 'PAID'].includes(t.status) ? "layers-outline" : "time-outline"} size={10} color={['CLEARED', 'APPROVED', 'PAID'].includes(t.status) ? palette.success : t.status === 'AWAITING_APPROVAL' ? "#f39c12" : palette.muted} /><Text style={[styles.statusBadgeTextGrey, t.status === 'AWAITING_APPROVAL' && { color: '#f39c12' }, ['CLEARED', 'APPROVED', 'PAID'].includes(t.status) && { color: palette.success }]}> {['CLEARED', 'APPROVED', 'PAID'].includes(t.status) ? _("Paid") : t.status === 'AWAITING_APPROVAL' ? _("Pending Approval") : _(t.status.charAt(0) + t.status.slice(1).toLowerCase())}</Text></View>
                     </View>
                     <View style={styles.payRow}><Text style={styles.payLabel}>{_("Gross Earnings")}</Text><Text style={styles.payVal}>Rs. {gross.toLocaleString()}</Text></View>
                     <View style={styles.payRow}><Text style={styles.payLabel}>{_("Deductions")}</Text><Text style={styles.payValRed}>-Rs. {deductions.toLocaleString()}</Text></View>
                     <View style={styles.payDivider} />
                     <View style={styles.payRow}><Text style={styles.payTotalLabel}>{_("Net Amount")}</Text><Text style={styles.payTotalVal}>Rs. {net.toLocaleString()}</Text></View>
-                    <Text style={t.status === 'CLEARED' ? styles.payFooterTextDim : styles.payFooterTextYellow}>
-                      {t.status === 'CLEARED' ? `Finalized on ${formatDate(t.transactionDate)}` : `Upcoming: 28 ${new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}`}
+                    <Text style={['CLEARED', 'APPROVED', 'PAID'].includes(t.status) ? styles.payFooterTextDim : styles.payFooterTextYellow}>
+                      {['CLEARED', 'APPROVED', 'PAID'].includes(t.status) ? `Finalized on ${formatDate(t.transactionDate)}` : `Upcoming: 28 ${new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}`}
                     </Text>
                   </View>
                 );
