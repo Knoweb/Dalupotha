@@ -103,6 +103,33 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
 
   const [historyItems, setHistoryItems] = useState<CollectionCardItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const fetchAlerts = async () => {
+        if (!token || !user?.userId || role === "supplier") return;
+        try {
+          const params = new URLSearchParams();
+          params.set("assignedAgentId", String(user.userId));
+          params.set("requestType", "TRANSPORT");
+          params.set("status", "APPROVED_BY_EXT");
+          const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
+          if (active && Array.isArray(data)) {
+            setUnreadNotifications(data.length);
+          }
+        } catch(e) {}
+      };
+      
+      fetchAlerts();
+      const interval = setInterval(fetchAlerts, 10000);
+      return () => {
+        active = false;
+        clearInterval(interval);
+      }
+    }, [token, user?.userId, role])
+  );
 
   const loadData = useCallback(async () => {
     if (!token || !user?.userId) {
@@ -254,9 +281,12 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
             <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="wifi-outline" size={20} color={palette.muted} />
             </View>
-            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="notifications-outline" size={20} color={palette.muted} />
-            </View>
+            <Pressable onPress={() => navigation.navigate("Requests", { initialTab: "Transport" })} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="notifications-outline" size={20} color={unreadNotifications > 0 ? "#fff" : palette.muted} />
+              {unreadNotifications > 0 && (
+                <View style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: "#e74c3c", borderWidth: 1, borderColor: "#061224" }} />
+              )}
+            </Pressable>
             <Pressable onPress={() => navigation.navigate("Login")} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="log-out-outline" size={20} color={palette.muted} />
             </Pressable>
@@ -744,7 +774,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
       if (user?.supplierId) {
         params.set("supplierId", String(user.supplierId));
       } else {
-        params.set("createdById", String(user.userId));
+        params.set("assignedAgentId", String(user.userId));
       }
       params.set("requestType", requestType);
       params.set("limit", "120");
