@@ -33,6 +33,12 @@ spring:
           filters:
             - RewritePath=/auth/(?<segment>.*), /api/auth/$\{segment}
             - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - id: auth-service-api-routes
+          uri: http://auth-service:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
         - id: collection-service-routes
           uri: http://collection-service:8082
           predicates:
