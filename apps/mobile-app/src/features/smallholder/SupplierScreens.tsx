@@ -998,11 +998,8 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         const currentMonthKg = historyRes
-            .filter((item: any) => new Date(item.collectedAt).getTime() >= startOfMonth)
-            .reduce((sum: number, item: any) => {
-              const w = item.netWeight != null ? Number(item.netWeight) : Number(item.grossWeight || 0);
-              return sum + w;
-            }, 0);
+            .filter((item: any) => new Date(item.collectedAt).getTime() >= startOfMonth && item.netWeight != null)
+            .reduce((sum: number, item: any) => sum + Number(item.netWeight), 0);
 
         const price = normalizedLedger.leafPrice || ledgerRes?.leafPrice || 240.0;
         let currentMonthGross = currentMonthKg * price;

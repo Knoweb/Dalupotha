@@ -103,7 +103,9 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
 
   const [historyItems, setHistoryItems] = useState<CollectionCardItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [hasViewedAlerts, setHasViewedAlerts] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -117,7 +119,12 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
           params.set("status", "APPROVED_BY_EXT");
           const data = await apiGet<any[]>(`${ServicesAPI.createRequest}?${params.toString()}`, token);
           if (active && Array.isArray(data)) {
-            setUnreadNotifications(data.length);
+            setUnreadNotifications((prev) => {
+              if (data.length > prev.length) {
+                setHasViewedAlerts(false); // New alerts arrived! Show badge again
+              }
+              return data;
+            });
           }
         } catch(e) {}
       };
@@ -281,9 +288,15 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
             <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="wifi-outline" size={20} color={palette.muted} />
             </View>
-            <Pressable onPress={() => navigation.navigate("Requests", { initialTab: "Transport" })} style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="notifications-outline" size={20} color={unreadNotifications > 0 ? "#fff" : palette.muted} />
-              {unreadNotifications > 0 && (
+            <Pressable 
+              onPress={() => {
+                setShowNotificationModal(true);
+                setHasViewedAlerts(true);
+              }} 
+              style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center", justifyContent: "center" }}
+            >
+              <Ionicons name="notifications-outline" size={20} color={unreadNotifications.length > 0 && !hasViewedAlerts ? "#fff" : palette.muted} />
+              {unreadNotifications.length > 0 && !hasViewedAlerts && (
                 <View style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: "#e74c3c", borderWidth: 1, borderColor: "#061224" }} />
               )}
             </Pressable>
@@ -462,6 +475,47 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
         })}
 
       </ScrollView>
+
+      {/* Notifications Modal */}
+      <Modal visible={showNotificationModal} transparent animationType="fade" onRequestClose={() => setShowNotificationModal(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }} onPress={() => setShowNotificationModal(false)}>
+          <Pressable style={{ width: "85%", backgroundColor: "#fff", borderRadius: 16, padding: 20, maxHeight: "70%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#111827" }}>{_("Notifications")}</Text>
+              <Pressable onPress={() => setShowNotificationModal(false)}>
+                <Ionicons name="close" size={24} color="#6b7280" />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {unreadNotifications.length === 0 ? (
+                <Text style={{ textAlign: "center", color: "#6b7280", marginVertical: 20 }}>{_("No new notifications")}</Text>
+              ) : (
+                unreadNotifications.map((req, idx) => (
+                  <View key={idx} style={{ backgroundColor: "#f3f4f6", padding: 12, borderRadius: 12, marginBottom: 10 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <Ionicons name="bus" size={16} color={palette.accentGreen} />
+                      <Text style={{ fontSize: 13, fontWeight: "bold", color: "#1f2937" }}>{_("Transport Approved")}</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: "#4b5563" }}>
+                      {_("Manager approved transport request for")}: <Text style={{ fontWeight: "bold", color: "#111827" }}>{req.supplierName}</Text>
+                    </Text>
+                    <Pressable 
+                      style={{ marginTop: 8, alignSelf: "flex-start", paddingVertical: 4 }} 
+                      onPress={() => {
+                        setShowNotificationModal(false);
+                        navigation.navigate("Requests", { initialTab: "Transport" });
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, color: palette.accentBlue, fontWeight: "bold" }}>{_("View in Requests")} &rarr;</Text>
+                    </Pressable>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </View>
   );
 }
