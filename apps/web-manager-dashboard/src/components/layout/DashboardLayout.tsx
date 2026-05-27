@@ -40,7 +40,9 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
   const fetchPending = useCallback(async () => {
     if (!isAlertRole) return;
     try {
-      const res = await fetch('/api/collection/recent?limit=200');
+      const estateId = sessionStorage.getItem('estate_id');
+      const estateParam = estateId ? `&estateId=${estateId}` : '';
+      const res = await fetch(`/api/collection/recent?limit=200${estateParam}`);
       if (!res.ok) return;
       const data: any[] = await res.json();
       // A collection is "pending" if netWeight is null

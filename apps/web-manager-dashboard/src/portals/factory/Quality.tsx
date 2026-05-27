@@ -45,7 +45,9 @@ export default function QualityPage() {
   const fetchCollections = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/collection/recent?limit=100');
+      const estateId = sessionStorage.getItem('estate_id');
+      const estateParam = estateId ? `&estateId=${estateId}` : '';
+      const res = await fetch(`/api/collection/recent?limit=100${estateParam}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setDeliveries(data.map((c: any) => ({
