@@ -14,6 +14,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
   const [username, setUsername] = useState(''); // This will be employeeId
   const [password, setPassword] = useState(''); // This will be PIN
   const [showPassword, setShowPassword] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   // Registration state
   const [estateForm, setEstateForm] = useState({ 
@@ -111,7 +112,8 @@ export default function LoginPage({ onLogin }: LoginProps) {
         setEstateForm({ name: '', code: '', address: '', phone: '', managerName: '', adminEmail: '', adminPassword: '' });
         setConfirmPassword('');
         setCoverPicture(null);
-        alert(t('Estate onboarded successfully! Access cleared for management.'));
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 5000);
       } else {
         const err = await res.json().catch(() => null);
         alert(err?.message || t('Registration failed. Please check your input.'));
@@ -126,6 +128,20 @@ export default function LoginPage({ onLogin }: LoginProps) {
 
   return (
     <div className="min-h-screen font-sans bg-white relative overflow-hidden">
+      {showSuccess && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+           <div className="bg-white rounded-3xl p-10 flex flex-col items-center max-w-sm text-center shadow-2xl animate-in zoom-in-95 duration-500">
+             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
+               <ShieldCheck size={40} />
+             </div>
+             <h3 className="text-2xl font-black text-slate-800 mb-2">{t('Registration Complete!')}</h3>
+             <p className="text-slate-500 text-sm font-medium mb-8">{t('Your estate has been successfully onboarded. You can now log in with your master admin credentials.')}</p>
+             <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-[#3d7a2d] hover:bg-[#2d6a4f] text-white rounded-xl font-bold uppercase tracking-widest text-xs transition-colors">
+               {t('Go to Login')}
+             </button>
+           </div>
+        </div>
+      )}
       {!isRegistering ? (
         <div className="flex flex-col lg:flex-row h-screen">
           <div className="flex-1 relative h-[30vh] lg:h-screen overflow-hidden">
@@ -407,7 +423,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
                         </div>
                       </div>
                       <div className="pt-10">
-                         <button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 hover:bg-black text-white py-5 rounded-2xl font-black text-sm tracking-[0.2em] transition-all flex items-center justify-center gap-3 uppercase">
+                         <button type="submit" disabled={isSubmitting || !estateForm.adminEmail || !estateForm.adminPassword || estateForm.adminPassword !== confirmPassword} className="w-full bg-slate-900 hover:bg-black text-white py-5 rounded-2xl font-black text-sm tracking-[0.2em] transition-all flex items-center justify-center gap-3 uppercase disabled:opacity-50 disabled:cursor-not-allowed">
                            {isSubmitting ? <RefreshCw className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
                            <span>{t('Confirm & Register')}</span>
                          </button>
