@@ -458,7 +458,10 @@ export default function InventoryPage() {
                     </div>
                     <div className="space-y-1.5">
                        <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest ml-1">{t('Unit Cost')}</label>
-                       <input type="number" value={updateUnitCost} onChange={(e) => setUpdateUnitCost(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
+                       <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">Rs.</span>
+                          <input type="number" value={updateUnitCost} onChange={(e) => setUpdateUnitCost(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-slate-800 focus:bg-white focus:border-emerald-200 outline-none transition-all text-sm" />
+                       </div>
                     </div>
                 </div>
              </div>
@@ -526,7 +529,10 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Unit Cost')}</label>
-                    <input type="number" value={newItem.unitCost} onChange={e => setNewItem({...newItem, unitCost: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" />
+                    <div className="relative">
+                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">Rs.</span>
+                       <input type="number" value={newItem.unitCost} onChange={e => setNewItem({...newItem, unitCost: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl pl-9 pr-3 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" />
+                    </div>
                   </div>
                 </div>
               </div>
