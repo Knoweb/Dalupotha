@@ -37,6 +37,9 @@ public class InventoryItem {
     @Column(name = "last_updated")
     private LocalDateTime lastUpdated;
 
+    @Column(name = "estate_id")
+    private UUID estateId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -72,4 +75,6 @@ public class InventoryItem {
     public void setLastUpdated(LocalDateTime lastUpdated) { this.lastUpdated = lastUpdated; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public UUID getEstateId() { return estateId; }
+    public void setEstateId(UUID estateId) { this.estateId = estateId; }
 }

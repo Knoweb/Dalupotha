@@ -49,19 +49,22 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!isManager) return;
-    fetch('/api/finance/leaf-price')
+    const estateId = sessionStorage.getItem('estate_id');
+    const query = estateId ? `?estateId=${estateId}` : '';
+
+    fetch(`/api/finance/leaf-price${query}`)
       .then(r => r.json())
       .then(d => {
-        setCurrentPrice(Number(d.pricePerKg));
+        setCurrentPrice(d.pricePerKg !== null && d.pricePerKg !== undefined ? Number(d.pricePerKg) : null);
         setEffectiveDate(d.effectiveDate ?? null);
       })
-      .catch(() => setCurrentPrice(240))
+      .catch(() => setCurrentPrice(null))
       .finally(() => setPriceLoading(false));
 
-    fetch('/api/finance/advance-limit')
+    fetch(`/api/finance/advance-limit${query}`)
       .then(r => r.json())
-      .then(d => setAdvanceLimit(Number(d.advanceLimit)))
-      .catch(() => setAdvanceLimit(25000))
+      .then(d => setAdvanceLimit(d.advanceLimit !== null && d.advanceLimit !== undefined ? Number(d.advanceLimit) : null))
+      .catch(() => setAdvanceLimit(null))
       .finally(() => setLimitLoading(false));
 
     const userId = sessionStorage.getItem('current_user_id');
@@ -130,7 +133,9 @@ export default function SettingsPage() {
     setShowLimitConfirm(false);
     setLimitSaving(true); setLimitStatus('idle'); setLimitError('');
     try {
-      const res = await fetch('/api/finance/advance-limit', {
+      const estateId = sessionStorage.getItem('estate_id');
+      const query = estateId ? `?estateId=${estateId}` : '';
+      const res = await fetch(`/api/finance/advance-limit${query}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ advanceLimit: val }),
@@ -219,7 +224,9 @@ export default function SettingsPage() {
     setPriceStatus('idle');
     setPriceError('');
     try {
-      const res = await fetch('/api/finance/leaf-price', {
+      const estateId = sessionStorage.getItem('estate_id');
+      const query = estateId ? `?estateId=${estateId}` : '';
+      const res = await fetch(`/api/finance/leaf-price${query}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pricePerKg: val }),
@@ -463,11 +470,20 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-baseline gap-1 mb-3">
-                      <span className="text-3xl font-black text-slate-900">Rs. {currentPrice?.toFixed(2)}</span>
-                      <span className="text-base font-bold text-slate-500">/kg</span>
+                    <div className="flex items-center gap-2 mb-3">
+                      {currentPrice !== null ? (
+                        <>
+                          <span className="text-3xl font-black text-slate-900">Rs. {currentPrice.toFixed(2)}</span>
+                          <span className="text-base font-bold text-slate-500">/kg</span>
+                        </>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-xl bg-red-50 border-2 border-red-200 text-red-600 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                          <AlertCircle size={14} className="stroke-[2.5]" />
+                          {t('Not Assigned')}
+                        </span>
+                      )}
                     </div>
-                    {effectiveDate && (
+                    {currentPrice !== null && effectiveDate && (
                       <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">
                         {t('Since')}: {new Date(effectiveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
@@ -527,9 +543,18 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-baseline gap-1 mb-3">
-                      <span className="text-3xl font-black text-slate-900">Rs. {advanceLimit?.toLocaleString('en-LK')}</span>
-                      <span className="text-base font-bold text-slate-500">max</span>
+                    <div className="flex items-center gap-2 mb-3">
+                      {advanceLimit !== null ? (
+                        <>
+                          <span className="text-3xl font-black text-slate-900">Rs. {advanceLimit.toLocaleString('en-LK')}</span>
+                          <span className="text-base font-bold text-slate-500">max</span>
+                        </>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-xl bg-red-50 border-2 border-red-200 text-red-600 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                          <AlertCircle size={14} className="stroke-[2.5]" />
+                          {t('Not Assigned')}
+                        </span>
+                      )}
                     </div>
 
                     {isEditingLimit && (

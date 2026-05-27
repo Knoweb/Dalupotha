@@ -17,7 +17,10 @@ public class InventoryController {
     }
 
     @GetMapping
-    public List<InventoryItem> getAllItems() {
+    public List<InventoryItem> getAllItems(@RequestParam(required = false) UUID estateId) {
+        if (estateId != null) {
+            return inventoryRepository.findByEstateId(estateId);
+        }
         return inventoryRepository.findAll();
     }
 

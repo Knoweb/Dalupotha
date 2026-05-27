@@ -69,8 +69,10 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
       // 2. Fetch pending service requests count (ONLY for roles that handle requests)
       if (['manager', 'extension-officer', 'store-keeper'].includes(userRole || '')) {
         const reqStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
-        const reqRes = await fetch(`/api/services/request?status=${reqStatus}&limit=200`);
-      if (reqRes.ok) {
+        const estateId = sessionStorage.getItem('estate_id');
+        const estateParam = estateId ? `&estateId=${estateId}` : '';
+        const reqRes = await fetch(`/api/services/request?status=${reqStatus}&limit=200${estateParam}`);
+        if (reqRes.ok) {
          const reqData: any[] = await reqRes.json();
          
          // Filter data on client side to be absolutely sure it matches the role AND item types

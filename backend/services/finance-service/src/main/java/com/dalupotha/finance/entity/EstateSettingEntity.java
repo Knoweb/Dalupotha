@@ -16,11 +16,14 @@ public class EstateSettingEntity {
     @Column(name = "setting_id")
     private UUID settingId;
 
-    @Column(name = "setting_key", nullable = false, unique = true)
+    @Column(name = "setting_key", nullable = false)
     private String settingKey;
 
     @Column(name = "setting_value", nullable = false)
     private String settingValue;
+
+    @Column(name = "estate_id")
+    private UUID estateId;
 
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
@@ -44,4 +47,6 @@ public class EstateSettingEntity {
     public void setSettingValue(String settingValue) { this.settingValue = settingValue; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public UUID getEstateId() { return estateId; }
+    public void setEstateId(UUID estateId) { this.estateId = estateId; }
 }

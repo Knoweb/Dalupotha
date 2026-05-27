@@ -14,6 +14,8 @@ public class CollectionSyncItemRequest {
     @NotNull
     private UUID supplierId;
 
+    private UUID estateId;
+
     @NotNull
     private UUID transportAgentId;
 
@@ -46,6 +48,14 @@ public class CollectionSyncItemRequest {
 
     public void setSupplierId(UUID supplierId) {
         this.supplierId = supplierId;
+    }
+
+    public UUID getEstateId() {
+        return estateId;
+    }
+
+    public void setEstateId(UUID estateId) {
+        this.estateId = estateId;
     }
 
     public UUID getTransportAgentId() {

@@ -27,6 +27,7 @@ type RootStackParamList = {
   MainTabs: { role: Role; token?: string; user?: any };
   CollectionInput: { token: string; user: any };
   CollectionDetail: undefined;
+  Circulars: { lang: string } | undefined;
   SupplierList: { user?: any; token?: string } | undefined;
 };
 
@@ -203,7 +204,7 @@ export default function App() {
         />
         <Stack.Screen name="CollectionInput" component={CollectionInputScreen} />
         <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} />
-        <Stack.Screen name="Circulars" children={(props) => <CircularsScreen {...props} lang={props.route.params?.lang || 'en'} />} />
+        <Stack.Screen name="Circulars" children={(props: any) => <CircularsScreen {...props} lang={props.route.params?.lang || 'en'} />} />
         <Stack.Screen
           name="SupplierList"
           children={(props: any) => (

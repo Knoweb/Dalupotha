@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface TRICircularRepository extends JpaRepository<TRICircular, UUID> {
     List<TRICircular> findByIsActiveTrueOrderByPublishedDateDesc();
     List<TRICircular> findByTargetAudienceAndIsActiveTrueOrderByPublishedDateDesc(String targetAudience);
+    boolean existsByDisplayIdAndIsActiveTrue(String displayId);
 }

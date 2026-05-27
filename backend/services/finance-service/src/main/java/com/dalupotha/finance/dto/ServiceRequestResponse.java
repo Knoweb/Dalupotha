@@ -30,6 +30,7 @@ public record ServiceRequestResponse(
         UUID assignedAgentId,
         String assignedAgentName,
         String approverName,
-        BigDecimal approvedAmount
+        BigDecimal approvedAmount,
+        UUID estateId
 ) {
 }

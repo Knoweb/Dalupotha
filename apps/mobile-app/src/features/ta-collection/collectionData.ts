@@ -20,6 +20,7 @@ export type OfflineCollectionItem = {
   overrideReason?: string;
   collectedAt: string;
   syncStatus: SyncStatus;
+  estateId?: string;
 };
 
 type SyncResult = {
@@ -122,6 +123,7 @@ export async function syncQueuedCollections(token: string, transportAgentId: str
       passbookNo: item.passbookNo,
       transportAgentName: item.transportAgentName,
       collectedAt: item.collectedAt,
+      estateId: item.estateId,
     })),
   };
 

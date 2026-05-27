@@ -1437,7 +1437,7 @@ export default function ReportsPage() {
             routeMap.set(u.supplierId, u.routeName);
          }
       });
-      const collections = await CollectionAPI.getRecentCollections(1000);
+      const collections = await CollectionAPI.getRecentCollections(1000, estateId);
       const snapshotDate = endOfSelectedMonth(selectedMonth, selectedYear);
       const previousSnapshotDate = getPreviousMonthEnd(selectedMonth, selectedYear);
 
@@ -1727,7 +1727,8 @@ export default function ReportsPage() {
       setReportError(null);
 
       try {
-         const collections = await CollectionAPI.getRecentCollections(1000);
+         const estateId = sessionStorage.getItem("estate_id") || sessionStorage.getItem("current_estate_id") || undefined;
+         const collections = await CollectionAPI.getRecentCollections(1000, estateId);
          const filteredCollections = (collections || []).filter((collection: any) => {
             const collectedAt = collection.collectedAt || collection.timestamp;
             // Exclude records without a collection date or without a registered agent id
@@ -1824,7 +1825,8 @@ export default function ReportsPage() {
       setReportError(null);
 
       try {
-         const collections = await CollectionAPI.getRecentCollections(1000);
+         const estateId = sessionStorage.getItem("estate_id") || sessionStorage.getItem("current_estate_id") || undefined;
+         const collections = await CollectionAPI.getRecentCollections(1000, estateId);
          
          // Group collections by date for selected month/year
          const dailyMap: Record<string, DailyCollectionRecord> = {};
@@ -1903,7 +1905,9 @@ export default function ReportsPage() {
          // 1. Fetch Real Leaf Rate from Manager settings
          let leafPrice = 240; // Default fallback
          try {
-            const priceRes = await fetch('/api/finance/leaf-price');
+            const estateId = sessionStorage.getItem('estate_id');
+            const query = estateId ? `?estateId=${estateId}` : '';
+            const priceRes = await fetch(`/api/finance/leaf-price${query}`);
             if (priceRes.ok) {
                const priceData = await priceRes.json();
                if (priceData.pricePerKg) {
@@ -1915,8 +1919,8 @@ export default function ReportsPage() {
          }
 
          const [suppliersList, collections] = await Promise.all([
-            AuthAPI.getSuppliers().catch(() => []),
-            CollectionAPI.getRecentCollections(1000)
+            AuthAPI.getSuppliers(estateId ? { estateId, limit: 1000 } : undefined).catch(() => []),
+            CollectionAPI.getRecentCollections(1000, estateId)
          ]);
 
          const passbookMap: Record<string, string> = {};
@@ -2036,9 +2040,10 @@ export default function ReportsPage() {
       setReportError(null);
     try {
       // Fetch suppliers list and collections in parallel to resolve passbook numbers
+      const estateId = sessionStorage.getItem("estate_id") || sessionStorage.getItem("current_estate_id") || undefined;
       const [suppliersList, collections] = await Promise.all([
-         AuthAPI.getSuppliers().catch(() => []),
-         CollectionAPI.getRecentCollections(1000)
+         AuthAPI.getSuppliers(estateId ? { estateId, limit: 1000 } : undefined).catch(() => []),
+         CollectionAPI.getRecentCollections(1000, estateId)
       ]);
 
       const passbookMap: Record<string, string> = {};

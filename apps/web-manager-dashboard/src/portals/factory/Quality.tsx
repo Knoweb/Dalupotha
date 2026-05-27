@@ -47,7 +47,9 @@ export default function QualityPage() {
     try {
       const estateId = sessionStorage.getItem('estate_id');
       const estateParam = estateId ? `&estateId=${estateId}` : '';
-      const res = await fetch(`/api/collection/recent?limit=100${estateParam}`);
+      const token = sessionStorage.getItem('auth_token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : undefined;
+      const res = await fetch(`/api/collection/recent?limit=100${estateParam}`, { headers });
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setDeliveries(data.map((c: any) => ({

@@ -503,13 +503,7 @@ export default function UsersPage() {
                       <input required type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none font-medium" value={taData.contact} onChange={e => setTaData({...taData, contact: e.target.value})} placeholder="07XXXXXXXX" />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-950 uppercase mb-1">{t('Estate Processing Hub')}</label>
-                    <select className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm outline-none font-medium text-slate-700" value={taData.estateId} onChange={e => setTaData({...taData, estateId: e.target.value})}>
-                       <option value="">{t('Global / Master TA')}</option>
-                       {estates.map(es => <option key={es.estateId} value={es.estateId}>{es.name}</option>)}
-                    </select>
-                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-950 uppercase mb-2">{t('Collection Route(s)')}</label>
                     {estateRoutes.length === 0 ? (

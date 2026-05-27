@@ -73,7 +73,7 @@ public class FinanceService {
 
         // ── Enforce advance limit ────────────────────────────────────
         if (request.getRequestType() == RequestType.ADVANCE && request.getRequestedAmount() != null) {
-            BigDecimal limit = getAdvanceLimitValue();
+            BigDecimal limit = getAdvanceLimitValue(request.getEstateId());
             if (request.getRequestedAmount().compareTo(limit) > 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Advance request of Rs. " + request.getRequestedAmount() +
@@ -94,6 +94,7 @@ public class FinanceService {
         entity.setSupplierName(request.getSupplierName());
         entity.setPassbookNo(request.getPassbookNo());
         entity.setStatus(RequestStatus.PENDING);
+        entity.setEstateId(request.getEstateId());
 
         // Fetch identity from Auth Service if not provided
         String name = request.getCreatorName();
@@ -171,6 +172,7 @@ public class FinanceService {
                                                     RequestType requestType,
                                                     RequestStatus status,
                                                     UUID assignedAgentId,
+                                                    UUID estateId,
                                                     Integer limit) {
         int pageSize = limit == null ? 100 : Math.min(Math.max(limit, 1), 300);
         return serviceRequestRepository.search(
@@ -180,6 +182,7 @@ public class FinanceService {
                         requestType,
                         status,
                         assignedAgentId,
+                        estateId,
                         PageRequest.of(0, pageSize)
                 )
                 .stream()
@@ -526,33 +529,33 @@ public class FinanceService {
                 resolvedAgentId,
                 assignedAgentName,
                 approverName,
-                entity.getApprovedAmount()
+                entity.getApprovedAmount(),
+                entity.getEstateId()
         );
     }
 
 
-    public java.util.Map<String, Object> getCurrentLeafPrice() {
-        return leafPriceRepository.findFirstByIsActiveTrueOrderByEffectiveDateDesc()
-            .map(lp -> {
-                java.util.Map<String, Object> result = new java.util.HashMap<>();
-                result.put("pricePerKg", lp.getPricePerKg());
-                result.put("effectiveDate", lp.getEffectiveDate());
-                result.put("priceId", lp.getPriceId());
-                return result;
-            })
-            .orElseGet(() -> {
-                java.util.Map<String, Object> result = new java.util.HashMap<>();
-                result.put("pricePerKg", new BigDecimal("240.00"));
-                result.put("effectiveDate", null);
-                result.put("priceId", null);
-                return result;
-            });
+    public java.util.Map<String, Object> getCurrentLeafPrice(UUID estateId) {
+        java.util.List<com.dalupotha.finance.entity.LeafPriceEntity> prices = leafPriceRepository.findActivePriceByEstate(estateId);
+        if (!prices.isEmpty()) {
+            com.dalupotha.finance.entity.LeafPriceEntity lp = prices.get(0);
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("pricePerKg", lp.getPricePerKg());
+            result.put("effectiveDate", lp.getEffectiveDate());
+            result.put("priceId", lp.getPriceId());
+            return result;
+        }
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("pricePerKg", null);
+        result.put("effectiveDate", null);
+        result.put("priceId", null);
+        return result;
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public java.util.Map<String, Object> setLeafPrice(BigDecimal pricePerKg) {
-        // Deactivate all existing active rates
-        leafPriceRepository.findAll().forEach(lp -> {
+    public java.util.Map<String, Object> setLeafPrice(BigDecimal pricePerKg, UUID estateId) {
+        // Deactivate all existing active rates for this estate
+        leafPriceRepository.findAllByEstateId(estateId).forEach(lp -> {
             if (lp.isActive()) {
                 lp.setActive(false);
                 leafPriceRepository.save(lp);
@@ -563,9 +566,10 @@ public class FinanceService {
         com.dalupotha.finance.entity.LeafPriceEntity newPrice = new com.dalupotha.finance.entity.LeafPriceEntity();
         newPrice.setPricePerKg(pricePerKg);
         newPrice.setActive(true);
+        newPrice.setEstateId(estateId);
         leafPriceRepository.save(newPrice);
 
-        log.info("Leaf price updated to Rs. {} per kg", pricePerKg);
+        log.info("Leaf price updated for estate {} to Rs. {} per kg", estateId, pricePerKg);
 
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("pricePerKg", newPrice.getPricePerKg());
@@ -578,30 +582,39 @@ public class FinanceService {
     private static final BigDecimal DEFAULT_ADVANCE_LIMIT = new BigDecimal("25000.00");
     private static final String KEY_ADVANCE_LIMIT = "advance_limit";
 
-    private BigDecimal getAdvanceLimitValue() {
-        return estateSettingRepository.findBySettingKey(KEY_ADVANCE_LIMIT)
-            .map(s -> new BigDecimal(s.getSettingValue()))
-            .orElse(DEFAULT_ADVANCE_LIMIT);
+    private BigDecimal getAdvanceLimitValue(UUID estateId) {
+        java.util.List<EstateSettingEntity> settings = estateSettingRepository.findByKeyAndEstate(KEY_ADVANCE_LIMIT, estateId);
+        if (!settings.isEmpty()) {
+            return new BigDecimal(settings.get(0).getSettingValue());
+        }
+        return null;
     }
 
-    public java.util.Map<String, Object> getAdvanceLimit() {
-        BigDecimal limit = getAdvanceLimitValue();
+    public java.util.Map<String, Object> getAdvanceLimit(UUID estateId) {
+        BigDecimal limit = getAdvanceLimitValue(estateId);
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("advanceLimit", limit);
         return result;
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public java.util.Map<String, Object> setAdvanceLimit(BigDecimal limit) {
-        EstateSettingEntity entity = estateSettingRepository.findBySettingKey(KEY_ADVANCE_LIMIT)
-            .orElseGet(() -> {
-                EstateSettingEntity e = new EstateSettingEntity();
-                e.setSettingKey(KEY_ADVANCE_LIMIT);
-                return e;
-            });
+    public java.util.Map<String, Object> setAdvanceLimit(BigDecimal limit, UUID estateId) {
+        java.util.List<EstateSettingEntity> settings = estateSettingRepository.findByKeyAndEstate(KEY_ADVANCE_LIMIT, estateId);
+        EstateSettingEntity entity = null;
+        if (!settings.isEmpty()) {
+            EstateSettingEntity first = settings.get(0);
+            if (first.getEstateId() != null && first.getEstateId().equals(estateId)) {
+                entity = first;
+            }
+        }
+        if (entity == null) {
+            entity = new EstateSettingEntity();
+            entity.setSettingKey(KEY_ADVANCE_LIMIT);
+            entity.setEstateId(estateId);
+        }
         entity.setSettingValue(limit.toPlainString());
         estateSettingRepository.save(entity);
-        log.info("Advance limit updated to Rs. {}", limit);
+        log.info("Advance limit updated for estate {} to Rs. {}", estateId, limit);
 
         java.util.Map<String, Object> result = new java.util.HashMap<>();
         result.put("advanceLimit", limit);

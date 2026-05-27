@@ -568,19 +568,30 @@ export default function ApprovalsPage() {
     }
     setRefreshing(true)
     const userRole = sessionStorage.getItem('user_role');
+    const estateId = sessionStorage.getItem('estate_id') || undefined;
     try {
       const pendingStatus = userRole === 'store-keeper' ? 'APPROVED_BY_EXT' : 'PENDING';
       const approvedStatus = userRole === 'store-keeper' ? 'DISPATCHED' : 'APPROVED_BY_EXT';
+      
+      const pParams: Record<string, string> = { status: pendingStatus };
+      const aParams: Record<string, string> = { status: approvedStatus };
+      const rParams: Record<string, string> = { status: 'REJECTED' };
+      if (estateId) {
+        pParams.estateId = estateId;
+        aParams.estateId = estateId;
+        rParams.estateId = estateId;
+      }
+
       const [p, a, r] = await Promise.all([
-        FinanceAPI.getRequests({ status: pendingStatus }),
-        FinanceAPI.getRequests({ status: approvedStatus }),
-        FinanceAPI.getRequests({ status: 'REJECTED' }),
+        FinanceAPI.getRequests(pParams),
+        FinanceAPI.getRequests(aParams),
+        FinanceAPI.getRequests(rParams),
       ])
       const sorted = [...[...p, ...a, ...r]].sort((a, b) => new Date(b.requestDate).getTime() - new Date(a.requestDate).getTime())
       setRequests(sorted)
       
       if (userRole === 'store-keeper') {
-        InventoryAPI.getItems().then(items => {
+        InventoryAPI.getItems(estateId).then(items => {
           const map: Record<string, { stock: number; unit: string }> = {}
           items.forEach(item => {
             map[item.itemId] = { stock: item.quantityInStock, unit: item.unit || '' }

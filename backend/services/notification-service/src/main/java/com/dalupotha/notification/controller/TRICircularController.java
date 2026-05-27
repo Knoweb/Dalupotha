@@ -79,6 +79,11 @@ public class TRICircularController {
                 return ResponseEntity.badRequest().build();
             }
 
+            if (request.getId() != null && !request.getId().isEmpty() && triCircularRepository.existsByDisplayIdAndIsActiveTrue(request.getId())) {
+                log.warn("Circular with display ID {} already exists. Rejecting duplicate.", request.getId());
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
+
             TRICircular circular = TRICircular.builder()
                     .displayId(request.getId())
                     .title(request.getTitle())

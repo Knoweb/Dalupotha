@@ -20,9 +20,12 @@ type ApiCollectionHistory = {
   passbookNo: string;
   grossWeight: number;
   netWeight?: number;
+  gpsLat?: number;
+  gpsLong?: number;
+  gpsLng?: number;
   collectedAt: string;
   syncStatus: "QUEUED" | "SYNCING" | "SYNCED" | "FAILED";
-  gpsStatus: "GPS" | "NO_GPS" | "MANUAL";
+  gpsStatus: "GPS" | "NO_GPS" | "MANUAL" | "GPS_AT_SYNC";
   manualOverride: boolean;
 };
 
@@ -37,7 +40,7 @@ type CollectionCardItem = {
   gpsLng?: number;
   collectedAt: string;
   syncStatus: "QUEUED" | "SYNCING" | "SYNCED" | "FAILED";
-  gpsStatus: "GPS" | "NO_GPS" | "MANUAL";
+  gpsStatus: "GPS" | "NO_GPS" | "MANUAL" | "GPS_AT_SYNC";
   manualOverride: boolean;
 };
 
@@ -165,7 +168,7 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
         grossWeight: Number(item.grossWeight || 0),
         netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
         gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
-        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : (item.gpsLng != null ? Number(item.gpsLng) : undefined),
+        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -179,7 +182,7 @@ export function DashboardScreen({ user, role, navigation, token, lang }: any) {
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
         gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
-        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : (item.gpsLng != null ? Number(item.gpsLng) : undefined),
+        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -559,7 +562,7 @@ export function CollectionsScreen({ navigation, user, token, lang }: any) {
         grossWeight: Number(item.grossWeight || 0),
         netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
         gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
-        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : (item.gpsLng != null ? Number(item.gpsLng) : undefined),
+        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -573,7 +576,7 @@ export function CollectionsScreen({ navigation, user, token, lang }: any) {
         passbookNo: item.passbookNo,
         grossWeight: Number(item.grossWeight || 0),
         gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
-        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : (item.gpsLng != null ? Number(item.gpsLng) : undefined),
+        gpsLng: item.gpsLong != null ? Number(item.gpsLong) : undefined,
         collectedAt: item.collectedAt,
         syncStatus: item.syncStatus,
         gpsStatus: item.gpsStatus,
@@ -1967,7 +1970,7 @@ export function ProfileScreen({ user, token, navigation, lang, setLang }: any) {
             grossWeight: Number(item.grossWeight || 0),
             netWeight: item.netWeight != null ? Number(item.netWeight) : undefined,
             gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
-            gpsLng: item.gpsLong != null ? Number(item.gpsLong) : (item.gpsLng != null ? Number(item.gpsLng) : undefined),
+            gpsLng: item.gpsLong != null ? Number(item.gpsLong) : undefined,
             collectedAt: item.collectedAt,
             syncStatus: item.syncStatus,
             gpsStatus: item.gpsStatus,
@@ -1981,7 +1984,7 @@ export function ProfileScreen({ user, token, navigation, lang, setLang }: any) {
             grossWeight: Number(item.grossWeight || 0),
             netWeight: undefined,
             gpsLat: item.gpsLat != null ? Number(item.gpsLat) : undefined,
-            gpsLng: item.gpsLong != null ? Number(item.gpsLong) : (item.gpsLng != null ? Number(item.gpsLng) : undefined),
+            gpsLng: item.gpsLong != null ? Number(item.gpsLong) : undefined,
             collectedAt: item.collectedAt,
             syncStatus: item.syncStatus,
             gpsStatus: item.gpsStatus,

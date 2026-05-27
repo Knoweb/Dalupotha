@@ -7,4 +7,7 @@ import java.util.UUID;
 
 public interface InventoryRepository extends JpaRepository<InventoryItem, UUID> {
     List<InventoryItem> findByItemCategory(String itemCategory);
+
+    @org.springframework.data.jpa.repository.Query("select i from InventoryItem i where i.estateId = :estateId")
+    List<InventoryItem> findByEstateId(@org.springframework.data.repository.query.Param("estateId") UUID estateId);
 }

@@ -219,24 +219,9 @@ export const dictionary: any = {
     "No circulars found": "චක්‍රලේඛ කිසිවක් හමු නොවීය",
     "Read": "කියවා ඇත",
     "Unread": "කියවා නැත",
-    "TODAY'S LEAF": "අද දින දලු",
-    "ROUTE PROGRESS": "මාර්ගයේ ප්‍රගතිය",
-    "QUICK ACTIONS": "ඉක්මන් ක්‍රියා",
-    "New Collection": "නව එකතුව",
-    "View History": "ඉතිහාසය බලන්න",
-    "Supplier List": "සැපයුම්කරුවන්ගේ ලැයිස්තුව",
-    "Requests": "ඉල්ලීම්",
     "TODAY'S COLLECTIONS": "අද දින එකතු කිරීම්",
     "See All →": "සියල්ල පෙන්වන්න →",
-    "Search by name or passbook...": "නමින් හෝ පාස්බුක් අංකයෙන් සොයන්න...",
-    "All": "සියල්ල",
-    "My Collections": "මගේ එකතු කිරීම්",
-    "Sign Out": "පිටවන්න",
-    "Language Preference": "භාෂා මනාපය",
-    "Switch between Sinhala and English": "සිංහල සහ ඉංග්‍රීසි අතර මාරු වන්න",
     "Update security access code": "ආරක්ෂක ප්‍රවේශ කේතය යාවත්කාලීන කරන්න",
-    "View full history": "සම්පූර්ණ ඉතිහාසය බලන්න",
-    "Contact Support": "සහාය අමතන්න",
     "Extension Officer": "කෘෂිකර්ම උපදේශක"
   }
 };
@@ -268,6 +253,12 @@ type SupplierLedger = {
   estimatedBalance: number;
   advanceTaken: number;
   grossEarnings?: number;
+  leafPrice?: number;
+  totalGrossEarnings?: number;
+  payoutTotal?: number;
+  currentMonthGrossEarnings?: number;
+  qualityDeduction?: number;
+  pendingAdvances?: number;
 };
 
 type SupplierIdentity = {
@@ -1099,7 +1090,7 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
       
       if (payout.description && payout.description.startsWith('STATEMENT_SUMMARY|')) {
         const parts = payout.description.split('|');
-        parts.forEach(part => {
+        parts.forEach((part: string) => {
           const [key, value] = part.split(':');
           if (key === 'Gross') parsedGross = Number(value);
           if (key === 'Adv') parsedDeductions = (parsedDeductions || 0) + Number(value);
@@ -1194,7 +1185,7 @@ export function SupplierPaymentsScreen({ user, token, navigation, lang }: any) {
                 
                 if (t.description && t.description.startsWith('STATEMENT_SUMMARY|')) {
                   const parts = t.description.split('|');
-                  parts.forEach(part => {
+                  parts.forEach((part: string) => {
                     const [key, value] = part.split(':');
                     if (key === 'Gross') gross = Number(value);
                     if (key === 'Adv') deductions += Number(value);
@@ -1455,7 +1446,7 @@ export function SupplierDebtsScreen({ user, token, navigation, lang }: any) {
               return `${day} ${monthName} ${year}`;
             };
 
-            const groups: Record<string, { label: string, icon: string, color: string, amount: number, date: Date, items: any[] }> = {};
+            const groups: Record<string, { label: string, rawKey: string, icon: string, color: string, amount: number, date: Date, items: any[] }> = {};
             
             debtItems.forEach(item => {
               const info = getCategoryInfo(item.description);

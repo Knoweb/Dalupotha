@@ -22,6 +22,9 @@ public class LeafPriceEntity {
     @Column(name = "is_active")
     private boolean isActive;
 
+    @Column(name = "estate_id")
+    private UUID estateId;
+
     @PrePersist
     public void onCreate() {
         if (priceId == null) priceId = UUID.randomUUID();
@@ -36,4 +39,6 @@ public class LeafPriceEntity {
     public void setEffectiveDate(OffsetDateTime effectiveDate) { this.effectiveDate = effectiveDate; }
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
+    public UUID getEstateId() { return estateId; }
+    public void setEstateId(UUID estateId) { this.estateId = estateId; }
 }

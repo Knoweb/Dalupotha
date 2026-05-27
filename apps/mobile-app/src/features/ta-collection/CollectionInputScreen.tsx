@@ -254,6 +254,7 @@ export function CollectionInputScreen({ navigation, route, lang }: any) {
         manualOverride: isManualWeight,
         collectedAt: now.toISOString(),
         syncStatus: "QUEUED" as "QUEUED",
+        estateId: selectedSupplier.estateId || user.estateId,
       };
 
       await enqueueOfflineCollection(newItem);

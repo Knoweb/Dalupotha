@@ -194,8 +194,9 @@ export default function InventoryPage() {
 
   const loadInventory = async () => {
     setLoading(true)
+    const estateId = sessionStorage.getItem('estate_id') || undefined;
     try {
-      const data = await InventoryAPI.getItems()
+      const data = await InventoryAPI.getItems(estateId)
       setItems(data)
       setNotifiedItems(prev => {
         const stillLow = prev.filter(id => {
@@ -482,8 +483,9 @@ function HistoryModal({ item, onClose }: { item: InventoryItem; onClose: () => v
   useEffect(() => {
     const loadHistory = async () => {
       setLoading(true);
+      const estateId = sessionStorage.getItem('estate_id') || undefined;
       try {
-        const allRequests = await FinanceAPI.getRequests();
+        const allRequests = await FinanceAPI.getRequests(estateId ? { estateId } : undefined);
         const itemRequests = allRequests.filter(req => req.itemId === item.itemId);
 
         const requestLogs: InventoryHistoryLog[] = itemRequests.map(req => {

@@ -12,7 +12,7 @@ import {
   CheckSquare,
   Leaf 
 } from "lucide-react";
-import { FinanceAPI, CollectionAPI, AuthAPI } from "../../services/api";
+import { FinanceAPI, CollectionAPI, AuthAPI, InventoryAPI } from "../../services/api";
 import { supabase } from "../../services/supabase";
 import { useLanguage } from "../../hooks/useLanguage";
 
@@ -22,6 +22,7 @@ interface DashboardProps {
 
 export default function DashboardPage({ onNavigate }: DashboardProps) {
   const { t } = useLanguage();
+  const [unconfigured, setUnconfigured] = useState<string[]>([]);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [stats, setStats] = useState({
     todayWeight: 0,
@@ -68,9 +69,11 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
     try {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
+      const estateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || undefined;
+      const estateParam = estateId ? { estateId } : {};
 
       // 1. Pending Approvals
-      const pendingReqs = await FinanceAPI.getRequests({ status: 'PENDING' });
+      const pendingReqs = await FinanceAPI.getRequests({ status: 'PENDING', ...estateParam });
       const pendingCount = pendingReqs.length;
       setPendingCount(pendingCount);
 
@@ -79,7 +82,7 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
       const pendingMach = pendingReqs.filter(r => r.requestType === 'MACHINE' || r.requestType === 'TRANSPORT' || String(r.requestType).startsWith('TOOL')).length;
 
       // 2. Advances This Month
-      const allReqs = await FinanceAPI.getRequests();
+      const allReqs = await FinanceAPI.getRequests(estateParam);
       const advancesThisMonth = allReqs
         .filter(r => r.requestType === 'ADVANCE' && ['APPROVED', 'APPROVED_BY_EXT', 'DISPATCHED', 'COMPLETED'].includes(r.status))
         .filter(r => {
@@ -97,7 +100,7 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
         .reduce((sum, r) => sum + (r.requestedAmount || 0), 0);
 
       // 3. Green Leaf
-      const history = await CollectionAPI.getRecentCollections(500);
+      const history = await CollectionAPI.getRecentCollections(500, estateId);
       const todayStr = new Date().toISOString().split('T')[0];
       const todayData = history.filter(c => (c as any).collectedAt?.startsWith(todayStr) || (c as any).timestamp?.startsWith(todayStr));
       const todayWeight = todayData.reduce((sum, c) => sum + (c.netWeight || c.grossWeight || 0), 0);
@@ -109,7 +112,6 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
       let newThisMonth = 0;
       let outstandingDebts = 0;
 
-      const estateId = sessionStorage.getItem('current_estate_id') || undefined;
       const users = await AuthAPI.getUsers(estateId);
       
       // Extract valid agent names to filter the performance list later
@@ -138,20 +140,17 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
       let invBags = 0;
       let invBagsLow = false;
       try {
-        const inventoryRes = await fetch('/api/inventory');
-        if (inventoryRes.ok) {
-          const inventory = await inventoryRes.json();
-          const fertilizerItem = inventory.find((i: any) => i.itemCategory === 'FERTILIZER' || i.itemName?.toLowerCase().includes('urea'));
-          const bagItem = inventory.find((i: any) => i.itemCategory === 'LEAF_BAG' || i.itemName?.toLowerCase().includes('bag'));
-          
-          if (fertilizerItem) {
-            invFert = fertilizerItem.quantityInStock;
-            invFertLow = invFert <= (fertilizerItem.reorderLevel || 3000);
-          }
-          if (bagItem) {
-            invBags = bagItem.quantityInStock;
-            invBagsLow = invBags <= (bagItem.reorderLevel || 500);
-          }
+        const inventory = await InventoryAPI.getItems(estateId || undefined);
+        const fertilizerItem = inventory.find((i: any) => i.itemCategory === 'FERTILIZER' || i.itemName?.toLowerCase().includes('urea') || i.itemName?.toLowerCase().includes('fertilizer'));
+        const bagItem = inventory.find((i: any) => i.itemCategory === 'LEAF_BAG' || i.itemName?.toLowerCase().includes('bag'));
+        
+        if (fertilizerItem) {
+          invFert = fertilizerItem.quantityInStock;
+          invFertLow = invFert <= (fertilizerItem.reorderLevel || 3000);
+        }
+        if (bagItem) {
+          invBags = bagItem.quantityInStock;
+          invBagsLow = invBags <= (bagItem.reorderLevel || 500);
         }
       } catch (e) {
         console.error("Failed to fetch inventory for dashboard", e);
@@ -195,26 +194,6 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
         }
       });
       
-      const totalNet = netMonthMap.reduce((sum, v) => sum + v, 0);
-      if (totalNet < 100) {
-         // Fallback for net
-         for (let i = 0; i < daysInMonth; i++) {
-            const base = 3000;
-            const variance = Math.sin((i / daysInMonth) * Math.PI) * 2000;
-            netMonthMap[i] = base + variance + (Math.random() * 500);
-         }
-      }
-      
-      const totalGross = grossMonthMap.reduce((sum, v) => sum + v, 0);
-      if (totalGross < 100) {
-         // Fallback for gross (slightly higher than net)
-         for (let i = 0; i < daysInMonth; i++) {
-            const base = 3500;
-            const variance = Math.sin((i / daysInMonth) * Math.PI) * 2200;
-            grossMonthMap[i] = base + variance + (Math.random() * 500);
-         }
-      }
-      
       setDailyLeafMonth(netMonthMap);
       setDailyGrossLeafMonth(grossMonthMap);
 
@@ -249,25 +228,6 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
           }
         }
       });
-
-      const totalFinances = last6Months.reduce((sum, m) => sum + (advancesByMonth[m] || 0) + (paymentsByMonth[m] || 0), 0);
-      if (totalFinances < 1000) {
-         // Fallback to mockup data if DB is empty
-         const mockAdv = [3000, 3500, 3200, 2800, 4000, 4500];
-         const mockPay = [5000, 4000, 6000, 5000, 6500, 3500];
-         last6Months.forEach((m, idx) => {
-            advancesByMonth[m] = mockAdv[idx];
-            paymentsByMonth[m] = mockPay[idx];
-         });
-         
-         // Fallback for categories if empty
-         if (Object.keys(debtByCategory).length === 0) {
-            debtByCategory['ADVANCE'] = 120500;
-            debtByCategory['FERTILIZER'] = 12400;
-            debtByCategory['MACHINE'] = 80000;
-            debtByCategory['TRANSPORT'] = 75900;
-         }
-      }
 
       setMonthlyFinances(last6Months.map(m => ({
         month: m,
@@ -334,6 +294,32 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
       
       setRecentActivities(activities.slice(0, 5));
 
+      // 9. Config alerts (Leaf price & Advance limit)
+      const configAlerts: string[] = [];
+      try {
+        const lpRes = await fetch(`/api/finance/leaf-price${estateId ? `?estateId=${estateId}` : ''}`);
+        if (lpRes.ok) {
+          const lpData = await lpRes.json();
+          if (lpData.pricePerKg === null) {
+            configAlerts.push("Leaf Price");
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch leaf price config for alerts", e);
+      }
+      try {
+        const alRes = await fetch(`/api/finance/advance-limit${estateId ? `?estateId=${estateId}` : ''}`);
+        if (alRes.ok) {
+          const alData = await alRes.json();
+          if (alData.advanceLimit === null) {
+            configAlerts.push("Advance Limit");
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch advance limit config for alerts", e);
+      }
+      setUnconfigured(configAlerts);
+
       setStats({
         todayWeight,
         deliveriesCount,
@@ -378,6 +364,26 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
 
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-500">
+      {unconfigured.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-amber-100 border-2 border-amber-300/60 rounded-2xl p-5 flex items-start gap-4 shadow-sm animate-in slide-in-from-top-4 duration-300">
+          <div className="w-10 h-10 rounded-xl bg-amber-200/70 flex items-center justify-center flex-shrink-0 text-amber-800">
+            <AlertCircle size={22} className="stroke-[2.5]" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-extrabold text-amber-900 tracking-tight">{t('Configuration Required')}</h3>
+            <p className="text-xs text-amber-700 font-semibold mt-1.5 leading-relaxed">
+              {t('Your estate has no active')} <span className="font-extrabold text-amber-900 underline underline-offset-2">{unconfigured.join(` ${t('and')} `)}</span> {t('assigned. Please update this in settings to prevent transaction errors.')}
+            </p>
+          </div>
+          <button 
+            onClick={() => onNavigate?.('settings')}
+            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-amber-200 flex-shrink-0 active:scale-95"
+          >
+            {t('Go to Settings')}
+          </button>
+        </div>
+      )}
+
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-black uppercase tracking-[0.2em]">{t('Operational Overview')}</h2>

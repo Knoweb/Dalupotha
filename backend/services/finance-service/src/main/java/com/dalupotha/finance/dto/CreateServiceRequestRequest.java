@@ -26,6 +26,7 @@ public class CreateServiceRequestRequest {
     private String passbookNo;
     private String creatorName;
     private String creatorId;
+    private UUID estateId;
 
     public CreateServiceRequestRequest() {}
 
@@ -73,4 +74,7 @@ public class CreateServiceRequestRequest {
 
     public String getCreatorId() { return creatorId; }
     public void setCreatorId(String creatorId) { this.creatorId = creatorId; }
+
+    public UUID getEstateId() { return estateId; }
+    public void setEstateId(UUID estateId) { this.estateId = estateId; }
 }

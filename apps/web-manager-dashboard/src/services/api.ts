@@ -126,12 +126,16 @@ export const CollectionAPI = {
 
   getRecentCollections: async (limit: number = 50, estateId?: string) => {
     const estateParam = estateId ? `&estateId=${estateId}` : '';
-    const res = await fetch(`${API_BASE}/collection/recent?limit=${limit}${estateParam}`);
+    const res = await fetch(`${API_BASE}/collection/recent?limit=${limit}${estateParam}`, {
+      headers: getHeaders()
+    });
     if (!res.ok) {
-       console.warn('Realtime fetch failed, using fallback');
+       console.warn('Realtime fetch failed, using fallback', res.status, await res.text());
        return [] as CollectionItem[];
     }
-    return res.json() as Promise<CollectionItem[]>;
+    const json = await res.json();
+    console.log("getRecentCollections data:", json);
+    return json as Promise<CollectionItem[]>;
   }
 };
 
@@ -297,8 +301,9 @@ export interface InventoryItem {
 }
 
 export const InventoryAPI = {
-  getItems: async () => {
-    const res = await fetch(`${API_BASE}/inventory`);
+  getItems: async (estateId?: string) => {
+    const query = estateId ? `?estateId=${estateId}` : '';
+    const res = await fetch(`${API_BASE}/inventory${query}`);
     if (!res.ok) throw new Error('Failed to fetch inventory items');
     return res.json() as Promise<InventoryItem[]>;
   },

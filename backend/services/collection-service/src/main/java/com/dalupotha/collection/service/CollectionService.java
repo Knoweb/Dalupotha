@@ -147,6 +147,7 @@ public class CollectionService {
                             newSh.setUser(supplierUser);
                             newSh.setPassbookNo(item.getPassbookNo() != null ? item.getPassbookNo() : "Pending");
                             newSh.setLandName("Registered via TA Sync");
+                            newSh.setEstateId(item.getEstateId());
                             return smallHolderRepository.save(newSh);
                         });
 

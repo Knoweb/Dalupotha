@@ -20,7 +20,8 @@ export default function CollectionsPage() {
   const fetchCollections = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await CollectionAPI.getRecentCollections(100)
+      const estateId = sessionStorage.getItem('estate_id') || undefined
+      const data = await CollectionAPI.getRecentCollections(100, estateId)
       setCollections(data)
       
       const agentIds = [...new Set(data.map(c => c.transportAgentId))].filter(id => !agentsMap[id])
@@ -154,7 +155,9 @@ export default function CollectionsPage() {
                    <p className="font-bold text-slate-800 text-sm">{c.supplierName}</p>
                 </td>
                 <td className="px-6 py-4 font-bold text-slate-800 text-sm">{c.grossWeight}</td>
-                <td className="px-6 py-4 font-bold text-green-500 text-sm">{c.netWeight}</td>
+                <td className="px-6 py-4 font-bold text-green-500 text-sm">
+                   {c.netWeight != null ? c.netWeight : <span className="text-[10px] text-orange-400 font-bold uppercase tracking-widest">{t('Pending')}</span>}
+                </td>
                 <td className="px-6 py-4 text-slate-600 text-sm font-medium">{(c as any).transportAgentName || agentsMap[c.transportAgentId] || '—'}</td>
                 <td className="px-6 py-4">
                    <GPSStatus status={c.gpsStatus} t={t} />

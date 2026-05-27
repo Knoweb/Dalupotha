@@ -84,6 +84,9 @@ public class ServiceRequestEntity {
     @Column(name = "assigned_agent_id")
     private UUID assignedAgentId;
 
+    @Column(name = "estate_id")
+    private UUID estateId;
+
     @PrePersist
     public void onCreate() {
         if (requestId == null) requestId = UUID.randomUUID();
@@ -263,5 +266,13 @@ public class ServiceRequestEntity {
 
     public void setApprovedAmount(BigDecimal approvedAmount) {
         this.approvedAmount = approvedAmount;
+    }
+
+    public UUID getEstateId() {
+        return estateId;
+    }
+
+    public void setEstateId(UUID estateId) {
+        this.estateId = estateId;
     }
 }
