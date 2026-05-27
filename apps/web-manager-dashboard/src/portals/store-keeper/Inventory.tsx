@@ -479,6 +479,67 @@ export default function InventoryPage() {
         />
       )}
 
+      {showAddModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[2px]">
+           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                     <Plus size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">{t('Add New Item')}</h2>
+                    <p className="text-xs text-slate-500 font-medium">{t('Add a new item to inventory')}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Item Name')}</label>
+                  <input type="text" value={newItem.itemName} onChange={e => setNewItem({...newItem, itemName: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all" placeholder={t('e.g. Urea Fertilizer')} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Category')}</label>
+                    <select value={newItem.itemCategory} onChange={e => setNewItem({...newItem, itemCategory: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all">
+                      <option value="FERTILIZER">Fertilizer</option>
+                      <option value="LEAF_BAG">Leaf Bags</option>
+                      <option value="TOOLS">Tools</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Unit')}</label>
+                    <input type="text" value={newItem.unit} onChange={e => setNewItem({...newItem, unit: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" placeholder={t('e.g. kg')} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Init. Stock')}</label>
+                    <input type="number" value={newItem.quantityInStock} onChange={e => setNewItem({...newItem, quantityInStock: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Reorder Lvl')}</label>
+                    <input type="number" value={newItem.reorderLevel} onChange={e => setNewItem({...newItem, reorderLevel: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Unit Cost')}</label>
+                    <input type="number" value={newItem.unitCost} onChange={e => setNewItem({...newItem, unitCost: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-3 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" />
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                <button onClick={() => setShowAddModal(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-white transition-colors">{t('Cancel')}</button>
+                <button disabled={addingItem} onClick={handleAddItemSave} className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-200 transition-all disabled:opacity-50">
+                  {addingItem ? t('Saving...') : t('Save Item')}
+                </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       <Snackbar 
         open={toast.open} 
         autoHideDuration={4000} 
