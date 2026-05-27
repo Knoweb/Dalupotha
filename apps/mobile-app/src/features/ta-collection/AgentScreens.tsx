@@ -750,7 +750,8 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
   const fetchInventory = async () => {
     setInventoryLoading(true);
     try {
-      const data = await apiGet<any[]>(ServicesAPI.inventory, token);
+      const url = user?.estateId ? `${ServicesAPI.inventory}?estateId=${user.estateId}` : ServicesAPI.inventory;
+      const data = await apiGet<any[]>(url, token);
       setInventoryItems(Array.isArray(data) ? data : (Array.isArray((data as any)?.data) ? (data as any).data : []));
     } catch (e) {
       console.error("Failed to fetch inventory", e);
