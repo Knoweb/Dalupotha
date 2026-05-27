@@ -962,6 +962,7 @@ export function RequestsScreen({ navigation, user, token, role, lang, route }: a
           itemDetails: activeTab === "Fertilizer" ? JSON.stringify(fertilizerItems) : (activeTab === "Tools" ? JSON.stringify(toolItems) : undefined),
           creatorName: user.fullName || "Agent",
           creatorId: user.employeeId || "No ID",
+          estateId: user.estateId,
           days: daysCount,
           notes: formNotes.trim(),
         },

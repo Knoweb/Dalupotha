@@ -82,6 +82,9 @@ export default function InventoryPage() {
   const [updateQuantity, setUpdateQuantity] = useState<string>("")
   const [updateUnitCost, setUpdateUnitCost] = useState<string>("")
   const [updating, setUpdating] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newItem, setNewItem] = useState({ itemName: '', itemCategory: 'FERTILIZER', quantityInStock: '0', reorderLevel: '0', unit: 'kg', unitCost: '0' })
+  const [addingItem, setAddingItem] = useState(false)
   const [viewHistoryItem, setViewHistoryItem] = useState<InventoryItem | null>(null)
   const [notifyingId, setNotifyingId] = useState<string | null>(null)
   const [notifiedItems, setNotifiedItems] = useState<string[]>(() => {
@@ -143,6 +146,36 @@ export default function InventoryPage() {
       showToast(t("Failed to update item"), "error")
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const handleAddItemSave = async () => {
+    if (!newItem.itemName.trim()) {
+      showToast(t("Item name is required"), "error");
+      return;
+    }
+    setAddingItem(true);
+    try {
+      const estateId = sessionStorage.getItem('estate_id');
+      await InventoryAPI.createItem({
+        itemName: newItem.itemName,
+        itemCategory: newItem.itemCategory,
+        quantityInStock: Number(newItem.quantityInStock) || 0,
+        reorderLevel: Number(newItem.reorderLevel) || 0,
+        unit: newItem.unit,
+        unitCost: Number(newItem.unitCost) || 0,
+        reservedQuantity: 0,
+        ...((estateId ? { estateId } : {}) as any)
+      });
+      await loadInventory();
+      setShowAddModal(false);
+      setNewItem({ itemName: '', itemCategory: 'FERTILIZER', quantityInStock: '0', reorderLevel: '0', unit: 'kg', unitCost: '0' });
+      showToast(t("Item added successfully!"), "success");
+    } catch (err) {
+      console.error("Failed to add item", err);
+      showToast(t("Failed to add item"), "error");
+    } finally {
+      setAddingItem(false);
     }
   }
 
@@ -292,7 +325,7 @@ export default function InventoryPage() {
          <div className="flex justify-between items-center">
          <h2 className="text-[14px] font-semibold text-slate-700 uppercase tracking-widest">{t('Inventory Items')}</h2>
          {userRole === 'manager' && (
-            <button className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[12px] font-semibold uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm">
+            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[12px] font-semibold uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all shadow-sm">
                <Plus size={15} /> {t('Add Item')}
             </button>
          )}
