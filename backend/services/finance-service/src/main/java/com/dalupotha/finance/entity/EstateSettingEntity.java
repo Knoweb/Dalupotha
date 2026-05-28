@@ -9,7 +9,9 @@ import java.util.UUID;
  * (e.g. advance_limit, factory_name).
  */
 @Entity
-@Table(name = "estate_settings")
+@Table(name = "estate_settings", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"setting_key", "estate_id"})
+})
 public class EstateSettingEntity {
 
     @Id
