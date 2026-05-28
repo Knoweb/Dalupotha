@@ -601,10 +601,11 @@ public class FinanceService {
     public java.util.Map<String, Object> setAdvanceLimit(BigDecimal limit, UUID estateId) {
         java.util.List<EstateSettingEntity> settings = estateSettingRepository.findByKeyAndEstate(KEY_ADVANCE_LIMIT, estateId);
         EstateSettingEntity entity = null;
-        if (!settings.isEmpty()) {
-            EstateSettingEntity first = settings.get(0);
-            if (first.getEstateId() != null && first.getEstateId().equals(estateId)) {
-                entity = first;
+        for (EstateSettingEntity s : settings) {
+            if ((estateId == null && s.getEstateId() == null) || 
+                (estateId != null && estateId.equals(s.getEstateId()))) {
+                entity = s;
+                break;
             }
         }
         if (entity == null) {

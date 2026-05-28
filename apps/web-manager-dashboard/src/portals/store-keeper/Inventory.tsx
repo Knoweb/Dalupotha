@@ -518,7 +518,13 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{t('Unit')}</label>
-                    <input type="text" value={newItem.unit} onChange={e => setNewItem({...newItem, unit: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all" placeholder={t('e.g. kg')} />
+                    <select value={newItem.unit} onChange={e => setNewItem({...newItem, unit: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-emerald-500 transition-all">
+                      <option value="kg">{t('kg')}</option>
+                      <option value="units">{t('units')}</option>
+                      <option value="bags">{t('bags')}</option>
+                      <option value="liters">{t('liters')}</option>
+                      <option value="packets">{t('packets')}</option>
+                    </select>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
