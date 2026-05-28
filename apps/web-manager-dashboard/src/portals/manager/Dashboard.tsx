@@ -126,7 +126,7 @@ export default function DashboardPage({ onNavigate }: DashboardProps) {
       // Fetch outstanding debts for each supplier
       try {
         const ledgers = await Promise.all(
-          suppliers.map(s => FinanceAPI.getSupplierLedger(s.userId || (s as any).id).catch(() => null))
+          suppliers.map(s => FinanceAPI.getSupplierLedger((s as any).supplierId || s.userId || (s as any).id).catch(() => null))
         );
         outstandingDebts = ledgers.reduce((sum, l) => sum + (l?.currentDebt || 0), 0);
       } catch (e) {
