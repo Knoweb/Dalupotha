@@ -144,6 +144,7 @@ export function useNotifications() {
     setNotifications(prev => {
       const alreadyTracked = prev.some(n => n.collectionId === c.collectionId);
       if (alreadyTracked) return prev;
+      const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
       const alert: AppNotification = {
         id: safeRandomUUID(),
         type: 'new_collection',
@@ -153,7 +154,7 @@ export function useNotifications() {
         read: false,
         dismissed: false,
         collectionId: c.collectionId,
-        meta: { fromApi: true }
+        meta: { fromApi: true, estateId: currentEstateId }
       };
       return [alert, ...prev];
     });
@@ -254,8 +255,10 @@ export function useNotifications() {
     return notifications.filter(n => {
       // If targetRole is set and not '*' and doesn't match current user, ignore
       if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
-      // If estateId is set, and it doesn't match the current estate, ignore
-      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
+      // Strictly enforce estateId for collections to hide old cross-estate data
+      if (n.type === 'new_collection' && n.meta?.estateId !== currentEstateId) return false;
+      // For other types, check estateId if it exists
+      if (n.type !== 'new_collection' && n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return !n.dismissed;
     });
   }, [notifications]);
@@ -265,7 +268,8 @@ export function useNotifications() {
     const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
     return notifications.filter(n => {
       if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
-      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
+      if (n.type === 'new_collection' && n.meta?.estateId !== currentEstateId) return false;
+      if (n.type !== 'new_collection' && n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return !n.read && !n.dismissed;
     }).length;
   }, [notifications]);
@@ -276,7 +280,8 @@ export function useNotifications() {
     const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
     return notifications.filter(n => {
       if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
-      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
+      if (n.type === 'new_collection' && n.meta?.estateId !== currentEstateId) return false;
+      if (n.type !== 'new_collection' && n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return n.type === 'new_collection' && !n.dismissed;
     });
   }, [notifications]);
@@ -287,7 +292,8 @@ export function useNotifications() {
     const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
     return notifications.filter(n => {
       if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
-      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
+      if (n.type === 'new_collection' && n.meta?.estateId !== currentEstateId) return false;
+      if (n.type !== 'new_collection' && n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return n.type === 'service_request' && !n.dismissed;
     });
   }, [notifications]);
