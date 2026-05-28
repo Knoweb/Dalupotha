@@ -184,7 +184,8 @@ public class CollectionService {
                         supplier.getUser().getFullName(),
                         saved.getGrossWeight(),
                         transportAgent.getFullName(),
-                        saved.getCollectionId().toString()
+                        saved.getCollectionId().toString(),
+                        supplier.getEstateId()
                 );
 
                 results.add(new CollectionSyncItemResult(

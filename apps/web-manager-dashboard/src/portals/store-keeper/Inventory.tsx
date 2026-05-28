@@ -188,7 +188,10 @@ export default function InventoryPage() {
         title: 'Refill Required',
         message: `[Store Keeper Alert] Refill requested for ${item.itemName} (Current stock: ${item.quantityInStock} ${item.unit})`,
         targetRole: 'manager',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        meta: {
+          estateId: sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id')
+        }
       };
 
       const res = await fetch('/api/notifications/publish', {

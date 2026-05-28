@@ -35,7 +35,7 @@ public class NotificationPublisher {
      * Runs asynchronously so it never blocks the sync response.
      */
     @Async
-    public void publishCollectionSynced(String supplierName, Object grossWeight, String agentName, String collectionId) {
+    public void publishCollectionSynced(String supplierName, Object grossWeight, String agentName, String collectionId, Object estateId) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "new_collection");
@@ -49,6 +49,7 @@ public class NotificationPublisher {
             meta.put("supplierName", supplierName);
             meta.put("grossWeight", grossWeight);
             meta.put("agentName", agentName);
+            meta.put("estateId", estateId);
             payload.put("meta", meta);
 
             HttpHeaders headers = new HttpHeaders();

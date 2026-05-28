@@ -249,16 +249,23 @@ export function useNotifications() {
 
   const filteredNotifications = useMemo(() => {
     const role = sessionStorage.getItem('user_role') || '';
+    const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
+
     return notifications.filter(n => {
-      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      // If targetRole is set and not '*' and doesn't match current user, ignore
+      if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
+      // If estateId is set, and it doesn't match the current estate, ignore
+      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return !n.dismissed;
     });
   }, [notifications]);
 
   const unreadCount = useMemo(() => {
     const role = sessionStorage.getItem('user_role') || '';
+    const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
     return notifications.filter(n => {
-      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
+      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return !n.read && !n.dismissed;
     }).length;
   }, [notifications]);
@@ -266,8 +273,10 @@ export function useNotifications() {
   /** Active (undismissed) new_collection alerts that haven't been processed yet */
   const pendingCollectionAlerts = useMemo(() => {
     const role = sessionStorage.getItem('user_role') || '';
+    const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
     return notifications.filter(n => {
-      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
+      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return n.type === 'new_collection' && !n.dismissed;
     });
   }, [notifications]);
@@ -275,8 +284,10 @@ export function useNotifications() {
   /** Active (undismissed) service_request alerts */
   const pendingRequestAlerts = useMemo(() => {
     const role = sessionStorage.getItem('user_role') || '';
+    const currentEstateId = sessionStorage.getItem('current_estate_id') || sessionStorage.getItem('estate_id') || '';
     return notifications.filter(n => {
-      if (n.meta?.targetRole && n.meta.targetRole !== role) return false;
+      if (n.meta?.targetRole && n.meta.targetRole !== '*' && n.meta.targetRole !== role) return false;
+      if (n.meta?.estateId && currentEstateId && n.meta.estateId !== currentEstateId) return false;
       return n.type === 'service_request' && !n.dismissed;
     });
   }, [notifications]);
