@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { BookOpen, Search, Filter, Plus, FileText, Send, RefreshCw, X, Link } from 'lucide-react'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useToast } from '../../hooks/useToast'
 
 const API_URL = '/api/notifications/tri-circulars';
 
 export default function CircularsPage() {
   const { t } = useLanguage()
+  const { success, error: toastError } = useToast()
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [circulars, setCirculars] = useState<any[]>([]);
@@ -70,6 +72,7 @@ export default function CircularsPage() {
       
       // Refresh circulars list
       await fetchCirculars();
+      success(t('Circular distributed successfully!'));
       
       setNewCircular({
         id: '',
@@ -80,7 +83,7 @@ export default function CircularsPage() {
       setShowModal(false);
     } catch (error) {
       console.error('Error creating circular:', error);
-      alert(t('Failed to distribute circular. Please try again.'));
+      toastError(t('Failed to distribute circular. Please try again.'));
     } finally {
       setSubmitting(false);
     }

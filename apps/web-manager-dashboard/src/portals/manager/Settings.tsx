@@ -1,9 +1,11 @@
 import { Edit2, Shield, Globe, Leaf, CheckCircle, AlertCircle, Loader, X, AlertTriangle } from 'lucide-react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useState, useEffect, useRef } from 'react'
+import { useToast } from '../../hooks/useToast'
 
 export default function SettingsPage() {
   const { lang, setLang, t } = useLanguage();
+  const { success, error: toastError } = useToast();
   const userRole = sessionStorage.getItem('user_role');
   const isManager = userRole === 'manager';
   const estateName = sessionStorage.getItem('estate_name') || 'Estate';
@@ -169,9 +171,10 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(await res.text());
       sessionStorage.setItem('estate_name', estateInfo.name);
       setIsEditingEstate(false);
+      success(t('Estate details updated successfully!'));
       window.location.reload();
     } catch (err: any) {
-      alert(`Failed to save estate details: ${err.message}`);
+      toastError(`Failed to save estate details: ${err.message}`);
     } finally { setEstateSaving(false); }
   };
 
@@ -187,9 +190,9 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error('Failed to update profile');
       setIsEditingProfile(false);
       setProfile({...profile, password: ''}); // Clear password after save
-      alert('Profile updated successfully!');
+      success(t('Profile updated successfully!'));
     } catch (err: any) {
-      alert(err.message);
+      toastError(err.message);
     } finally { setProfileSaving(false); }
   };
 
@@ -435,8 +438,9 @@ export default function SettingsPage() {
                               sessionStorage.setItem('estate_name', estateInfo.name);
                               setIsEditingProfile(false);
                               setProfile({...profile, password: ''});
+                              success(t('All changes saved successfully!'));
                               window.location.reload();
-                            } catch (err: any) { alert(err.message); } finally { setProfileSaving(false); }
+                            } catch (err: any) { toastError(err.message); } finally { setProfileSaving(false); }
                          }}
                          disabled={profileSaving}
                          className="px-12 py-3.5 bg-blue-600 text-white text-[12px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center gap-2 active:scale-95 transition-all"

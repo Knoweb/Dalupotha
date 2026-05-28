@@ -729,9 +729,34 @@ public class AuthService {
     public AuthDtos.AuthResponse createStaffUser(AuthDtos.CreateUserRequest request) {
         log.info("Manager creating user: {}", request.getEmployeeId());
         
-        java.util.Optional<User> existing = userRepository.findByEmployeeId(request.getEmployeeId());
-        if (existing.isPresent()) {
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "Employee ID already exists");
+        if (request.getEmployeeId() != null && !request.getEmployeeId().isBlank()) {
+            if (userRepository.existsByEmployeeId(request.getEmployeeId())) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "Employee ID is already registered");
+            }
+        }
+        
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "Username is already registered");
+            }
+        }
+
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+            }
+        }
+
+        if (request.getContact() != null && !request.getContact().isBlank()) {
+            if (userRepository.existsByContact(request.getContact())) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "Contact number is already registered");
+            }
+        }
+
+        if (request.getNic() != null && !request.getNic().isBlank()) {
+            if (userRepository.existsByNic(request.getNic())) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "NIC is already registered");
+            }
         }
         
         Estate estate = null;

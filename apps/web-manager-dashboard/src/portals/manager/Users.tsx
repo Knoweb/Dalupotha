@@ -1,8 +1,9 @@
-import { Plus, User, Search, MoreVertical, Edit2, ShieldAlert, X, Trash2, Save, LogOut, Eye, EyeOff } from 'lucide-react';
+import { Plus, User, Search, MoreVertical, Edit2, ShieldAlert, X, Trash2, Save, LogOut, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AuthAPI, UserSummary, DetailedUser } from '../../services/api';
 import { useLanguage } from '../../hooks/useLanguage';
+import { useToast } from '../../hooks/useToast';
 
 const COLLECTION_ROUTES = [
   "Panawenna Route (PA)",
@@ -19,12 +20,15 @@ const COLLECTION_ROUTES = [
 
 export default function UsersPage() {
   const { t } = useLanguage();
+  const { success, error, warning } = useToast();
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [addingRoleCategory, setAddingRoleCategory] = useState<string>('ST');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
+  // Confirmation dialog state (replaces browser confirm())
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -133,48 +137,66 @@ export default function UsersPage() {
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+      warning("Passwords do not match!");
       return;
     }
     try {
       const estateId = sessionStorage.getItem('current_estate_id') || '';
       await AuthAPI.createUser({ ...formData, estateId });
+      success("Staff member created successfully!");
       closeModal();
       fetchUsers();
-    } catch (err) {
-      alert("Failed to create user. Ensure Employee ID is unique.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '';
+      if (msg) {
+        error("Failed to create user: " + msg);
+      } else {
+        error("Failed to create user. Please check if fields are unique and try again.");
+      }
     }
   };
 
   const handleCreateTA = async (e: React.FormEvent) => {
     e.preventDefault();
     if (taData.pin !== taData.confirmPin) {
-      alert("PINs do not match!");
+      warning("PINs do not match!");
       return;
     }
     try {
       const estateId = taData.estateId || sessionStorage.getItem('current_estate_id');
       await AuthAPI.registerAgent({ ...taData, otpCode: 'MANUAL', estateId });
+      success("Transport Agent created successfully!");
       closeModal();
       fetchUsers();
-    } catch (err) {
-      alert("Failed to create Transport Agent. Contact already exists.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '';
+      if (msg) {
+        error("Failed to create Transport Agent: " + msg);
+      } else {
+        error("Failed to create Transport Agent. Please check unique constraints and try again.");
+      }
     }
   };
 
   const handleCreateSH = async (e: React.FormEvent) => {
     e.preventDefault();
     if (shData.pin !== shData.confirmPin) {
-      alert("PINs do not match!");
+      warning("PINs do not match!");
       return;
     }
     try {
       const estateId = shData.estateId || sessionStorage.getItem('current_estate_id');
       await AuthAPI.registerSmallHolder({ ...shData, otpCode: 'MANUAL', estateId });
+      success("Supplier registered successfully!");
       closeModal();
       fetchUsers();
-    } catch (err) {
-      alert(t("Failed to create Small Holder. Passbook No / Contact might exist."));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '';
+      if (msg) {
+        error("Failed to create Supplier: " + msg);
+      } else {
+        error("Failed to create Supplier. Please check unique constraints and try again.");
+      }
     }
   };
 
@@ -201,7 +223,7 @@ export default function UsersPage() {
         setTransportAgents(allUsers.filter(u => u.role === 'TA' || getFullRoleName(u.role) === 'Transport Agent'));
       }
     } catch (err) {
-      alert("Failed to fetch user details.");
+      error("Failed to fetch user details.");
     } finally {
       setIsActionLoading(false);
     }
@@ -209,25 +231,41 @@ export default function UsersPage() {
 
   const handleToggleStatus = async (user: UserSummary) => {
     const newStatus = (user.status === 'ACTIVE' || user.status === 'Active') ? 'INACTIVE' : 'ACTIVE';
-    if (!confirm(`Are you sure you want to ${newStatus === 'ACTIVE' ? 'activate' : 'deactivate'} this user?`)) return;
-    
-    try {
-      await AuthAPI.updateStatus(user.userId, newStatus);
-      fetchUsers();
-    } catch (err) {
-       alert("Failed to update status.");
-    }
+    const action = newStatus === 'ACTIVE' ? 'activate' : 'deactivate';
+    setConfirmDialog({
+      open: true,
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
+      message: `Are you sure you want to ${action} "${user.name}"?`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await AuthAPI.updateStatus(user.userId, newStatus);
+          success(`User ${action}d successfully.`);
+          fetchUsers();
+        } catch (err) {
+          error("Failed to update status.");
+        }
+      }
+    });
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Are you sure you want to REMOVE this user from the system? This action cannot be undone.")) return;
-    try {
-       await AuthAPI.deleteUser(userId);
-       setIsProfileModalOpen(false);
-       fetchUsers();
-    } catch (err) {
-       alert("Failed to delete user.");
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Remove User',
+      message: 'Are you sure you want to REMOVE this user from the system? This action cannot be undone.',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await AuthAPI.deleteUser(userId);
+          success("User removed from the system.");
+          setIsProfileModalOpen(false);
+          fetchUsers();
+        } catch (err) {
+          error("Failed to delete user.");
+        }
+      }
+    });
   };
 
   const handleUpdateUser = async () => {
@@ -238,14 +276,12 @@ export default function UsersPage() {
        
        const clean = (val: any) => (val === '' || val === undefined) ? null : val;
        
-       // Send only what the backend's DetailedUserResponse DTO expects
        const payload: Record<string, any> = {
          name:       clean(detailedUser.name),
          contact:    clean(detailedUser.contact),
          email:      clean(detailedUser.email),
          estateId:   clean(detailedUser.estateId),
          nic:        clean(detailedUser.nic),
-         // Supplier-specific
          ...(isSH && {
            passbookNo: clean(detailedUser.passbookNo),
            landName:   clean(detailedUser.landName),
@@ -254,19 +290,18 @@ export default function UsersPage() {
            inChargeId: clean(detailedUser.inChargeId),
            routeName:  clean(detailedUser.routeName),
          }),
-         // Transport agent specific
          ...(isTA && {
            routeName: clean(detailedUser.routeName),
          }),
        };
        await AuthAPI.updateUser(detailedUser.userId, payload);
+       success("User profile updated successfully!");
        setIsEditing(false);
        handleViewProfile(detailedUser.userId);
        fetchUsers();
     } catch (err: any) {
        console.error("Update user error:", err);
-       const msg = err?.message || "Failed to update user.";
-       alert(msg);
+       error(err?.message || "Failed to update user.");
     }
   };
 
@@ -277,6 +312,28 @@ export default function UsersPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      {/* Inline Confirmation Dialog (replaces browser confirm()) */}
+      {confirmDialog && createPortal(
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900">{confirmDialog.title}</h3>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">{confirmDialog.message}</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmDialog(null)} className="px-5 py-2 font-bold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-all">
+                Cancel
+              </button>
+              <button onClick={confirmDialog.onConfirm} className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
       <div className="flex justify-between items-center">
         <div>
            <h1 className="text-2xl font-bold text-slate-900">{t('User Management')}</h1>

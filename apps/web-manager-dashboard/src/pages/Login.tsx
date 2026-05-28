@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { Plus, ShieldCheck, ArrowLeft, ArrowRight, RefreshCw, Lock, User, Eye, EyeOff, Smartphone } from 'lucide-react'
+import { Snackbar, Alert, Slide, SlideProps } from '@mui/material'
 
 import { UserRole } from '../App'
 import { useLanguage } from '../hooks/useLanguage'
+
+function SlideUp(props: SlideProps) { return <Slide {...props} direction="up" />; }
 
 
 interface LoginProps {
@@ -15,6 +18,15 @@ export default function LoginPage({ onLogin }: LoginProps) {
   const [password, setPassword] = useState(''); // This will be PIN
   const [showPassword, setShowPassword] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Local toast state (Login renders outside ToastProvider children)
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<'success'|'error'|'warning'|'info'>('info');
+  const showToast = (msg: string, severity: 'success'|'error'|'warning'|'info' = 'error') => {
+    setToastMsg(msg); setToastSeverity(severity); setToastOpen(false);
+    setTimeout(() => setToastOpen(true), 10);
+  };
   
   // Registration state
   const [estateForm, setEstateForm] = useState({ 
@@ -87,10 +99,11 @@ export default function LoginPage({ onLogin }: LoginProps) {
 
         // Block mobile-only users from accessing the web portal
         if (MOBILE_ONLY_ROLES.includes(rawRole)) {
-          alert(
+          showToast(
             lang === 'si'
-              ? `මෙම ගිණුම (${data.fullName || username}) වෙබ් ද්‍වාරයට ප්‍රවේශ විය නොහැක.\nකරුණාකර Dalupotha ජංගම යෙදුම භාවිතා කරන්න.`
-              : `Access Denied: This account (${data.fullName || username}) is not authorized to access the web portal.\nTransport Agents and Suppliers must use the Dalupotha Mobile App.`
+              ? `ප්‍රවේශය ප්‍රතික්ෂේප කෙරිණි: මෙම ගිණුම (${data.fullName || username}) වෙබ් ද්‍වාරයට ඇතුළු විය නොහැක. ජංගම යෙදුම භාවිතා කරන්න.`
+              : `Access Denied: "${data.fullName || username}" is not authorized for the web portal. Transport Agents & Suppliers must use the Dalupotha Mobile App.`,
+            'warning'
           );
           setIsSubmitting(false);
           return;
@@ -99,10 +112,11 @@ export default function LoginPage({ onLogin }: LoginProps) {
         // Map role to a known web portal role — reject unknown roles
         const mappedRole = WEB_PORTAL_ROLES[rawRole];
         if (!mappedRole) {
-          alert(
+          showToast(
             lang === 'si'
-              ? 'ඔබගේ ගිණුම් වර්ගය හඳුනා ගත නොහැකි විය. සහාය සඳහා ඔබේ කළමනාකරු අමතන්න.'
-              : `Login failed: Unrecognized account role "${rawRole}". Please contact your manager.`
+              ? 'ඔබගේ ගිණුම් වර්ගය හඳුනා ගත නොහැකිය. කළමනාකරු අමතන්න.'
+              : `Unrecognized account role "${rawRole}". Please contact your manager.`,
+            'error'
           );
           setIsSubmitting(false);
           return;
@@ -115,11 +129,11 @@ export default function LoginPage({ onLogin }: LoginProps) {
         onLogin({ role: mappedRole, fullName: data.fullName, estateName: data.estateName || '', estateId: data.estateId, employeeId: data.employeeId });
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.message || t('Login failed. Please check your credentials.'));
+        showToast(err.message || t('Login failed. Please check your credentials.'), 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error. Failed to reach auth gateway.');
+      showToast('Network error. Failed to reach auth gateway.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,7 +142,7 @@ export default function LoginPage({ onLogin }: LoginProps) {
   const handleRegisterEstate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (estateForm.adminPassword !== confirmPassword) {
-      alert(t('Passwords do not match.'));
+      showToast(t('Passwords do not match.'), 'warning');
       setIsSubmitting(false);
       return;
     }
@@ -149,11 +163,11 @@ export default function LoginPage({ onLogin }: LoginProps) {
         setTimeout(() => setShowSuccess(false), 5000);
       } else {
         const err = await res.json().catch(() => null);
-        alert(err?.message || t('Registration failed. Please check your input.'));
+        showToast(err?.message || t('Registration failed. Please check your input.'), 'error');
       }
     } catch (err) {
       console.error(err);
-      alert(t('Registration failed. Please check your connection.'));
+      showToast(t('Registration failed. Please check your connection.'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -161,6 +175,15 @@ export default function LoginPage({ onLogin }: LoginProps) {
 
   return (
     <div className="min-h-screen font-sans bg-white relative overflow-hidden">
+      {/* Global toast for Login page */}
+      <Snackbar open={toastOpen} autoHideDuration={5000} onClose={() => setToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} TransitionComponent={SlideUp}
+        sx={{ mb: 2 }}>
+        <Alert onClose={() => setToastOpen(false)} severity={toastSeverity} variant="filled"
+          sx={{ minWidth: 320, borderRadius: '14px', fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+          {toastMsg}
+        </Alert>
+      </Snackbar>
       {showSuccess && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="bg-white rounded-3xl p-10 flex flex-col items-center max-w-sm text-center shadow-2xl animate-in zoom-in-95 duration-500">

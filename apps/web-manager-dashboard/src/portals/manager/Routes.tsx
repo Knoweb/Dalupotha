@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Route, MapPin, Trash2, Plus, RefreshCw, AlertCircle, Compass, Milestone, X, Users, Car, ChevronRight, UserCheck } from 'lucide-react';
+import { Route, MapPin, Trash2, Plus, RefreshCw, AlertCircle, Compass, Milestone, X, Users, Car, ChevronRight, UserCheck, AlertTriangle } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { AuthAPI } from '../../services/api';
 import { useLanguage } from '../../hooks/useLanguage';
+import { useToast } from '../../hooks/useToast';
 
 interface RouteItem { routeId: string; name: string; code: string; }
 interface AgentItem { userId: string; fullName: string; employeeId: string; routeName: string; }
@@ -9,9 +11,13 @@ interface UserItem { userId: string; id: string; name: string; role: string; sta
 
 export default function RoutesPage() {
   const { t } = useLanguage();
+  const { success, error: toastError } = useToast();
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Confirmation state
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
 
   // Form State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -84,6 +90,7 @@ export default function RoutesPage() {
     setIsSubmitting(true); setFormError(null);
     try {
       await AuthAPI.createEstateRoute(estateId, { name: routeName.trim(), code: routeCode.trim().toUpperCase() });
+      success(t('Route created successfully!'));
       setRouteName(''); setRouteCode(''); setIsAddModalOpen(false);
       fetchRoutes();
     } catch { setFormError("Route name already exists in this estate"); }
@@ -91,9 +98,21 @@ export default function RoutesPage() {
   };
 
   const handleDeleteRoute = async (routeId: string) => {
-    if (!window.confirm("Are you sure you want to delete this route? Smallholders and Transport Agents assigned to this route will need manual adjustment.")) return;
-    try { await AuthAPI.deleteEstateRoute(estateId, routeId); fetchRoutes(); }
-    catch { alert("Failed to delete collection route"); }
+    setConfirmDialog({
+      open: true,
+      title: t('Delete Route'),
+      message: t('Are you sure you want to delete this route? Smallholders and Transport Agents assigned to this route will need manual adjustment.'),
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await AuthAPI.deleteEstateRoute(estateId, routeId);
+          success(t('Collection route deleted successfully!'));
+          fetchRoutes();
+        } catch {
+          toastError(t("Failed to delete collection route"));
+        }
+      }
+    });
   };
 
   return (
@@ -360,6 +379,28 @@ export default function RoutesPage() {
             </form>
           </div>
         </div>
+      )}
+      {/* Inline Confirmation Dialog */}
+      {confirmDialog && createPortal(
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900">{confirmDialog.title}</h3>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">{confirmDialog.message}</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmDialog(null)} className="px-5 py-2 font-bold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-all">
+                {t('Cancel')}
+              </button>
+              <button onClick={confirmDialog.onConfirm} className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md">
+                {t('Confirm')}
+              </button>
+            </div>
+          </div>
+        </div>, document.body
       )}
     </div>
   );

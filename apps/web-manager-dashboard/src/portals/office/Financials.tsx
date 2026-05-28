@@ -8,6 +8,7 @@ import {
 import React from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { FinanceAPI, AuthAPI, CollectionAPI, UserSummary } from '../../services/api'
+import { useToast } from '../../hooks/useToast'
 
 // MUI Imports
 import { 
@@ -31,6 +32,7 @@ interface PayoutData {
 
 export default function FinancialsPage() {
   const { t } = useLanguage()
+  const { success, error: toastError } = useToast()
   const [activeTab, setActiveTab] = useState<'balance' | 'advances' | 'approvals'>(() => {
     const saved = sessionStorage.getItem('financials_active_tab');
     if (saved === 'balance' || saved === 'advances' || saved === 'approvals') {
@@ -280,7 +282,7 @@ export default function FinancialsPage() {
       fetchData(); // Refresh list
       setSuccessMessage(isManager ? t('Payout processed successfully') : t('Payout request submitted to Manager'));
     } catch (err) {
-      alert("Error: " + (err as Error).message);
+      toastError("Error: " + (err as Error).message);
     } finally {
       setLoading(false);
     }

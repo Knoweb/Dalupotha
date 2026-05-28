@@ -3,6 +3,7 @@ import { CheckCircle2, XCircle, Eye, RefreshCw, Search, Download, X, Lightbulb, 
 import { CollectionAPI, FinanceAPI, ServiceRequest, RequestStatus, InventoryAPI, InventoryItem } from "../../services/api"
 import { useLanguage } from "../../hooks/useLanguage"
 import { useNotifications } from "../../hooks/useNotifications"
+import { useToast } from "../../hooks/useToast"
 
 const TYPE_FILTERS = ["All Types", "Advance", "Fertilizer", "Transport", "Machine Rent", "Tools", "Advisory", "Leaf Bags"]
 
@@ -539,6 +540,7 @@ function ViewModal({ req, code, debt, supplyThisMonth, onClose, onApprove, onRej
 export default function ApprovalsPage() {
   const { t, lang } = useLanguage();
   const { notifications } = useNotifications();
+  const { success, error } = useToast();
   const [requests, setRequests] = useState<ServiceRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -683,11 +685,12 @@ export default function ApprovalsPage() {
       }
 
       await FinanceAPI.updateStatus(requestId, status, sessionStorage.getItem("current_user_id") || "", remark, amount)
+      success(status === "REJECTED" ? t("Request rejected successfully") : t("Request approved successfully"))
       setViewReq(null)
       loadRequests()
       // Notify layout to refresh global alert counts
       window.dispatchEvent(new CustomEvent('refresh-alerts'));
-    } catch (err: any) { alert(err?.message || t("Action failed.")) }
+    } catch (err: any) { error(err?.message || t("Action failed.")) }
     finally { setProcessingId(null) }
   }
 
@@ -925,5 +928,6 @@ export default function ApprovalsPage() {
     </div>
   )
 }
+
 
 

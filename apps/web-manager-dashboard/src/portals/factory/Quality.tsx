@@ -4,6 +4,7 @@ import React from 'react'
 import { dismissCollectionAlertById } from '../../hooks/useNotifications'
 import { useLanguage } from '../../hooks/useLanguage'
 import { AuthAPI } from '../../services/api'
+import { useToast } from '../../hooks/useToast'
 
 interface CollectionRow {
   collectionId: string;
@@ -19,6 +20,7 @@ interface CollectionRow {
 
 export default function QualityPage() {
   const { t } = useLanguage()
+  const { success, error: toastError } = useToast()
   const [deliveries, setDeliveries] = useState<CollectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDelivery, setSelectedDelivery] = useState<CollectionRow | null>(null);
@@ -93,10 +95,11 @@ export default function QualityPage() {
           ? { ...d, netWeight: Number((grossWeight - deduction).toFixed(2)), status: 'Processed' }
           : d
       ));
+      success(t('Quality deduction weight confirmed and saved successfully!'));
       setSelectedDelivery(null);
       setDeductionInput('');
     } catch (e) {
-      alert(t('Failed to save deduction. Please try again.'));
+      toastError(t('Failed to save deduction. Please try again.'));
     } finally {
       setSaving(false);
     }
