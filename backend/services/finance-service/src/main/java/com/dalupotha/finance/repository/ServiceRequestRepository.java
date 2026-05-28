@@ -20,7 +20,7 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequestEn
           and (:requestType is null or r.requestType = :requestType)
           and (:status is null or r.status = :status)
           and (:assignedAgentId is null or r.assignedAgentId = :assignedAgentId)
-          and (:estateId is null or r.estateId = :estateId)
+          and (:estateId is null or r.estateId = :estateId or r.estateId is null)
         order by r.requestDate desc
     """)
     List<ServiceRequestEntity> search(
