@@ -45,12 +45,14 @@ spring:
             - Path=/collection/**
           filters:
             - RewritePath=/collection/(?<segment>.*), /api/collection/$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
         - id: inventory-service-routes
           uri: http://inventory-service:8084
           predicates:
             - Path=/inventory, /inventory/**
           filters:
             - RewritePath=/inventory(?<segment>.*), /api/inventory$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
         - id: finance-service-routes
           uri: http://finance-service:8083
           predicates:
@@ -68,8 +70,17 @@ spring:
         - id: notification-service-routes
           uri: http://notification-service:8085
           predicates:
-            - Path=/api/notifications/**
-          filters: []
+            - Path=/notifications/**
+          filters:
+            - RewritePath=/notifications/(?<segment>.*), /api/notifications/$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+        - id: staffing-service-routes
+          uri: http://staffing-service:8086
+          predicates:
+            - Path=/staffing/**
+          filters:
+            - RewritePath=/staffing/(?<segment>.*), /api/staffing/$\{segment}
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
 
 server:
   port: 8080
