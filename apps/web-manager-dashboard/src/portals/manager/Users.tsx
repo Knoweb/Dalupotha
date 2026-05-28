@@ -136,10 +136,12 @@ export default function UsersPage() {
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isActionLoading) return;
     if (formData.password !== formData.confirmPassword) {
       warning("Passwords do not match!");
       return;
     }
+    setIsActionLoading(true);
     try {
       const estateId = sessionStorage.getItem('current_estate_id') || '';
       await AuthAPI.createUser({ ...formData, estateId });
@@ -153,15 +155,19 @@ export default function UsersPage() {
       } else {
         error("Failed to create user. Please check if fields are unique and try again.");
       }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   const handleCreateTA = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isActionLoading) return;
     if (taData.pin !== taData.confirmPin) {
       warning("PINs do not match!");
       return;
     }
+    setIsActionLoading(true);
     try {
       const estateId = taData.estateId || sessionStorage.getItem('current_estate_id');
       await AuthAPI.registerAgent({ ...taData, otpCode: 'MANUAL', estateId });
@@ -175,15 +181,19 @@ export default function UsersPage() {
       } else {
         error("Failed to create Transport Agent. Please check unique constraints and try again.");
       }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   const handleCreateSH = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isActionLoading) return;
     if (shData.pin !== shData.confirmPin) {
       warning("PINs do not match!");
       return;
     }
+    setIsActionLoading(true);
     try {
       const estateId = shData.estateId || sessionStorage.getItem('current_estate_id');
       await AuthAPI.registerSmallHolder({ ...shData, otpCode: 'MANUAL', estateId });
@@ -197,6 +207,8 @@ export default function UsersPage() {
       } else {
         error("Failed to create Supplier. Please check unique constraints and try again.");
       }
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -539,7 +551,7 @@ export default function UsersPage() {
                   )}
                   <div className="pt-4 mt-6 border-t border-slate-100 flex justify-end gap-3">
                     <button type="button" onClick={() => setStep(1)} className="px-5 py-2 font-bold text-slate-950 hover:text-slate-700">{t('Back')}</button>
-                    <button type="submit" className="bg-[#2d6a4f] text-white px-6 py-2 rounded-lg font-bold hover:bg-[#1b4332] shadow-md transition-colors">{t('Create Staff')}</button>
+                    <button type="submit" disabled={isActionLoading} className={`bg-[#2d6a4f] text-white px-6 py-2 rounded-lg font-bold hover:bg-[#1b4332] shadow-md transition-colors ${isActionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>{isActionLoading ? t('Creating...') : t('Create Staff')}</button>
                   </div>
                 </form>
               )}
@@ -612,7 +624,7 @@ export default function UsersPage() {
                   )}
                   <div className="pt-4 mt-6 border-t border-slate-100 flex justify-end gap-3">
                     <button type="button" onClick={() => setStep(1)} className="px-5 py-2 font-bold text-slate-950 hover:text-slate-700">{t('Back')}</button>
-                    <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md transition-colors">{t('Create TA')}</button>
+                    <button type="submit" disabled={isActionLoading} className={`bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md transition-colors ${isActionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>{isActionLoading ? t('Creating...') : t('Create TA')}</button>
                   </div>
                 </form>
               )}
@@ -675,7 +687,7 @@ export default function UsersPage() {
                   )}
                   <div className="pt-4 mt-6 border-t border-slate-100 flex justify-end gap-3">
                     <button type="button" onClick={() => setStep(1)} className="px-5 py-2 font-bold text-slate-950 hover:text-slate-700">{t('Back')}</button>
-                    <button type="submit" className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-700 shadow-md transition-colors">{t('Create Supplier')}</button>
+                    <button type="submit" disabled={isActionLoading} className={`bg-orange-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-700 shadow-md transition-colors ${isActionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>{isActionLoading ? t('Creating...') : t('Create Supplier')}</button>
                   </div>
                 </form>
               )}
