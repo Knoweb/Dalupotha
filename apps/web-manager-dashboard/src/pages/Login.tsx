@@ -62,26 +62,59 @@ export default function LoginPage({ onLogin }: LoginProps) {
         body: JSON.stringify({ employeeId: username, password: password })
       });
 
-      const roleMap: Record<string, string> = {
-        'mg': 'manager',
-        'ext': 'extension-officer',
-        'st': 'office-staff',
-        'sk': 'store-keeper',
-        'ft': 'factory-staff',
-        'ta': 'manager', // TA logs in via mobile app, fallback
-        'sh': 'manager', // SH logs in via mobile app, fallback
+      // SECURITY: Only these roles are permitted on the web dashboard portal.
+      // Transport Agents (TA) and Smallholders (SH) must use the mobile app.
+      const WEB_PORTAL_ROLES: Record<string, UserRole> = {
+        'mg':        'manager',
+        'manager':   'manager',
+        'ext':       'extension-officer',
+        'extension-officer': 'extension-officer',
+        'st':        'office-staff',
+        'office-staff': 'office-staff',
+        'sk':        'store-keeper',
+        'store-keeper': 'store-keeper',
+        'ft':        'factory-staff',
+        'factory-staff': 'factory-staff',
+        'super-admin': 'super-admin',
       };
+
+      // Roles that must use the mobile app — explicitly blocked from web portal
+      const MOBILE_ONLY_ROLES = ['ta', 'transport-agent', 'sh', 'smallholder', 'supplier'];
 
       if (res.ok) {
         const data = await res.json();
+        const rawRole = data.role?.toLowerCase() || '';
+
+        // Block mobile-only users from accessing the web portal
+        if (MOBILE_ONLY_ROLES.includes(rawRole)) {
+          alert(
+            lang === 'si'
+              ? `මෙම ගිණුම (${data.fullName || username}) වෙබ් ද්‍වාරයට ප්‍රවේශ විය නොහැක.\nකරුණාකර Dalupotha ජංගම යෙදුම භාවිතා කරන්න.`
+              : `Access Denied: This account (${data.fullName || username}) is not authorized to access the web portal.\nTransport Agents and Suppliers must use the Dalupotha Mobile App.`
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Map role to a known web portal role — reject unknown roles
+        const mappedRole = WEB_PORTAL_ROLES[rawRole];
+        if (!mappedRole) {
+          alert(
+            lang === 'si'
+              ? 'ඔබගේ ගිණුම් වර්ගය හඳුනා ගත නොහැකි විය. සහාය සඳහා ඔබේ කළමනාකරු අමතන්න.'
+              : `Login failed: Unrecognized account role "${rawRole}". Please contact your manager.`
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
         sessionStorage.setItem("current_user_id", data.userId || data.id || "");
         sessionStorage.setItem("current_estate_id", data.estateId || "");
         sessionStorage.setItem("estate_id", data.estateId || "");
         if (data.token) sessionStorage.setItem("auth_token", data.token);
-        const mappedRole = roleMap[data.role?.toLowerCase()] || data.role?.toLowerCase();
-        onLogin({ role: mappedRole as UserRole, fullName: data.fullName, estateName: data.estateName || '', estateId: data.estateId, employeeId: data.employeeId });
+        onLogin({ role: mappedRole, fullName: data.fullName, estateName: data.estateName || '', estateId: data.estateId, employeeId: data.employeeId });
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.message || t('Login failed. Please check your credentials.'));
       }
     } catch (err) {
