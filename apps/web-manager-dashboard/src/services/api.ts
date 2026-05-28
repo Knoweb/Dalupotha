@@ -333,4 +333,11 @@ export const InventoryAPI = {
     if (!res.ok) throw new Error('Failed to update inventory item');
     return res.json() as Promise<InventoryItem>;
   },
+
+  deleteItem: async (itemId: string) => {
+    const res = await fetch(`${API_BASE}/inventory/${itemId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete inventory item');
+  },
 };

@@ -39,4 +39,9 @@ public class InventoryController {
         item.setItemId(itemId);
         return inventoryRepository.save(item);
     }
+
+    @DeleteMapping("/{itemId}")
+    public void deleteItem(@PathVariable UUID itemId) {
+        inventoryRepository.deleteById(itemId);
+    }
 }

@@ -179,6 +179,18 @@ export default function InventoryPage() {
     }
   }
 
+  const handleDeleteItem = async (itemId: string, itemName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${itemName}?`)) return;
+    try {
+      await InventoryAPI.deleteItem(itemId);
+      await loadInventory();
+      showToast(t("Item deleted successfully!"), "success");
+    } catch (err) {
+      console.error("Failed to delete item", err);
+      showToast(t("Failed to delete item"), "error");
+    }
+  };
+
   const handleNotifyRefill = async (item: InventoryItem) => {
     setNotifyingId(item.itemId);
     try {
@@ -411,9 +423,14 @@ export default function InventoryPage() {
                                      <History size={15} /> {t('History')}
                                   </button>
                                   {userRole === 'manager' ? (
-                                     <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 text-[12px] font-bold transition-all shadow-md">
-                                        <RefreshCw size={15} /> {t('Update')}
-                                     </button>
+                                     <>
+                                        <button onClick={() => handleOpenUpdate(item)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 text-[12px] font-bold transition-all shadow-md">
+                                           <RefreshCw size={15} /> {t('Update')}
+                                        </button>
+                                        <button onClick={() => handleDeleteItem(item.itemId, item.itemName)} className="flex items-center justify-center p-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-all" title={t('Remove Item')}>
+                                           <X size={15} />
+                                        </button>
+                                     </>
                                   ) : (
                                      <button 
                                        onClick={() => handleNotifyRefill(item)} 
