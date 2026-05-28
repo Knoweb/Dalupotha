@@ -34,7 +34,7 @@ export default function Header({
   
   // Use unreadCount or sum of pending alerts to synchronize with active sidebar badges
   const alertCount = role === 'manager' 
-    ? (pendingRequestCount + pendingPayoutCount) 
+    ? (pendingRequestCount + pendingPayoutCount + pendingCollectionCount) 
     : (role === 'factory-staff' ? pendingCollectionCount : pendingRequestCount);
 
   const ROLE_LABELS: Record<string, string> = {
