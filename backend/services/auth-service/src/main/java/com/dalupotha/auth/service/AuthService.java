@@ -53,11 +53,14 @@ public class AuthService {
     // ────────────────────────────────────────────
     // 1. Staff / TA Login
     // ────────────────────────────────────────────
+    @Transactional(readOnly = true)
     public AuthResponse staffLogin(StaffLoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmployeeId())
-                .or(() -> userRepository.findByUsername(request.getEmployeeId()))
-                .or(() -> userRepository.findByEmployeeId(request.getEmployeeId()))
-                .or(() -> userRepository.findByContact(request.getEmployeeId()))
+        // Use JOIN FETCH queries so estate is ALWAYS loaded in the same SQL —
+        // prevents the lazy-proxy / detached-session bug that caused estateId = null.
+        User user = userRepository.findByEmailWithEstate(request.getEmployeeId())
+                .or(() -> userRepository.findByUsernameWithEstate(request.getEmployeeId()))
+                .or(() -> userRepository.findByEmployeeIdWithEstate(request.getEmployeeId()))
+                .or(() -> userRepository.findByContactWithEstate(request.getEmployeeId()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "Invalid username/email or password"));
 
@@ -77,9 +80,8 @@ public class AuthService {
                 user.getUserId(), user.getRole().name(),
                 user.getEmployeeId(), user.getFullName());
 
-        user.setLastActive(LocalDateTime.now());
-        userRepository.save(user);
-
+        // NOTE: setLastActive must run in a separate writable transaction so the
+        // readOnly transaction here is not violated. Use a programmatic save below.
         String routeName = null;
         UUID estateId = null;
         String estateName = null;
@@ -88,6 +90,10 @@ public class AuthService {
         if (user.getEstate() != null) {
             estateId = user.getEstate().getEstateId();
             estateName = user.getEstate().getName();
+            log.info("Estate loaded for user {}: {} ({})", user.getUserId(), estateName, estateId);
+        } else {
+            log.warn("ESTATE IS NULL for user {} ({}) — estate_id may be missing in DB!",
+                    user.getUserId(), user.getEmail());
         }
 
         if (user.getRole() == UserRole.TA) {
@@ -110,12 +116,13 @@ public class AuthService {
             }
         }
 
-        log.info("Staff login successful: {} ({}) - Estate: {}. Returning FullName: {}", 
+        log.info("Staff login successful: {} ({}) - Estate: {}. Returning FullName: {}",
             user.getEmployeeId(), user.getRole(), estateName, user.getFullName());
         return new AuthResponse(token, user.getRole().name(), user.getUserId().toString(),
                 user.getEmployeeId(), user.getFullName(), user.getContact(),
                 routeName, estateId, estateName, arcs, null, jwtExpirationMs / 1000);
     }
+
 
     // ────────────────────────────────────────────
     // 2. Small Holder (Supplier) PIN Login
