@@ -32,7 +32,7 @@ public class NotificationPublisher {
      * Publishes a "service_request" notification when a new request is created.
      */
     @Async
-    public void publishRequestCreated(String supplierName, String requestType, String amountOrQty, String requestId) {
+    public void publishRequestCreated(String supplierName, String requestType, String amountOrQty, String requestId, java.util.UUID estateId) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "service_request");
@@ -45,6 +45,9 @@ public class NotificationPublisher {
             meta.put("requestId", requestId);
             meta.put("supplierName", supplierName);
             meta.put("requestType", requestType);
+            if (estateId != null) {
+                meta.put("estateId", estateId.toString());
+            }
             payload.put("meta", meta);
 
             send(payload);
@@ -57,7 +60,7 @@ public class NotificationPublisher {
      * Publishes a notification when a request status is updated (Approved/Rejected/Dispatched).
      */
     @Async
-    public void publishRequestStatusUpdate(String supplierName, String requestType, String status, String requestId, String targetRole) {
+    public void publishRequestStatusUpdate(String supplierName, String requestType, String status, String requestId, String targetRole, java.util.UUID estateId) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "service_request");
@@ -69,6 +72,9 @@ public class NotificationPublisher {
             Map<String, Object> meta = new HashMap<>();
             meta.put("requestId", requestId);
             meta.put("status", status);
+            if (estateId != null) {
+                meta.put("estateId", estateId.toString());
+            }
             payload.put("meta", meta);
 
             send(payload);

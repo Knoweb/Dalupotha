@@ -29,6 +29,7 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
   const {
     notifications, unreadCount, markRead, markAllRead, clearAll,
     dismissAlert, pendingCollectionAlerts, pendingRequestAlerts, addFromApi, addRequestFromApi, addPayoutFromApi,
+    addActiveAlertsFromApi,
   } = useNotifications();
 
   // ── Fetch actual pending (unprocessed) collections from API on mount ──────
@@ -152,12 +153,27 @@ export default function DashboardLayout({ children, activeTab, onTabChange, user
              timestamp: r.requestDate
            });
          });
-      }
+       }
       } else {
         setPendingRequestCount(0);
       }
+
+      // 4. Fetch persistent notifications/alerts from notification-service
+      try {
+        const estateId = sessionStorage.getItem('estate_id');
+        const roleParam = userRole ? `&role=${userRole}` : '';
+        const estateParam = estateId ? `&estateId=${estateId}` : '';
+        const notifRes = await fetch(`/api/notifications/active?${estateParam}${roleParam}`);
+        if (notifRes.ok) {
+          const activeAlerts = await notifRes.json();
+          addActiveAlertsFromApi(activeAlerts);
+        }
+      } catch (e) {
+        console.error("[AlertSync] Notifications fetch error:", e);
+      }
+
     } catch (err) { console.error("[AlertSync] Fetch error:", err); }
-  }, [isAlertRole, addFromApi, userRole, notifications, dismissAlert, addRequestFromApi, addPayoutFromApi]);
+  }, [isAlertRole, addFromApi, userRole, notifications, dismissAlert, addRequestFromApi, addPayoutFromApi, addActiveAlertsFromApi]);
 
   // ── Auto-sync Estate Name from Backend ───────────────────────────────────
   useEffect(() => {

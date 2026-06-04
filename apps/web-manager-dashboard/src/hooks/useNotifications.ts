@@ -133,7 +133,14 @@ export function useNotifications() {
 
   /** Manually dismiss a single alert (by the user, not by processing) */
   const dismissAlert = useCallback((id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, dismissed: true, read: true } : n));
+    setNotifications(prev => {
+      const matched = prev.find(n => n.id === id);
+      if (matched && matched.meta?.dbId) {
+        fetch(`/api/notifications/${matched.meta.dbId}/dismiss`, { method: 'POST' })
+          .catch(err => console.error("Failed to dismiss alert on server", err));
+      }
+      return prev.map(n => n.id === id ? { ...n, dismissed: true, read: true } : n);
+    });
   }, []);
 
   /** Seed a notification from an API poll — no-op if collectionId already tracked */
@@ -214,6 +221,39 @@ export function useNotifications() {
         meta: { transactionId: p.transactionId, fromApi: true }
       };
       return [alert, ...prev];
+    });
+  }, []);
+
+  /** Seed persistent notifications from the API */
+  const addActiveAlertsFromApi = useCallback((alerts: any[]) => {
+    setNotifications(prev => {
+      let updated = [...prev];
+      let changed = false;
+
+      alerts.forEach(n => {
+        const dbId = n.id;
+        const exists = updated.some(p => p.meta?.dbId === dbId || (p.message === n.message && p.timestamp === n.timestamp));
+        if (!exists) {
+          const alert: AppNotification = {
+            id: safeRandomUUID(),
+            type: n.type || 'system',
+            title: n.title,
+            message: n.message,
+            timestamp: n.timestamp,
+            read: n.read || false,
+            dismissed: n.dismissed || false,
+            meta: { dbId, estateId: n.estateId, targetRole: n.targetRole, fromApi: true }
+          };
+          updated.push(alert);
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        updated.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        return updated;
+      }
+      return prev;
     });
   }, []);
 
@@ -311,5 +351,7 @@ export function useNotifications() {
     addFromApi,
     addRequestFromApi,
     addPayoutFromApi,
+    addActiveAlertsFromApi,
   };
 }
+

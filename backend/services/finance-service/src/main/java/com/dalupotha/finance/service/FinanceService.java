@@ -157,7 +157,8 @@ public class FinanceService {
                 saved.getSupplierName(),
                 saved.getRequestType().name(),
                 amountOrQty,
-                saved.getRequestId().toString()
+                saved.getRequestId().toString(),
+                saved.getEstateId()
             );
         } catch (Exception e) {
             log.warn("Failed to trigger notification: {}", e.getMessage());
@@ -295,7 +296,8 @@ public class FinanceService {
                 saved.getRequestType().name(),
                 saved.getStatus().name(),
                 saved.getRequestId().toString(),
-                targetRole
+                targetRole,
+                saved.getEstateId()
             );
         } catch (Exception e) {
             log.warn("Failed to trigger status update notification: {}", e.getMessage());
