@@ -9,8 +9,32 @@ declare global {
   }
 }
 
+const generateMonths = () => {
+  const startYear = 2025;
+  const startMonth = 11; // December
+
+  const currentDate = new Date();
+  let y = currentDate.getFullYear();
+  let m = currentDate.getMonth();
+
+  const options = [];
+  
+  while (y > startYear || (y === startYear && m >= startMonth)) {
+    const value = `${y}-${String(m + 1).padStart(2, '0')}`;
+    options.push({ value, monthIndex: m, year: y });
+    
+    m--;
+    if (m < 0) {
+      m = 11;
+      y--;
+    }
+  }
+
+  return options;
+};
+
 export default function TrackingPage() {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const [collections, setCollections] = useState<any[]>([])
   const [agents, setAgents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -405,13 +429,14 @@ export default function TrackingPage() {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="text-sm font-bold text-slate-700 bg-transparent border-none focus:outline-none cursor-pointer pr-2"
             >
-              <option value="2026-06">{t('June 2026')}</option>
-              <option value="2026-05">{t('May 2026')}</option>
-              <option value="2026-04">{t('April 2026')}</option>
-              <option value="2026-03">{t('March 2026')}</option>
-              <option value="2026-02">{t('February 2026')}</option>
-              <option value="2026-01">{t('January 2026')}</option>
-              <option value="2025-12">{t('December 2025')}</option>
+              {generateMonths().map(opt => {
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const engMonth = monthNames[opt.monthIndex];
+                const label = lang === 'si' ? `${opt.year} ${t(engMonth)}` : `${t(engMonth)} ${opt.year}`;
+                return (
+                  <option key={opt.value} value={opt.value}>{label}</option>
+                );
+              })}
             </select>
           </div>
 
